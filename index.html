@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouthGuide - Your AI Mentor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --glass-bg: rgba(44, 44, 84, 0.5);
+            --primary-accent: #6a5acd; /* Slate Blue / Soft Purple */
+            --secondary-accent: #00bfa5; /* Teal */
+            --text-light: #e0e0e0;
+            --text-dark: #1a1a2e;
+            --danger-red: #e53e3e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark-gradient);
+            color: var(--text-light);
+            overflow: hidden;
+        }
+
+        /* Main Call Container */
+        .call-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Start Screen */
+        .start-screen-btn {
+            background-color: var(--primary-accent);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .start-screen-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(106, 90, 205, 0.5);
+        }
+        
+        /* Call Controls */
+        .call-control-btn {
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: background-color 0.2s ease-in-out;
+        }
+        .call-control-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        .mic-button {
+            background-color: var(--primary-accent);
+            transition: all 0.3s ease;
+            box-shadow: 0 0 0 0 rgba(106, 90, 205, 0.7);
+        }
+        .mic-active {
+            background-color: var(--secondary-accent);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 191, 165, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(0, 191, 165, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 191, 165, 0); }
+        }
+
+        .end-call-btn {
+            background-color: var(--danger-red);
+        }
+
+        /* Chat Messages */
+        .chat-message {
+            max-width: 80%;
+            margin-bottom: 12px;
+            padding: 12px 18px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }
+        .user-message {
+            align-self: flex-end;
+            background-color: var(--primary-accent);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        .assistant-message {
+            align-self: flex-start;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: var(--text-light);
+            border-bottom-left-radius: 5px;
+        }
+
+        /* Audio Wave Animation */
+        .audio-wave span {
+            background-color: var(--secondary-accent);
+            animation: wave 1.2s infinite ease-in-out;
+        }
+        .audio-wave span:nth-child(2) { animation-delay: 0.1s; }
+        .audio-wave span:nth-child(3) { animation-delay: 0.2s; }
+        .audio-wave span:nth-child(4) { animation-delay: 0.3s; }
+        .audio-wave span:nth-child(5) { animation-delay: 0.4s; }
+        @keyframes wave {
+            0%, 40%, 100% { transform: scaleY(0.4); }
+            20% { transform: scaleY(1); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--primary-accent); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--secondary-accent); }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div id="start-screen" class="text-center">
+        <div class="w-24 h-24 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2V4a2 2 0 012-2h8a2 2 0 012 2v4z" />
+            </svg>
+        </div>
+        <h1 class="text-4xl font-bold mb-2">Welcome to YouthGuide</h1>
+        <p class="text-lg text-gray-300 mb-8">Your personal AI mentor is here to listen.</p>
+        <button id="start-session-btn" class="start-screen-btn text-white font-bold py-3 px-8 rounded-full text-lg">
+            Start Session
+        </button>
+    </div>
+
+    <div id="call-container" class="call-container w-full max-w-lg h-[90vh] max-h-[700px] rounded-3xl shadow-2xl flex flex-col overflow-hidden hidden">
+        <div class="flex-shrink-0 p-4 flex justify-between items-center border-b border-white/10">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full flex items-center justify-center mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="font-bold">YouthGuide</h2>
+                    <p id="session-timer" class="text-xs text-gray-300">Connecting...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex-grow p-4 flex flex-col overflow-y-auto" id="chat-messages">
+            <div class="chat-message assistant-message">
+                Hello! I'm YouthGuide, your AI mentor. I'm here to listen. What's on your mind?
+            </div>
+        </div>
+        
+        <div id="audio-indicator" class="px-4 pb-2 flex justify-center items-center h-10 hidden">
+            <div class="audio-wave flex items-center justify-center h-5">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+        </div>
+        
+        <div class="flex-shrink-0 p-4 flex justify-around items-center border-t border-white/10">
+             <button id="cameraButton" class="call-control-btn w-14 h-14 rounded-full flex items-center justify-center opacity-50 cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+            </button>
+            <button id="mic-button" class="mic-button w-20 h-20 rounded-full flex items-center justify-center text-white">
+                 <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+            </button>
+            <button id="endCallButton" class="end-call-btn w-14 h-14 rounded-full flex items-center justify-center text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3.59 1.322a1 1 0 011.053-.22l1.103.44a1 1 0 01.658.943v.393a1 1 0 01-.52.883l-1.148.573a1 1 0 01-1.21-.285l-.13-.2a1 1 0 01.278-1.21l.48-.36a1 1 0 01.94-.095l.407.162a.5.5 0 00.328-.472V3.03a.5.5 0 00-.328-.472L4.643 2.1a1 1 0 01-.53-.943v-.057a1 1 0 01.477-.878zM15.202 3.03c0-.26-.148-.5-.38-.614l-.406-.2a1 1 0 00-.94.095l-.48.36a1 1 0 00-.279 1.21l.13.2a1 1 0 001.21.285l1.148-.574a1 1 0 00.52-.883v-.392a1 1 0 00-.658-.943l-1.103-.441a1 1 0 00-1.054.22L7.643 6.91A1.002 1.002 0 007 7.643v.857a1 1 0 00.279.68l3.78 4.25a1 1 0 001.37-.113l.36-.48a1 1 0 00-.095-.94l-.162-.407a.5.5 0 01.472-.658h.057a1 1 0 00.943-.53l.44-1.104a1 1 0 00-.22-1.053L15.202 3.03z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script src="audio-client.js"></script>
+    <script>
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('start-screen');
+        const startSessionBtn = document.getElementById('start-session-btn');
+        const callContainer = document.getElementById('call-container');
+        const micButton = document.getElementById('mic-button');
+        const endCallButton = document.getElementById('endCallButton');
+        const chatMessages = document.getElementById('chat-messages');
+        const audioIndicator = document.getElementById('audio-indicator');
+        const sessionTimerEl = document.getElementById('session-timer');
+
+        // --- State ---
+        const audioClient = new AudioClient('ws://localhost:8765');
+        let isRecording = false;
+        let sessionTimerInterval;
+        let sessionSeconds = 0;
+
+        // --- Functions ---
+        
+        function startSessionTimer() {
+            sessionSeconds = 0;
+            sessionTimerEl.textContent = "00:00";
+            sessionTimerInterval = setInterval(() => {
+                sessionSeconds++;
+                const minutes = Math.floor(sessionSeconds / 60).toString().padStart(2, '0');
+                const seconds = (sessionSeconds % 60).toString().padStart(2, '0');
+                sessionTimerEl.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function stopSessionTimer() {
+            clearInterval(sessionTimerInterval);
+        }
+        
+        startSessionBtn.addEventListener('click', () => {
+            startScreen.classList.add('hidden');
+            callContainer.classList.remove('hidden');
+            initializeAudioClient();
+        });
+
+        micButton.addEventListener('click', () => {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        endCallButton.addEventListener('click', () => {
+            if (isRecording) {
+                stopRecording();
+            }
+            audioClient.close();
+            stopSessionTimer();
+            addMessage("Our session has ended. Remember to take care.", "assistant");
+            sessionTimerEl.textContent = `Session ended at ${sessionTimerEl.textContent}`;
+        });
+
+        async function initializeAudioClient() {
+            try {
+                await audioClient.connect();
+                startSessionTimer();
+
+                let currentResponseText = '';
+                let currentResponseElement = null;
+
+                audioClient.onReady = () => console.log('Audio client ready');
+                
+                audioClient.onAudioReceived = (audioData) => {
+                    audioIndicator.classList.remove('hidden');
+                };
+
+                audioClient.onTextReceived = (text) => {
+                    if (text && text.trim()) {
+                        if (!currentResponseElement || !document.body.contains(currentResponseElement)) {
+                            currentResponseText = text;
+                            currentResponseElement = addMessage(text, "assistant");
+                        } else {
+                            currentResponseText += ' ' + text.trim();
+                            currentResponseElement.textContent = currentResponseText;
+                        }
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                };
+
+                audioClient.onTurnComplete = () => {
+                    audioIndicator.classList.add('hidden');
+                    currentResponseText = '';
+                    currentResponseElement = null;
+                };
+
+                audioClient.onError = (error) => {
+                    console.error('Audio client error:', error);
+                    addMessage("Sorry, I encountered an error. Please try again.", "assistant");
+                    currentResponseText = '';
+                    currentResponseElement = null;
+                };
+
+                audioClient.onInterrupted = () => {
+                    console.log('Interruption detected');
+                    audioIndicator.classList.add('hidden');
+                    audioClient.interrupt();
+                    currentResponseText = '';
+                    currentResponseElement = null;
+                };
+            } catch (error) {
+                console.error('Failed to initialize audio client:', error);
+                addMessage("Sorry, I'm having trouble connecting. Please try again later.", "assistant");
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const success = await audioClient.startRecording();
+                if (success) {
+                    isRecording = true;
+                    micButton.classList.add('mic-active');
+                    addMessage("...", "user"); // Placeholder for user speech
+                }
+            } catch (error) {
+                console.error('Error starting recording:', error);
+            }
+        }
+
+        function stopRecording() {
+            audioClient.stopRecording();
+            isRecording = false;
+            micButton.classList.remove('mic-active');
+            const tempMessages = document.querySelectorAll('.user-message');
+            if (tempMessages.length > 0) {
+                const lastMessage = tempMessages[tempMessages.length - 1];
+                if (lastMessage.textContent === '...') {
+                    lastMessage.remove();
+                }
+            }
+        }
+
+        function addMessage(text, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `chat-message ${sender}-message`;
+            messageElement.textContent = text;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageElement; // Return for streaming updates
+        }
+    </script>
+</body>
+</html>
