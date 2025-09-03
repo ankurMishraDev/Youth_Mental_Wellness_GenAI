@@ -4,7 +4,7 @@ import base64
 import os
 from datetime import datetime, timezone
 
-# Import Google Generative AI components
+# Google Generative AI (Vertex) SDK
 from google import genai
 from google.genai import types
 from google.genai.types import (
@@ -16,7 +16,7 @@ from google.genai.types import (
     GoogleSearchRetrieval,
 )
 
-# Import common components
+# Project/common bits
 from common import (
     BaseWebSocketServer,
     logger,
@@ -26,21 +26,12 @@ from common import (
     VOICE_NAME,
     SEND_SAMPLE_RATE,
     SYSTEM_INSTRUCTION,
-    get_order_status,
 )
 
-# # --- System instruction loader (unchanged) ---
-# try:
-#     file_path = os.path.join(os.path.dirname(__file__), "system_instruction.txt")
-#     with open(file_path, 'r') as file:
-#         SYSTEM_INSTRUCTION = file.read()
-# except FileNotFoundError:
-#     logger.error("Error: system_instruction.txt not found. Using a default instruction.")
-#     SYSTEM_INSTRUCTION = "You are a helpful AI assistant."
-
-
+# ---------------------------------------
+# System instruction loader (robust)
+# ---------------------------------------
 def read_text_file_best_effort(path: str) -> str:
-    # Try common encodings first; fall back to byte decode with replacement
     tried = []
     for enc in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
         try:
@@ -53,7 +44,6 @@ def read_text_file_best_effort(path: str) -> str:
             continue
         except FileNotFoundError:
             raise
-    # Last resort: decode bytes with replacement so the server still boots
     with open(path, "rb") as f:
         raw = f.read()
     logger.warning(f"Fell back to bytes decode with replacement. Tried encodings: {tried}")
@@ -63,20 +53,16 @@ try:
     file_path = os.path.join(os.path.dirname(__file__), "system_instruction.txt")
     SYSTEM_INSTRUCTION = read_text_file_best_effort(file_path)
 except FileNotFoundError:
-    logger.error("Error: system_instruction.txt not found. Using a default instruction.")
+    logger.error("system_instruction.txt not found. Using a default instruction.")
     SYSTEM_INSTRUCTION = "You are a helpful AI assistant."
 
-
-
-# Initialize Google client
+# ---------------------------------------
+# Google client
+# ---------------------------------------
 client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
 
-# Define tool object (not used yet, but kept as in your code)
-google_search_tool = Tool(
-    google_search_retrieval=GoogleSearchRetrieval()
-)
+google_search_tool = Tool(google_search_retrieval=GoogleSearchRetrieval())
 
-# LiveAPI Configuration (unchanged)
 config = LiveConnectConfig(
     response_modalities=["AUDIO"],
     output_audio_transcription={},
@@ -88,15 +74,16 @@ config = LiveConnectConfig(
     ),
     session_resumption=types.SessionResumptionConfig(handle=None),
     system_instruction=SYSTEM_INSTRUCTION,
-    tools=[],
+    tools=[],  # add tools later if you wire them
 )
 
-# ---------- Utilities ----------
+# ---------------------------------------
+# Utilities
+# ---------------------------------------
 def ensure_dir(path: str):
     os.makedirs(path, exist_ok=True)
 
 def extract_json(text: str) -> dict:
-    """Best-effort extraction of a JSON object from model output."""
     if not text:
         return {"raw": ""}
     try:
@@ -114,107 +101,146 @@ def extract_json(text: str) -> dict:
     return {"raw": text.strip()}
 
 def pick_summarizer_model(live_or_text_model: str) -> str:
-    """
-    Map Live/native-audio models to a compatible text model for generateContent.
-    Falls back to the original if it's already a text model.
-    """
     m = (live_or_text_model or "").lower()
-
-    # Common live/native-audio identifiers
     if "live" in m or "native-audio" in m or "realtime" in m:
-        # Prefer a modern Flash text model available in Vertex region
-        # Adjust these if you have specific allowlists in your project/region
         if "2.5" in m or "2-5" in m:
-            return "gemini-2.0-flash-exp"      # good general fast text model
+            return "gemini-2.0-flash-exp"
         if "2.0" in m or "2-" in m:
             return "gemini-2.0-flash-exp"
-        # Fallback
         return "gemini-1.5-flash"
-
-    # If the provided model is already a text model, keep it
     return live_or_text_model or "gemini-1.5-flash"
 
-
+# ---------------------------------------
+# WebSocket server
+# ---------------------------------------
 class LiveAPIWebSocketServer(BaseWebSocketServer):
     """WebSocket server implementation using Gemini LiveAPI directly."""
 
-    # Keep transcript and session handle per client
     def __init__(self):
         super().__init__()
         self.session_transcripts = {}  # client_id -> list of {role, text, ts}
         self.session_ids = {}          # client_id -> latest session handle
 
     async def process_audio(self, websocket, client_id):
-        # Store reference to client
+        # Track this client
         self.active_clients[client_id] = websocket
-
-        # Init transcript buffer for this client
         self.session_transcripts[client_id] = []
 
-        # Connect to Gemini using LiveAPI
+        # Defaults for this connection; can be changed by client_settings
+        audio_mime_type = f"audio/pcm;rate={SEND_SAMPLE_RATE}"  # e.g., "audio/webm;codecs=opus"
+        expect_transport = "auto"  # "auto" | "binary" | "base64"
+
+        # Connect to Gemini LiveAPI
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             async with asyncio.TaskGroup() as tg:
-                # Create a queue for audio data from the client
                 audio_queue = asyncio.Queue()
 
-                # Task to process incoming WebSocket messages
+                # ---------------------------
+                # Incoming from browser
+                # ---------------------------
                 async def handle_websocket_messages():
+                    nonlocal audio_mime_type, expect_transport
                     async for message in websocket:
+                        # Binary frames = raw audio bytes (do NOT decode!)
+                        if isinstance(message, (bytes, bytearray)):
+                            audio_bytes = bytes(message)
+                            if not audio_bytes:
+                                continue
+                            if "audio/pcm" in audio_mime_type and (len(audio_bytes) % 2 != 0):
+                                logger.warning("Odd-length PCM16 buffer (%d bytes).", len(audio_bytes))
+                            await audio_queue.put(audio_bytes)
+                            continue
+
+                        # Text frames = JSON control / base64 audio
                         try:
                             data = json.loads(message)
-                            if data.get("type") == "audio":
-                                audio_bytes = base64.b64decode(data.get("data", ""))
-                                await audio_queue.put(audio_bytes)
-                            elif data.get("type") == "end":
-                                logger.info("Received end signal from client")
-                                # Summarize on demand when client signals end
-                                try:
-                                    saved_path = await self.summarize_and_store(client_id)
-                                    try:
-                                        await websocket.send(json.dumps({
-                                            "type": "summary_saved",
-                                            "data": saved_path or "ok"
-                                        }))
-                                    except Exception as se:
-                                        # websocket might already be closing; just log
-                                        logger.error(f"Error sending summary_saved over WS: {se}")
-                                except Exception as e:
-                                    logger.error(f"Summarization error: {e}")
-                                    try:
-                                        await websocket.send(json.dumps({
-                                            "type": "summary_saved",
-                                            "data": f"error: {e}"
-                                        }))
-                                    except Exception as se:
-                                        logger.error(f"Error sending error over WS: {se}")
-                            elif data.get("type") == "text":
-                                txt = data.get("data")
-                                logger.info(f"Received text: {txt}")
-                                # Record explicit text messages from client as user turns
-                                if txt:
-                                    self.session_transcripts[client_id].append({
-                                        "role": "user",
-                                        "text": txt,
-                                        "ts": datetime.now(timezone.utc).isoformat()
-                                    })
                         except json.JSONDecodeError:
-                            logger.error("Invalid JSON message received")
-                        except Exception as e:
-                            logger.error(f"Error processing message: {e}")
+                            logger.error("Invalid JSON message received (text frame). Head: %r", message[:80])
+                            continue
 
-                # Task to process and send audio to Gemini
+                        mtype = data.get("type")
+
+                        if mtype == "client_settings":
+                            transport = (data.get("transport", {}) or {}).get("audio")
+                            mime = (data.get("transport", {}) or {}).get("mime")
+                            if transport in {"auto", "binary", "base64"}:
+                                expect_transport = transport
+                                logger.info("Set audio transport: %s", expect_transport)
+                            if isinstance(mime, str) and mime:
+                                audio_mime_type = mime
+                                logger.info("Set audio mime_type: %s", audio_mime_type)
+                            continue
+
+                        if mtype in {"audio", "audio_base64"}:
+                            b64 = data.get("data", "")
+                            try:
+                                audio_bytes = base64.b64decode(b64, validate=True)
+                            except Exception as e:
+                                logger.error("Bad base64 audio: %s", e)
+                                continue
+                            await audio_queue.put(audio_bytes)
+                            continue
+
+                        if mtype == "text":
+                            txt = data.get("data", "")
+                            logger.info("Received text: %s", txt)
+                            if txt:
+                                self.session_transcripts[client_id].append({
+                                    "role": "user",
+                                    "text": txt,
+                                    "ts": datetime.now(timezone.utc).isoformat()
+                                })
+                            continue
+
+                        if mtype == "end":
+                            logger.info("Received end signal from client")
+                            try:
+                                saved_path = await self.summarize_and_store(client_id)
+                                try:
+                                    await websocket.send(json.dumps({
+                                        "type": "summary_saved",
+                                        "data": saved_path or "ok"
+                                    }))
+                                except Exception as se:
+                                    logger.error("Error sending summary_saved over WS: %s", se)
+                            except Exception as e:
+                                logger.error("Summarization error: %s", e)
+                                try:
+                                    await websocket.send(json.dumps({
+                                        "type": "summary_saved",
+                                        "data": f"error: {e}"
+                                    }))
+                                except Exception as se:
+                                    logger.error("Error sending error over WS: %s", se)
+                            continue
+
+                        if mtype == "ping":
+                            try:
+                                await websocket.send(json.dumps({"type": "pong"}))
+                            except Exception as se:
+                                logger.error("Error sending pong: %s", se)
+                            continue
+
+                        logger.debug("Unhandled message type: %r", mtype)
+
+                # ---------------------------
+                # To Gemini: send audio
+                # ---------------------------
                 async def process_and_send_audio():
+                    nonlocal audio_mime_type
                     while True:
                         data = await audio_queue.get()
                         await session.send_realtime_input(
                             media={
                                 "data": data,
-                                "mime_type": f"audio/pcm;rate={SEND_SAMPLE_RATE}",
+                                "mime_type": audio_mime_type,  # dynamic per client settings
                             }
                         )
                         audio_queue.task_done()
 
-                # Task to receive and play responses
+                # ---------------------------
+                # From Gemini: receive events
+                # ---------------------------
                 async def receive_and_play():
                     while True:
                         input_transcriptions = []
@@ -226,14 +252,12 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
                                 if update.resumable and update.new_handle:
                                     session_id = update.new_handle
                                     logger.info(f"New SESSION: {session_id}")
-                                    # Keep latest handle per client
                                     self.session_ids[client_id] = session_id
-
-                                    session_id_msg = json.dumps({
-                                        "type": "session_id", "data": session_id
-                                    })
                                     try:
-                                        await websocket.send(session_id_msg)
+                                        await websocket.send(json.dumps({
+                                            "type": "session_id",
+                                            "data": session_id
+                                        }))
                                     except Exception as se:
                                         logger.error(f"Error sending session_id over WS: {se}")
 
@@ -255,70 +279,69 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
                             if server_content and server_content.model_turn:
                                 for part in server_content.model_turn.parts:
                                     if part.inline_data:
-                                        b64_audio = base64.b64encode(part.inline_data.data).decode('utf-8')
+                                        b64_audio = base64.b64encode(part.inline_data.data).decode("utf-8")
+                                        mime = getattr(part.inline_data, "mime_type", None) or f"audio/pcm;rate=24000"  # default
                                         try:
                                             await websocket.send(json.dumps({
-                                                "type": "audio", "data": b64_audio
-                                            }))
+                                                "type": "audio",
+                                                "data": b64_audio,
+                                                "mime": mime
+                                                }))
                                         except Exception as se:
                                             logger.error(f"Error sending audio over WS: {se}")
+
 
                             if server_content and server_content.turn_complete:
                                 logger.info("✅ Gemini done talking")
                                 try:
-                                    await websocket.send(json.dumps({ "type": "turn_complete" }))
+                                    await websocket.send(json.dumps({"type": "turn_complete"}))
                                 except Exception as se:
                                     logger.error(f"Error sending turn_complete over WS: {se}")
 
-                            output_transcription = getattr(response.server_content, "output_transcription", None)
+                            output_transcription = getattr(server_content, "output_transcription", None)
                             if output_transcription and output_transcription.text:
                                 text_out = output_transcription.text
                                 output_transcriptions.append(text_out)
                                 try:
                                     await websocket.send(json.dumps({
-                                        "type": "text", "data": text_out
+                                        "type": "text",
+                                        "data": text_out
                                     }))
                                 except Exception as se:
                                     logger.error(f"Error sending text over WS: {se}")
-                                # Record assistant outputs
                                 self.session_transcripts[client_id].append({
                                     "role": "assistant",
                                     "text": text_out,
                                     "ts": datetime.now(timezone.utc).isoformat()
                                 })
 
-                            input_transcription = getattr(response.server_content, "input_transcription", None)
+                            input_transcription = getattr(server_content, "input_transcription", None)
                             if input_transcription and input_transcription.text:
                                 text_in = input_transcription.text
                                 input_transcriptions.append(text_in)
-                                # Record user recognized speech
                                 self.session_transcripts[client_id].append({
                                     "role": "user",
                                     "text": text_in,
                                     "ts": datetime.now(timezone.utc).isoformat()
                                 })
 
-                        logger.info(f"Output transcription: {''.join(output_transcriptions)}")
-                        logger.info(f"Input transcription: {''.join(input_transcriptions)}")
+                        logger.info("Output transcription: %s", "".join(output_transcriptions))
+                        logger.info("Input transcription: %s", "".join(input_transcriptions))
 
-                # Start all tasks
+                # Kick off tasks
                 tg.create_task(handle_websocket_messages())
                 tg.create_task(process_and_send_audio())
                 tg.create_task(receive_and_play())
 
-    # ---------- Summarize & store function ----------
+    # ---------------------------------------
+    # Summarize & store
+    # ---------------------------------------
     async def summarize_and_store(self, client_id: str):
-        """
-        Summarizes the full transcript for a client using a compatible Gemini text model
-        and writes a JSON file with youth wellness oriented fields (non-clinical).
-        Returns the saved file path (string) or None.
-        """
         transcript = self.session_transcripts.get(client_id, [])
         if not transcript:
             logger.info("No transcript found; skipping summary.")
             return None
 
-        # Prepare a compact transcript string (role: text)
         flat_lines = []
         for turn in transcript:
             role = turn.get("role", "user")
@@ -329,7 +352,6 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
 
         session_handle = self.session_ids.get(client_id)
 
-        # Instruction to produce STRICT JSON (no clinical diagnoses)
         system_note = (
             "You are YouthGuide, a supportive, empathetic AI mentor for young people. "
             "Summarize the user's full conversation in a youth wellness context. "
@@ -338,7 +360,6 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
             "Return STRICT JSON only—no markdown, no code fences, no extra text."
         )
 
-        # JSON schema we want (kept simple and extensible)
         schema_hint = {
             "session_id": session_handle or "",
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -369,29 +390,22 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
             f"TRANSCRIPT:\n{flat_transcript}"
         )
 
-        # Pick a compatible model for generateContent (avoids INVALID_ARGUMENT)
         summarizer_model = pick_summarizer_model(MODEL)
         if summarizer_model != MODEL:
-            logger.info(f"Using summarizer model '{summarizer_model}' for generateContent (from '{MODEL}')")
+            logger.info(f"Using summarizer model '{summarizer_model}' for generateContent (from '{MODEL}').")
 
-        # Build Content/Part properly
-        user_content = types.Content(
-            role="user",
-            parts=[types.Part(text=user_prompt)]
-        )
+        user_content = types.Content(role="user", parts=[types.Part(text=user_prompt)])
 
-        # Call the text model
         gen = await client.aio.models.generate_content(
             model=summarizer_model,
-            contents=[user_content],  # could also pass contents=user_prompt (string)
+            contents=[user_content],
             config=types.GenerateContentConfig(
                 temperature=0.2,
                 system_instruction=system_note,
-                response_mime_type="application/json"
-            )
+                response_mime_type="application/json",
+            ),
         )
 
-        # Extract text safely
         text = ""
         if gen and getattr(gen, "candidates", None):
             for c in gen.candidates:
@@ -402,14 +416,12 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
 
         summary_obj = extract_json(text) if text else {"raw": ""}
 
-        # Write to disk
         out_dir = os.path.join(os.path.dirname(__file__), "data", "summaries")
         ensure_dir(out_dir)
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         filename = f"{client_id}_{ts}.json"
         out_path = os.path.join(out_dir, filename)
 
-        # Add raw transcript for traceability
         payload = {
             "meta": {
                 "client_id": client_id,
@@ -417,7 +429,7 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
                 "saved_at_utc": datetime.now(timezone.utc).isoformat(),
             },
             "summary": summary_obj,
-            "transcript": transcript  # full structured turns
+            "transcript": transcript,
         }
 
         with open(out_path, "w", encoding="utf-8") as f:
@@ -426,12 +438,12 @@ class LiveAPIWebSocketServer(BaseWebSocketServer):
         logger.info(f"✅ Summary saved to: {out_path}")
         return out_path
 
-
+# ---------------------------------------
+# Entrypoint
+# ---------------------------------------
 async def main():
-    """Main function to start the server"""
     server = LiveAPIWebSocketServer()
     await server.start()
-
 
 if __name__ == "__main__":
     try:

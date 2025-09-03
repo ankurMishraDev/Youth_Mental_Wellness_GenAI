@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Register - YouthGuide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="flex items-center justify-center h-screen bg-gray-900">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-96">
+      <h2 class="text-2xl font-bold mb-4 text-center">Register</h2>
+      <form id="registerForm">
+        <input
+          type="text"
+          id="username"
+          placeholder="Username"
+          class="w-full mb-3 p-2 border rounded"
+          required
+        />
+        <input
+          type="password"
+          id="password"
+          placeholder="Password"
+          class="w-full mb-3 p-2 border rounded"
+          required
+        />
+        <button
+          type="submit"
+          class="w-full bg-green-600 text-white py-2 rounded"
+        >
+          Register
+        </button>
+      </form>
+      <p class="mt-4 text-center">
+        Already have an account?
+        <a href="login.html" class="text-green-600">Login</a>
+      </p>
+    </div>
+    <script>
+      document.getElementById("registerForm").onsubmit = async function (e) {
+        e.preventDefault();
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        // Replace URL with your backend endpoint
+        const res = await fetch("/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        if (res.ok) {
+          alert("Registration successful! Please login.");
+          window.location.href = "login.html";
+        } else {
+          alert("Registration failed");
+        }
+      };
+    </script>
+  </body>
+</html>
