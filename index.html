@@ -113,7 +113,24 @@
 </head>
 <body class="flex items-center justify-center h-screen">
 
-    <div id="start-screen" class="text-center">
+    <div id="auth-container" class="text-center">
+        <h1 class="text-4xl font-bold mb-2">YouthGuide</h1>
+        <p class="text-lg text-gray-300 mb-8">Sign in or create an account</p>
+        <div id="login-form">
+            <input type="email" id="login-email" placeholder="Email" class="w-full p-2 mb-4 bg-gray-700 rounded">
+            <input type="password" id="login-password" placeholder="Password" class="w-full p-2 mb-4 bg-gray-700 rounded">
+            <button id="login-btn" class="start-screen-btn text-white font-bold py-3 px-8 rounded-full text-lg">Login</button>
+            <p class="mt-4">Don't have an account? <a href="#" id="show-signup" class="text-teal-400">Sign up</a></p>
+        </div>
+        <div id="signup-form" class="hidden">
+            <input type="email" id="signup-email" placeholder="Email" class="w-full p-2 mb-4 bg-gray-700 rounded">
+            <input type="password" id="signup-password" placeholder="Password" class="w-full p-2 mb-4 bg-gray-700 rounded">
+            <button id="signup-btn" class="start-screen-btn text-white font-bold py-3 px-8 rounded-full text-lg">Sign Up</button>
+            <p class="mt-4">Already have an account? <a href="#" id="show-login" class="text-teal-400">Login</a></p>
+        </div>
+    </div>
+
+    <div id="start-screen" class="text-center hidden">
         <div class="w-24 h-24 bg-gradient-to-br from-purple-500 to-teal-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
              <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2V4a2 2 0 012-2h8a2 2 0 012 2v4z" />
@@ -175,6 +192,13 @@
     <script src="audio-client.js"></script>
     <script>
         // --- DOM Elements ---
+        const authContainer = document.getElementById('auth-container');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const showSignup = document.getElementById('show-signup');
+        const showLogin = document.getElementById('show-login');
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
         const startScreen = document.getElementById('start-screen');
         const startSessionBtn = document.getElementById('start-session-btn');
         const callContainer = document.getElementById('call-container');
@@ -187,6 +211,7 @@
         // --- State ---
         const audioClient = new AudioClient('ws://localhost:8765');
         let isRecording = false;
+        let currentUser = null;
         let sessionTimerInterval;
         let sessionSeconds = 0;
 
@@ -206,6 +231,64 @@
         function stopSessionTimer() {
             clearInterval(sessionTimerInterval);
         }
+
+        showSignup.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.classList.add('hidden');
+            signupForm.classList.remove('hidden');
+        });
+
+        showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            signupForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        });
+
+        loginBtn.addEventListener('click', async () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            try {
+                const response = await fetch('http://localhost:3000/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    currentUser = { uid: data.uid, email: email };
+                    authContainer.classList.add('hidden');
+                    startScreen.classList.remove('hidden');
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Login failed:', error);
+                alert('Login failed. Please try again.');
+            }
+        });
+
+        signupBtn.addEventListener('click', async () => {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            try {
+                const response = await fetch('http://localhost:3000/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    currentUser = { uid: data.uid, email: email };
+                    authContainer.classList.add('hidden');
+                    startScreen.classList.remove('hidden');
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Signup failed:', error);
+                alert('Signup failed. Please try again.');
+            }
+        });
         
         startSessionBtn.addEventListener('click', () => {
             startScreen.classList.add('hidden');
@@ -234,6 +317,15 @@
         async function initializeAudioClient() {
             try {
                 await audioClient.connect();
+                
+                // Send user ID to WebSocket server
+                if (currentUser && currentUser.uid) {
+                    audioClient.ws.send(JSON.stringify({
+                        type: 'user_id',
+                        data: currentUser.uid
+                    }));
+                }
+
                 startSessionTimer();
 
                 let currentResponseText = '';
