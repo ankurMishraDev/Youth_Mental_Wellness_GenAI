@@ -1,0 +1,188 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* YouthGuide Design System - Professional & Modern */
+
+@layer base {
+  :root {
+    /* Core Brand Colors */
+    --primary: 258 60% 60%; /* Slate Blue #6a5acd */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 258 70% 70%;
+    
+    --secondary: 173 100% 37.5%; /* Teal #00bfa5 */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-glow: 173 100% 45%;
+    
+    /* Backgrounds */
+    --background: 225 39% 11%; /* Dark #1a1a2e */
+    --background-secondary: 225 32% 16%; /* #16213e */
+    --foreground: 0 0% 88%; /* Light text #e0e0e0 */
+    
+    /* Glass Morphism */
+    --glass-primary: 225 31% 20% / 0.5;
+    --glass-secondary: 0 0% 100% / 0.1;
+    --glass-border: 0 0% 100% / 0.1;
+    
+    /* UI Elements */
+    --card: 225 31% 20%;
+    --card-foreground: 0 0% 88%;
+    
+    --muted: 225 25% 25%;
+    --muted-foreground: 0 0% 65%;
+    
+    --accent: 258 60% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 100% / 0.1;
+    --input: 225 25% 20%;
+    --ring: 258 60% 60%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(225, 39%, 11%) 0%, hsl(225, 32%, 16%) 100%);
+    --gradient-glass: linear-gradient(145deg, hsl(225, 31%, 20% / 0.6), hsl(225, 31%, 15% / 0.4));
+    --gradient-accent: linear-gradient(135deg, hsl(258, 60%, 60%) 0%, hsl(173, 100%, 37.5%) 100%);
+    
+    /* Shadows & Effects */
+    --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.3);
+    --shadow-glow-secondary: 0 0 40px hsl(var(--secondary-glow) / 0.3);
+    --shadow-elegant: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
+    
+    /* Animation */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    --radius: 1rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Sidebar Colors */
+    --sidebar-background: 225 35% 15%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 258 60% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 225 25% 25%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 0 0% 100% / 0.1;
+    --sidebar-ring: 258 60% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-[var(--gradient-primary)] text-foreground font-['Inter',sans-serif] overflow-hidden;
+  }
+}
+
+@layer components {
+  /* Glass Morphism Effects */
+  .glass-card {
+    background: hsl(var(--glass-primary));
+    backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: var(--shadow-elegant);
+  }
+  
+  .glass-subtle {
+    background: hsl(var(--glass-secondary));
+    backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+  
+  /* Gradient Buttons */
+  .btn-gradient {
+    background: var(--gradient-accent);
+    transition: var(--transition-smooth);
+  }
+  
+  .btn-gradient:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-glow);
+  }
+  
+  /* Pulse Animation for Mic */
+  .pulse-ring {
+    animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  }
+  
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.33);
+    }
+    40%, 50% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.03);
+    }
+  }
+  
+  /* Audio Wave Animation */
+  .audio-wave span {
+    display: inline-block;
+    width: 3px;
+    height: 4px;
+    margin: 0 1px;
+    background: hsl(var(--secondary));
+    border-radius: 3px;
+    animation: wave 1.2s infinite ease-in-out;
+  }
+  
+  .audio-wave span:nth-child(2) { animation-delay: 0.1s; }
+  .audio-wave span:nth-child(3) { animation-delay: 0.2s; }
+  .audio-wave span:nth-child(4) { animation-delay: 0.3s; }
+  .audio-wave span:nth-child(5) { animation-delay: 0.4s; }
+  
+  @keyframes wave {
+    0%, 40%, 100% { 
+      transform: scaleY(0.4);
+      opacity: 0.5;
+    }
+    20% { 
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+  
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary));
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--secondary));
+  }
+}

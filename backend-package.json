@@ -1,0 +1,23 @@
+{
+  "name": "youthguide-backend",
+  "version": "1.0.0",
+  "description": "Firebase backend for YouthGuide AI Mentor",
+  "main": "db_server.js",
+  "scripts": {
+    "start": "node db_server.js",
+    "dev": "nodemon db_server.js",
+    "db-server": "node db_server.js",
+    "ai-server": "python server.py"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^12.0.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["firebase", "youth", "mental-health", "ai"],
+  "author": "YouthGuide Team",
+  "license": "MIT"
+}
