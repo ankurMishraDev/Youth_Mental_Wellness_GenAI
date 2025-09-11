@@ -1,0 +1,21 @@
+{
+  "name": "youthguide-backend",
+  "version": "1.0.0",
+  "description": "YouthGuide backend services",
+  "main": "db-server.js",
+  "scripts": {
+    "start": "node db-server.js",
+    "dev": "nodemon db-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["youthguide", "ai", "mental-health", "firebase"],
+  "author": "YouthGuide Team",
+  "license": "MIT"
+}

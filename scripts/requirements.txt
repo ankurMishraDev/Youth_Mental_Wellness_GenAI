@@ -1,0 +1,6 @@
+asyncio==3.4.3
+websockets==11.0.3
+google-generativeai==0.3.2
+python-dotenv==1.0.0
+numpy==1.24.3
+scipy==1.11.1
