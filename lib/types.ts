@@ -26,6 +26,16 @@ export interface Message {
   sender: "user" | "assistant"
 }
 
+export interface MoodData {
+  mood: string
+  mood_percentage: number
+  energy_level: number
+  stress_level: number
+  mood_stability: string
+  mood_calmness: string
+  generated_at_utc: string
+}
+
 export type ViewType = "auth" | "dashboard" | "session"
 export type AuthMode = "login" | "signup"
 export type DashboardPage = "home" | "sessions" | "resources" | "community" | "profile"

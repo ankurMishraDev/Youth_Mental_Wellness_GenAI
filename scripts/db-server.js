@@ -98,6 +98,28 @@ app.get("/get-summary/:uid", async (req, res) => {
   }
 })
 
+// Update profile route
+app.post("/update-profile", async (req, res) => {
+  const { uid, name, age, gender } = req.body
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" })
+  }
+
+  try {
+    const userRef = db.collection("users").doc(uid)
+    const updateData = {}
+
+    if (name !== undefined) updateData.name = name
+    if (age !== undefined && age !== "") updateData.age = Number.parseInt(age)
+    if (gender !== undefined) updateData.gender = gender
+
+    await userRef.set(updateData, { merge: true })
+    res.status(200).send({ message: "Profile updated successfully" })
+  } catch (error) {
+    res.status(500).send({ error: error.message })
+  }
+})
+
 // Save summary route
 app.post("/save-summary", async (req, res) => {
   const { uid, summary } = req.body

@@ -56,6 +56,11 @@ export const useAuth = () => {
     // Note: audioClient close will be handled in session hook
   }
 
+  const updateCurrentUser = (user: User) => {
+    setCurrentUser(user)
+    localStorage.setItem("youthguide_user", JSON.stringify(user))
+  }
+
   return {
     currentView,
     setCurrentView,
@@ -69,5 +74,6 @@ export const useAuth = () => {
     handleLogin,
     handleSignup,
     handleLogout,
+    updateCurrentUser,
   }
 }

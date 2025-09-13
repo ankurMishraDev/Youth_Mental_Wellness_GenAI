@@ -542,6 +542,12 @@ class LiveAPIWebSocketServer:
             "summary": "",
             "main_points": [],
             "emotions_themes": [],
+            "mood": "",
+            "mood_percentage": 0,  # -100 to 100 scale (negative = negative mood, positive = positive mood)
+            "energy_level": 0,  # 0-100 scale (0 = very low energy, 100 = very high energy)
+            "stress_level": 0,  # 0-100 scale (0 = no stress, 100 = extreme stress)
+            "mood_stability": "",  # e.g., "stable", "fluctuating", "improving"
+            "mood_calmness": "",  # e.g., "calm", "anxious", "agitated"
             "stressors": [],
             "protective_factors": [],
             "coping_strategies_discussed": [],
@@ -563,6 +569,13 @@ class LiveAPIWebSocketServer:
             "Focus on the youth's wellness state and the core points discussed. "
             "If a previous summary is provided, analyze the user's progress over time in the 'progress_analysis' field. "
             "Infer language if not explicit. "
+            "Analyze the overall mood of the user based on their messages and provide: "
+            "- A brief description in the 'mood' field (e.g., positive, neutral, anxious, hopeful). "
+            "- A mood percentage on a scale of -100 to 100 in the 'mood_percentage' field (negative for negative mood, positive for positive mood, 0 for neutral). "
+            "- An energy level on a scale of 0-100 in the 'energy_level' field (0 = very low energy, 100 = very high energy). "
+            "- A stress level on a scale of 0-100 in the 'stress_level' field (0 = no stress, 100 = extreme stress). "
+            "- Mood stability assessment in the 'mood_stability' field (e.g., stable, fluctuating, improving, declining). "
+            "- Mood calmness level in the 'mood_calmness' field (e.g., calm, anxious, agitated, relaxed). "
             "Fill the provided JSON schema faithfully and only return the JSON object.\n\n"
             f"PREVIOUS_SUMMARY:\n{previous_summary}\n\n"
             f"JSON_SCHEMA_EXAMPLE:\n{json.dumps(schema_hint, ensure_ascii=False, indent=2)}\n\n"
@@ -585,7 +598,7 @@ class LiveAPIWebSocketServer:
             model=summarizer_model,
             contents=[user_content],  # could also pass contents=user_prompt (string)
             config=types.GenerateContentConfig(
-                temperature=0.2,
+                temperature=0.3,
                 system_instruction=system_note,
                 response_mime_type="application/json"
             )
@@ -600,7 +613,9 @@ class LiveAPIWebSocketServer:
                         if getattr(p, "text", None):
                             text += p.text
 
+        logger.info(f"Raw AI response: {text}")
         summary_obj = extract_json(text) if text else {"raw": ""}
+        logger.info(f"Parsed summary object: {json.dumps(summary_obj, indent=2)}")
 
         # Send to Node.js backend
         try:

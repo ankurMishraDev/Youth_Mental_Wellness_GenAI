@@ -99,6 +99,45 @@ app.post('/save-name', async (req, res) => {
     }
 });
 
+// Update profile route
+app.post('/update-profile', async (req, res) => {
+    const { uid, name, age, gender } = req.body;
+    if (!uid) {
+        return res.status(400).send({ error: 'Missing uid' });
+    }
+
+    try {
+        const userRef = db.collection('users').doc(uid);
+        const updateData = {};
+
+        if (name !== undefined) updateData.name = name;
+        if (age !== undefined && age !== "") updateData.age = Number.parseInt(age);
+        if (gender !== undefined) updateData.gender = gender;
+
+        await userRef.set(updateData, { merge: true });
+        res.status(200).send({ message: 'Profile updated successfully' });
+    } catch (error) {
+        res.status(500).send({ error: error.message });
+    }
+});
+
+// Get user data route (including mood data from latest summary)
+app.get('/user/:uid', async (req, res) => {
+    const { uid } = req.params;
+    try {
+        const userRef = db.collection('users').doc(uid);
+        const doc = await userRef.get();
+        if (!doc.exists) {
+            res.status(404).send({ error: 'User not found' });
+        } else {
+            const userData = doc.data();
+            res.status(200).send(userData);
+        }
+    } catch (error) {
+        res.status(500).send({ error: error.message });
+    }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });

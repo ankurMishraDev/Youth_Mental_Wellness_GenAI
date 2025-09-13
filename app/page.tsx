@@ -50,6 +50,7 @@ export default function YouthGuide() {
         dashboardPage={session.dashboardPage}
         setDashboardPage={session.setDashboardPage}
         setCurrentView={auth.setCurrentView}
+        onUserUpdate={auth.updateCurrentUser}
       />
     )
   }
