@@ -56,6 +56,29 @@ export const signup = async (formData: {
   }
 }
 
+export const getCurrentUser = async (uid: string): Promise<User> => {
+  try {
+    const response = await fetch(`http://localhost:3000/user/${uid}`)
+    const data = await response.json()
+
+    if (response.ok) {
+      const user: User = {
+        uid: data.uid,
+        email: data.email,
+        name: data.name,
+        age: data.age,
+        gender: data.gender,
+      }
+      return user
+    } else {
+      throw new Error(data.error || "Failed to fetch user data")
+    }
+  } catch (error) {
+    console.error("Failed to fetch user data:", error)
+    throw new Error("Failed to fetch user data. Please try again.")
+  }
+}
+
 export const logout = () => {
   localStorage.removeItem("youthguide_user")
 }

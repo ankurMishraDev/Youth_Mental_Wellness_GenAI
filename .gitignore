@@ -23,6 +23,7 @@ yarn-error.log*
 .vercel
 service-account.json
 admin-key.json
+admin-key2.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
