@@ -52,7 +52,7 @@ export const useAuth = () => {
   const handleLogout = () => {
     logout()
     setCurrentUser(null)
-    setCurrentView("auth")
+    setCurrentView("landing")
     // Note: audioClient close will be handled in session hook
   }
 
