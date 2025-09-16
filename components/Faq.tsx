@@ -28,11 +28,6 @@ export default function FAQ() {
         answer:
           "YouthGuide is designed for young people aged 13-25. Our content and AI recommendations are tailored to address the unique mental health challenges faced during adolescence and young adulthood.",
       },
-      {
-        question: "Can I access YouthGuide offline?",
-        answer:
-          "While our AI chat requires internet connectivity, you can access mood tracking, journaling, and many resources offline. Premium features like real-time AI conversations require an internet connection.",
-      },
     ]
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const toggleFAQ = (index: number) => {
@@ -43,7 +38,7 @@ export default function FAQ() {
     }
   };
     return (
-        <section className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-50/30">
+        <section id="faq" className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-50/30">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-3xl bg-card border border-border p-12 shadow-lg">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
