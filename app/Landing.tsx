@@ -11,11 +11,9 @@ export default function Landing({ onBeginJourney }: LandingProps) {
     return (
     <div className="min-h-screen flex flex-col">
         <HeroSection onBeginJourney={onBeginJourney} />
-        <Content />
+        <Content onBeginJourney={onBeginJourney} />
         <Faq />
-        <div className="flex ">
-        <Footer />
-        </div>
+        <Footer/>
     </div>
     )
 }

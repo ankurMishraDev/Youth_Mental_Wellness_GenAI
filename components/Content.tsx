@@ -1,11 +1,15 @@
 import { Brain, ShieldCheck, MessageCircle, TrendingUp, Heart, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export default function Content() {
+interface ContentProps {
+  onBeginJourney: () => void
+}
+
+export default function Content({ onBeginJourney }: ContentProps) {
     return(
         <div>
         {/* Features Section */}
-      <section className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-50/50">
+      <section id="why-choose-youthguide" className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-50/50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">Why Choose YouthGuide?</h2>
@@ -73,7 +77,7 @@ export default function Content() {
       </section>
 
       {/* Journey Section */}
-      <section className="relative z-10 py-24 px-6 bg-gradient-to-b from-orange-50/50 to-white">
+      <section id="wellness-journey" className="relative z-10 py-24 px-6 bg-gradient-to-b from-orange-50/50 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-3xl bg-card border border-border p-12 shadow-lg">
             {/* Section Header */}
@@ -138,6 +142,7 @@ export default function Content() {
             {/* Get Started Button */}
             <div className="text-center">
               <Button
+                onClick={onBeginJourney}
                 size="lg"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-12 py-4 text-lg font-semibold shadow-lg"
               >
