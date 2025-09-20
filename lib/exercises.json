@@ -15,7 +15,7 @@
     "bgSound": "./sounds/Night forest.mp3",
     "video_link": "https://www.youtube.com/watch?v=30VMIEmA114",
     "expected_time_to_complete": "3-5 minutes",
-    "image": "./images/grounding54321.jpg"
+    "image": "./images/grounding54321.png"
   },
   {
     "id": "ex003",
@@ -40,7 +40,7 @@
     "exercise_name": "Journaling",
     "procedure": "Grab a journal, notebook, or app (voice memos work too). Write freely without worrying about grammar—just let thoughts flow. Use prompts like “What am I feeling right now?” or “What went well today?”.",
     "bgSound": "./sounds/Nostalgic audio.mp3",
-    "video_link": "https://youtu.be/aF4H0oAiDSQ?si=22xw_pPaZkJfLc5w",
+    "video_link": "https://youtu.be/WI-j39vOqmk?si=QXGdIS5HDmSQ7rwv",
     "expected_time_to_complete": "10–15 minutes",
     "image": "./images/Journalingimg.jpg"
   },
@@ -69,7 +69,7 @@
     "bgSound": "./sounds/Nostalgic audio.mp3",
     "video_link": "https://www.youtube.com/shorts/0wLJV-wg2MQ",
     "expected_time_to_complete": "1-3 minutes",
-    "image": "./images/groundingtouch.jpg"
+    "image": "./images/groundingtouch.png"
   },
   {
     "id": "ex009",
@@ -78,7 +78,7 @@
     "bgSound": "./sounds/Morning Garden.mp3",
     "video_link": "https://www.youtube.com/watch?v=kpSkoXRrZnE",
     "expected_time_to_complete": "3–4 minutes",
-    "image": "./images/478breathing.png"
+    "image": "./images/478breathing.webp"
   },
   {
     "id": "ex010",
@@ -96,7 +96,7 @@
     "bgSound": "./sounds/Beauty of forest.mp3",
     "video_link": "https://www.youtube.com/shorts/VoVLOqUKvjQ",
     "expected_time_to_complete": "5-7 minutes",
-    "image": "./images/sensoryreset.jpg"
+    "image": "./images/sensoryreset.png"
   },
   {
     "id": "ex012",
@@ -112,7 +112,7 @@
     "exercise_name": "Laughter Break",
     "procedure": "Watch a short funny clip or recall a silly memory. Yes, laughing at dumb stuff really does unclench your nervous system.",
     "bgSound": "./sounds/Ocean audio.mp3",
-    "video_link": "https://www.youtube.com/watch?v=TyDQf1vodNU",
+    "video_link": "https://youtu.be/59KAzaNkctg?si=VArkrwGd_nf_C2dZ",
     "expected_time_to_complete": "2–5 minutes",
     "image": "./images/laughterbreak.webp"
   },

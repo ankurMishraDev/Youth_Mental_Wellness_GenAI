@@ -41,6 +41,15 @@ export const ExerciseTemplate: React.FC<ExerciseTemplateProps> = ({ exercise, on
             <X className="h-6 w-6" />
           </Button>
         </CardHeader>
+        <div className="flex items-center justify-center px-2 py-2">
+          <div className="w-[400px] h-[300px] rounded-lg shadow-lg overflow-hidden">
+            <img 
+              src={exercise.image} 
+              alt={exercise.exercise_name} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
         <CardContent className="space-y-6 p-6">
           <p className="text-base leading-relaxed">{exercise.procedure}</p>
           <div className="flex items-center text-sm text-muted-foreground">
