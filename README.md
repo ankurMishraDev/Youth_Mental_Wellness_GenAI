@@ -25,7 +25,7 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
 
 
 ## Features
-<img src="./public/images/Dashboard.jpg" style="padding-bottom:4px">
+<img src="./public/images/Dashboard.png" style="padding-bottom:4px">
 
 
 >- **Curie AI Companion**: Converse with AI in real time in one to one talk session.
