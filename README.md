@@ -117,3 +117,25 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
 ## AI session
 <img src="./public/images/CurieAIsession.jpg">
 
+
+## Mobile application (React Native)
+
+A React Native mobile client now lives under `mobile/`. It reuses the CureZ authentication and session flows with a
+native navigation stack and a shared design system that is controlled from `mobile/tailwind.config.js`.
+
+### Getting started
+
+```bash
+cd mobile
+npm install
+npm run start
+```
+
+Set the following environment variables before running the Expo dev server:
+
+- `EXPO_PUBLIC_FIREBASE_API_KEY` – same value used on the web client.
+- `EXPO_PUBLIC_API_BASE_URL` – URL of the deployed CureZ backend (for example `https://your-domain.example`).
+
+The mobile session screen currently falls back to an on-device response if the `/api/mobile-session` endpoint is not
+available. Hook this endpoint up to the existing WebSocket/audio workflow when you are ready to surface the full
+experience on mobile.
