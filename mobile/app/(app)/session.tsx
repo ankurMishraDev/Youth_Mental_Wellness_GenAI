@@ -1,85 +1,148 @@
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Text,
+  TextInput,
+  View,
 } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
 import { useAuth } from "@/contexts/AuthContext"
-import { useSession, Message } from "@/hooks/useSession"
+import { useSession, type Message } from "@/hooks/useSession"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { cn, formatTime } from "@/lib/utils"
+import { tokens } from "@/theme/tokens"
+
+const MessageBubble = ({ message }: { message: Message }) => {
+  const isUser = message.sender === "user"
+  return (
+    <View
+      className={cn(
+        "max-w-[85%] rounded-xl px-lg py-sm",
+        isUser ? "self-end bg-primary" : "self-start bg-surface"
+      )}
+      style={{
+        shadowColor: "rgba(15,23,42,0.25)",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 3,
+      }}
+    >
+      <Text className={cn("text-sm", isUser ? "text-primary-foreground" : "text-foreground/90")}>{message.text}</Text>
+    </View>
+  )
+}
 
 const SessionScreen = () => {
   const { user } = useAuth()
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([])
-  const { initializeAudioClient, endSession, sendTextMessage } = useSession(user, setMessages)
-  const [text, setText] = useState("")
+  const [input, setInput] = useState("")
+  const listRef = useRef<FlatList<Message>>(null)
+
+  const {
+    initializeAudioClient,
+    endSession,
+    sendTextMessage,
+    sessionSeconds,
+    sessionActive,
+    isRecording,
+    isAudioPlaying,
+  } = useSession(user, setMessages)
 
   useEffect(() => {
-    initializeAudioClient()
+    initializeAudioClient().catch((error) => {
+      console.error("Failed to start session", error)
+    })
     return () => {
       endSession()
     }
   }, [])
 
   const handleSend = () => {
-    if (text.trim()) {
-      sendTextMessage(text.trim())
-      setText("")
+    if (!input.trim()) {
+      return
     }
+    sendTextMessage(input.trim())
+    setInput("")
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#F1F5F9" }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={{ flex: 1, padding: 10 }}>
-        <FlatList
-          data={messages}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View
-              style={{
-                alignSelf: item.sender === "user" ? "flex-end" : "flex-start",
-                backgroundColor: item.sender === "user" ? "#6366F1" : "white",
-                borderRadius: 20,
-                padding: 10,
-                marginVertical: 5,
-                maxWidth: "80%",
-              }}
-            >
-              <Text style={{ color: item.sender === "user" ? "white" : "black" }}>{item.text}</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View className="flex-1 px-xl pt-xl">
+          <View className="flex-row items-center justify-between mb-lg">
+            <View>
+              <Text className="text-sm text-subtle">Live with CureZ</Text>
+              <Text className="text-xl font-semibold text-foreground mt-1">Therapeutic conversation</Text>
             </View>
-          )}
-        />
-        <View style={{ flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderColor: "#E2E8F0", padding: 10 }}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Type your message..."
-            style={{ flex: 1, borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 20, padding: 10, marginRight: 10 }}
-          />
-          <Pressable
-            onPress={handleSend}
-            style={{ backgroundColor: "#6366F1", padding: 10, borderRadius: 20 }}
-          >
-            <Text style={{ color: "white" }}>Send</Text>
-          </Pressable>
+            <View className="items-end">
+              <Badge variant="soft" className="mb-1">
+                {sessionActive ? "Active" : "Connecting"}
+              </Badge>
+              <Text className="text-xs text-muted">{formatTime(sessionSeconds)}</Text>
+            </View>
+          </View>
+
+          <View className="flex-1 rounded-lg bg-card border border-border/40 px-md py-md">
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={(_, index) => index.toString()}
+              renderItem={({ item }) => <MessageBubble message={item} />}
+              ItemSeparatorComponent={() => <View className="h-sm" />}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+            />
+            {isRecording || isAudioPlaying ? (
+              <View className="flex-row items-center bg-primary/10 rounded-lg px-md py-sm">
+                <ActivityIndicator size="small" color={tokens.colors.secondary.DEFAULT} />
+                <Text className="text-xs text-secondary font-medium ml-sm">
+                  {isRecording ? "Listening..." : "CureZ is thinking"}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
         </View>
-        <Pressable
-          onPress={() => router.back()}
-          style={{ alignItems: "center", padding: 10 }}
-        >
-          <Text style={{ color: "#6366F1" }}>End Session</Text>
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+        <View className="px-xl pb-xl">
+          <View className="flex-row items-center bg-surface border border-border rounded-full px-md py-xs">
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder="Share what's on your mind..."
+              placeholderTextColor={tokens.colors.muted}
+              className="flex-1 text-foreground px-sm"
+              multiline
+              maxLength={400}
+            />
+            <Button size="sm" onPress={handleSend} disabled={!input.trim()}>
+              Send
+            </Button>
+          </View>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-sm"
+            textClassName="text-secondary"
+            onPress={() => {
+              endSession()
+              router.replace("/(app)/dashboard")
+            }}
+          >
+            End session & return to dashboard
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   )
 }
 

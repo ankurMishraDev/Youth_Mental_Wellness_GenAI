@@ -1,0 +1,182 @@
+[
+  {
+    "id": "ex001",
+    "exercise_name": "Mindful Breathing",
+    "procedure": "Find a quiet place to sit or lie down. Close your eyes and focus on your breath. Inhale slowly through your nose for 4 seconds, hold for 4 seconds, and exhale slowly through your mouth for 6 seconds. Repeat for 5-10 minutes.",
+    "bgSound": "./sounds/Ocean audio.mp3",
+    "video_link": "https://www.youtube.com/watch?v=DLkoZtiXeqQ",
+    "expected_time_to_complete": "5-10 minutes",
+    "image": "./images/mindfulness-breathing.jpg"
+  },
+  {
+    "id": "ex002",
+    "exercise_name": "5-4-3-2-1 Grounding",
+    "procedure": "Acknowledge 5 things you can see, 4 things you can touch, 3 things you can hear, 2 things you can smell, and 1 thing you can taste. This helps bring you back to the present moment.",
+    "bgSound": "./sounds/Night forest.mp3",
+    "video_link": "https://www.youtube.com/watch?v=30VMIEmA114",
+    "expected_time_to_complete": "3-5 minutes",
+    "image": "./images/grounding54321.png"
+  },
+  {
+    "id": "ex003",
+    "exercise_name": "Mindfulness Meditation",
+    "procedure": "Sit or lie down comfortably, close your eyes or soften your gaze, and focus on your breath. Notice its rhythm, and when your mind wanders, gently acknowledge the thought and return your attention to breathing.",
+    "bgSound": "./sounds/Beauty of forest.mp3",
+    "video_link": "https://www.youtube.com/watch?v=inpok4MKVLM",
+    "expected_time_to_complete": "5-10 minutes",
+    "image": "./images/mindful-meditation.jpg"
+  },
+  {
+    "id": "ex004",
+    "exercise_name": "Progressive Muscle Relaxation (PMR)",
+    "procedure": "Sit or lie in a quiet place, tense each muscle group for 5 seconds, then release and feel the relaxation. Progress from your feet up to your head, repeating the tense–release cycle throughout your body",
+    "bgSound": "./sounds/rain sound.mp3",
+    "video_link": "https://youtu.be/aF4H0oAiDSQ?si=22xw_pPaZkJfLc5w",
+    "expected_time_to_complete": "10–20 minutes",
+    "image": "./images/ProgressiveMuscleRelaxation(PMR)img.jpg"
+  },
+  {
+    "id": "ex005",
+    "exercise_name": "Journaling",
+    "procedure": "Grab a journal, notebook, or app (voice memos work too). Write freely without worrying about grammar—just let thoughts flow. Use prompts like “What am I feeling right now?” or “What went well today?”.",
+    "bgSound": "./sounds/Nostalgic audio.mp3",
+    "video_link": "https://youtu.be/WI-j39vOqmk?si=QXGdIS5HDmSQ7rwv",
+    "expected_time_to_complete": "10–15 minutes",
+    "image": "./images/Journalingimg.jpg"
+  },
+  {
+    "id": "ex006",
+    "exercise_name": "Cognitive Reframing",
+    "procedure": "Identify a negative thought, challenge it by finding evidence against it, then reframe it into a more balanced, realistic perspective (e.g., turning “I always fail” into “I had a setback, but I can learn and try again”).",
+    "bgSound": "./sounds/Morning Garden.mp3",
+    "video_link": "https://www.youtube.com/watch?v=9-2ToUIQC6A",
+    "expected_time_to_complete": "5-10 minutes",
+    "image": "./images/Cognitivereframing.jpg"
+  },
+  {
+    "id": "ex007",
+    "exercise_name": "Box Breathing",
+    "procedure": "Inhale for 4 seconds, hold for 4, exhale for 4, hold for 4, and repeat the cycle to reset your nervous system.",
+    "bgSound": "./sounds/rain sound.mp3",
+    "video_link": "https://www.youtube.com/watch?v=G25IR0c-Hj8",
+    "expected_time_to_complete": "2–5 minutes",
+    "image": "./images/box-breathing.png"
+  },
+  {
+    "id": "ex008",
+    "exercise_name": "Grounding Touch",
+    "procedure": "Place one hand on your chest and one on top of your head, noticing the rise and fall as you breathe to anchor yourself in the present. Finally, gently massage your temples for about 1 minute and finish with a self hug.",
+    "bgSound": "./sounds/Nostalgic audio.mp3",
+    "video_link": "https://www.youtube.com/shorts/0wLJV-wg2MQ",
+    "expected_time_to_complete": "1-3 minutes",
+    "image": "./images/groundingtouch.png"
+  },
+  {
+    "id": "ex009",
+    "exercise_name": "4-7-8 Breathing",
+    "procedure": "Breathe in through your nose for 4 seconds, hold your breath for 7, then exhale slowly through your mouth for 8.",
+    "bgSound": "./sounds/Morning Garden.mp3",
+    "video_link": "https://www.youtube.com/watch?v=kpSkoXRrZnE",
+    "expected_time_to_complete": "3–4 minutes",
+    "image": "./images/478breathing.webp"
+  },
+  {
+    "id": "ex010",
+    "exercise_name": "Gratitude Pause",
+    "procedure": "Think of 3 things you’re grateful for—big or tiny—and let yourself sit with the positive feelings they bring.",
+    "bgSound": "./sounds/rain sound.mp3",
+    "video_link": "https://www.youtube.com/watch?v=rp7S_-sKgjQ",
+    "expected_time_to_complete": "2–3 minutes",
+    "image": "./images/gratitudepause.webp"
+  },
+  {
+    "id": "ex011",
+    "exercise_name": "Sensory Reset - The Salamander",
+    "procedure": "Make yourself seated in a comfortable position, slightly tild your head to your right or your left then try looking down, keep doing this until you feel a little yawn or a longing to rest.",
+    "bgSound": "./sounds/Beauty of forest.mp3",
+    "video_link": "https://www.youtube.com/shorts/VoVLOqUKvjQ",
+    "expected_time_to_complete": "5-7 minutes",
+    "image": "./images/sensoryreset.png"
+  },
+  {
+    "id": "ex012",
+    "exercise_name": "Breath Counting (For Panic Attacks",
+    "procedure": "Breathe normally and count each exhale up to 10, then start over. If you lose count, just restart without scolding yourself.",
+    "bgSound": "./sounds/Night forest.mp3",
+    "video_link": "https://www.youtube.com/watch?v=8vkYJf8DOsc",
+    "expected_time_to_complete": "5 minutes",
+    "image": "./images/breathcounting.png"
+  },
+  {
+    "id": "ex013",
+    "exercise_name": "Laughter Break",
+    "procedure": "Watch a short funny clip or recall a silly memory. Yes, laughing at dumb stuff really does unclench your nervous system.",
+    "bgSound": "./sounds/Ocean audio.mp3",
+    "video_link": "https://youtu.be/59KAzaNkctg?si=VArkrwGd_nf_C2dZ",
+    "expected_time_to_complete": "2–5 minutes",
+    "image": "./images/laughterbreak.webp"
+  },
+  {
+    "id": "ex014",
+    "exercise_name": "Hand Relaxation",
+    "procedure": "Spread your fingers wide, then slowly clench them into a fist, noticing the tension release. Repeat a few times.",
+    "bgSound": "./sounds/Beauty of forest.mp3",
+    "video_link": "https://www.youtube.com/watch?v=eJUCl26UVFs",
+    "expected_time_to_complete": "1-2 minutes",
+    "image": "./images/hand relaxation.jpg"
+  },
+  {
+    "id": "ex015",
+    "exercise_name": "Diaphragmatic Breathing",
+    "procedure": "Place one hand on your belly and breathe deeply so it rises more than your chest—this activates the body’s natural relaxation response.",
+    "bgSound": "./sounds/Morning Garden.mp3",
+    "video_link": "https://www.youtube.com/watch?v=zPgwQFU1Cwc",
+    "expected_time_to_complete": "5-10 minutes",
+    "image": "./images/diaphragmaticbreathing.jpg"
+  },
+  {
+    "id": "ex016",
+    "exercise_name": "Safe Place Visualization",
+    "procedure": "Close your eyes and imagine a location where you feel completely secure (often used in trauma therapy). Focus on the details until your body feels calmer.",
+    "bgSound": "./sounds/Beauty of forest.mp3",
+    "video_link": "https://www.youtube.com/watch?v=wgsEKBXMiPI",
+    "expected_time_to_complete": "5 minutes",
+    "image": "./images/safeplace.jpeg"
+  },
+  {
+    "id": "ex017",
+    "exercise_name": "Thought Labeling",
+    "procedure": "When intrusive or anxious thoughts come, label them simply as “thought” or “worry” without engaging, then let them pass.",
+    "bgSound": "./sounds/rain sound.mp3",
+    "video_link": "https://www.youtube.com/watch?v=_xQFNzoRbnE",
+    "expected_time_to_complete": "5–7 minutes",
+    "image": "./images/thoughtlabelling.webp"
+  },
+  {
+    "id": "ex018",
+    "exercise_name": "Butterfly Hug (EMDR Technique)",
+    "procedure": "Cross your arms over your chest and gently tap your shoulders alternately while breathing slowly to self-soothe.",
+    "bgSound": "./sounds/Night forest.mp3",
+    "video_link": "https://www.youtube.com/watch?v=Nlt3rlkwu4w",
+    "expected_time_to_complete": "2–4 minutes",
+    "image": "./images/butterfly-hug.jpg"
+  },
+  {
+    "id": "ex019",
+    "exercise_name": "Alternate Nostril Breathing (from yoga/therapy integration)",
+    "procedure": "Close one nostril with your finger, inhale through the other, then switch sides on the exhale. Helps balance and calm the nervous system.",
+    "bgSound": "./sounds/Ocean audio.mp3",
+    "video_link": "https://www.youtube.com/watch?v=TKNITh99roA",
+    "expected_time_to_complete": "5 minutes",
+    "image": "./images/Alternate-nostril.jpg"
+  },
+  {
+    "id": "ex020",
+    "exercise_name": "Name the Emotion",
+    "procedure": "Say out loud (or write down) what you’re feeling: “I’m anxious,” “I’m angry,” etc. Research shows labeling emotions reduces their intensity.",
+    "bgSound": "./sounds/Nostalgic audio.mp3",
+    "video_link": "https://www.youtube.com/watch?v=OL7AQbGh7WU",
+    "expected_time_to_complete": "1–2 minutes",
+    "image": "./images/Nametheemot.jpg"
+  }
+]
