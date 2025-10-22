@@ -1,37 +1,20 @@
-import { useEffect } from "react"
-import * as SplashScreen from "expo-splash-screen"
-import { StatusBar } from "expo-status-bar"
-import { ThemeProvider, useTheme } from "@/contexts/ThemeContext"
-import { AuthProvider } from "@/contexts/AuthContext"
-import { AppNavigator } from "@/navigation/AppNavigator"
-
-SplashScreen.preventAutoHideAsync().catch(() => {
-  /* ignore */
-})
-
-const RootNavigation: React.FC = () => {
-  const { scheme } = useTheme()
-
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {
-      /* ignore */
-    })
-  }, [])
-
-  return (
-    <>
-      <AppNavigator />
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-    </>
-  )
-}
+import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootNavigation />
-      </AuthProvider>
-    </ThemeProvider>
-  )
+    <View style={styles.container}>
+      <Text>Open up App.tsx to start working on your app!</Text>
+      <StatusBar style="auto" />
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

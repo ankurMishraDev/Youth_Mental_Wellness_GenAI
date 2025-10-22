@@ -1,27 +1,35 @@
 {
   "expo": {
-    "name": "Youth Mental Wellness",
-    "slug": "youth-mental-wellness-mobile",
-    "version": "0.1.0",
+    "name": "CureZ",
+    "slug": "curez-mobile",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "assetBundlePatterns": ["**/*"],
+    "icon": "./assets/icon.png",
+    "scheme": "curez",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0F172A"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
       }
     },
     "web": {
-      "bundler": "metro",
-      "output": "static"
+      "favicon": "./assets/favicon.png"
     },
-    "plugins": ["nativewind/babel"],
-    "extra": {
-      "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
-      }
-    }
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "main": "expo-router/entry"
   }
 }

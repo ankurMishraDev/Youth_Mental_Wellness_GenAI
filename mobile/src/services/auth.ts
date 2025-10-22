@@ -96,7 +96,7 @@ const syncUserProfile = async (
   payload: Partial<AuthUser> & { uid: string; email: string; emailVerified?: boolean }
 ) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/signup`, {
+    const response = await fetch(`${API_BASE_URL}/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -194,7 +194,7 @@ export const requestPasswordReset = async (email: string) => {
 
 export const getCurrentUser = async (uid: string) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/user/${uid}`)
+    const response = await fetch(`${API_BASE_URL}/user/${uid}`)
     if (!response.ok) {
       return null
     }
@@ -206,7 +206,7 @@ export const getCurrentUser = async (uid: string) => {
 }
 
 export const updateProfile = async (payload: Partial<AuthUser> & { uid: string }) => {
-  const response = await fetch(`${API_BASE_URL}/api/update-profile`, {
+  const response = await fetch(`${API_BASE_URL}/update-profile`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
