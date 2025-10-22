@@ -5,6 +5,7 @@
     "jsx": "react-native",
     "module": "ESNext",
     "baseUrl": ".",
+    "resolveJsonModule": true,
     "paths": {
       "@/*": [
         "./src/*"

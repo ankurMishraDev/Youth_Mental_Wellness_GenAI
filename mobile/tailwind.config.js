@@ -1,41 +1,28 @@
+const nativewind = require("nativewind/preset")
+const designTokens = require("./tailwindconfig.json")
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./app/**/*.{js,ts,jsx,tsx}", "./src/components/**/*.{js,ts,jsx,tsx}"],
-  presets: [require("nativewind/preset")],
+  content: ["./app/**/*.{js,ts,jsx,tsx}", "./src/**/*.{js,ts,jsx,tsx}"],
+  presets: [nativewind],
   theme: {
     extend: {
       colors: {
-        background: "#ffffff",
-        foreground: "#4b5563",
-        card: "#fffbeb",
-        primary: {
-          DEFAULT: "#ea580c",
-          foreground: "#ffffff",
-        },
-        secondary: {
-          DEFAULT: "#f97316",
-          foreground: "#ffffff",
-        },
-        muted: {
-          DEFAULT: "#f9fafb",
-          foreground: "#4b5563",
-        },
-        accent: {
-          DEFAULT: "#f97316",
-          foreground: "#ffffff",
-        },
-        destructive: {
-          DEFAULT: "#dc2626",
-          foreground: "#ffffff",
-        },
-        border: "#e5e7eb",
+        ...designTokens.colors,
+        primary: designTokens.colors.primary,
+        secondary: designTokens.colors.secondary,
+        accent: designTokens.colors.accent,
+        success: designTokens.colors.success,
+        warning: designTokens.colors.warning,
+        destructive: designTokens.colors.destructive,
       },
-      fontFamily: {
-        sans: ["GeistSans"],
-        mono: ["GeistMono"],
-        heading: ["Ribeye"],
-      },
+      fontFamily: designTokens.fontFamily,
+      fontSize: designTokens.fontSize,
+      spacing: designTokens.spacing,
+      borderRadius: designTokens.radii,
+      boxShadow: designTokens.shadows,
+      opacity: designTokens.opacity,
     },
   },
   plugins: [],
-};
+}
