@@ -1,0 +1,144 @@
+/**
+ * Create New Journal Entry Page
+ * Beautiful form for creating journal entries
+ */
+
+'use client';
+
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/lib/contexts/UserContext';
+import { JournalEntryForm } from '@/components/journal/JournalEntryForm';
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import type { CreateJournalEntryInput } from '@/lib/types/journal';
+
+export default function NewJournalEntryPage() {
+  const { userId, isLoading: userLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!userLoading && !userId) {
+      router.push('/');
+    }
+  }, [userLoading, userId, router]);
+
+  async function handleSubmit(data: CreateJournalEntryInput) {
+    if (!userId) {
+      alert('You must be signed in to create an entry');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/journal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify({
+          ...data,
+          autoCategorize: true, // Enable AI categorization
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create entry');
+      }
+
+      // Success - redirect to journal list
+      router.push('/journal');
+    } catch (error) {
+      console.error('Failed to create entry:', error);
+      throw error; // Let the form handle the error display
+    }
+  }
+
+  function handleCancel() {
+    if (confirm('Discard this entry?')) {
+      router.push('/journal');
+    }
+  }
+
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+        <div className="text-center">
+          <Loader2 size={48} className="animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => router.push('/journal')}
+            className="group inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 transition-colors"
+          >
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Journal</span>
+          </button>
+          
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+              <Sparkles size={28} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                New Journal Entry
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Express your thoughts and feelings
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Container with beautiful styling */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+          <JournalEntryForm
+            userId={userId!}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            submitLabel="Save Entry"
+          />
+        </div>
+
+        {/* Tips Section */}
+        <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+            <Sparkles size={18} className="text-blue-600 dark:text-blue-400" />
+            Journaling Tips
+          </h3>
+          <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 dark:text-blue-400">•</span>
+              <span>Be honest with yourself - this is your private space</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-600 dark:text-purple-400">•</span>
+              <span>Include details about how you're feeling and why</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 dark:text-blue-400">•</span>
+              <span>AI will automatically categorize your entry to help you spot patterns</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-600 dark:text-purple-400">•</span>
+              <span>Add images to capture moments and memories</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}

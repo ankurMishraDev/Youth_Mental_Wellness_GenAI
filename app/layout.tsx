@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Suspense } from "react"
+import { UserProvider } from "@/lib/contexts/UserContext"
 
 export const metadata: Metadata = {
   title: "CureZ - Your AI Mentor",
@@ -25,7 +26,9 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Ribeye&display=swap" rel="stylesheet" />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased doodle-background`}>
-        <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+        <UserProvider>
+          <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+        </UserProvider>
         <Analytics />
       </body>
     </html>

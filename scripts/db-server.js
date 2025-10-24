@@ -180,6 +180,166 @@ app.get("/user/:uid", async (req, res) => {
   }
 })
 
+// Get user context for AI chat (journals + sessions)
+app.post("/get-user-context", async (req, res) => {
+  const { uid } = req.body
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" })
+  }
+
+  try {
+    // Get user profile
+    const userDoc = await db.collection("users").doc(uid).get()
+    
+    if (!userDoc.exists) {
+      return res.status(404).send({ error: "User not found" })
+    }
+
+    const userData = userDoc.data()
+    
+    // Fetch recent journal entries (last 30 days)
+    const thirtyDaysAgo = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    )
+    
+    const journalSnapshot = await db
+      .collection("journalEntries")
+      .where("userId", "==", uid)
+      .where("createdAt", ">=", thirtyDaysAgo)
+      .orderBy("createdAt", "desc")
+      .limit(10)
+      .get()
+
+    // Generate summaries for AI context
+    const journalSummaries = journalSnapshot.docs.map(doc => {
+      const data = doc.data()
+      
+      // Extract plain text from content blocks
+      const contentText = data.content
+        ?.map(block => {
+          if (block._type === 'block' && block.children) {
+            return block.children.map(child => child.text).join(' ')
+          }
+          return ''
+        })
+        .join(' ')
+        .substring(0, 200) || ''
+      
+      return {
+        date: data.createdAt?.toDate()?.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        mood: data.mood,
+        summary: contentText,
+        title: data.title || 'Untitled'
+      }
+    })
+
+    // Fetch recent chat sessions (if they exist)
+    let sessionCount = 0
+    let recentTopics = []
+    try {
+      const sessionsSnapshot = await db
+        .collection("chatSessions")
+        .where("userId", "==", uid)
+        .orderBy("endedAt", "desc")
+        .limit(5)
+        .get()
+      
+      sessionCount = sessionsSnapshot.size
+      recentTopics = sessionsSnapshot.docs
+        .flatMap(doc => doc.data().topicsDiscussed || [])
+        .filter((topic, index, self) => self.indexOf(topic) === index) // unique
+        .slice(0, 5)
+    } catch (error) {
+      // Chat sessions collection might not exist yet, that's okay
+      console.log("No chat sessions found (collection may not exist yet)")
+    }
+
+    // Build comprehensive response
+    res.status(200).send({
+      userData: {
+        name: userData.name || 'User',
+        age: userData.age,
+        gender: userData.gender,
+      },
+      journalEntriesCount: journalSnapshot.size,
+      journalSummaries,
+      sessionCount,
+      recentTopics,
+      moodTrend: calculateMoodTrend(journalSnapshot.docs),
+    })
+    
+  } catch (error) {
+    console.error("Context retrieval error:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
+// Helper function to calculate mood trend
+function calculateMoodTrend(journalDocs) {
+  if (journalDocs.length === 0) return 'unknown'
+  
+  const moodValues = {
+    'very-sad': -2,
+    'sad': -1,
+    'neutral': 0,
+    'happy': 1,
+    'very-happy': 2
+  }
+  
+  const moods = journalDocs
+    .map(doc => doc.data().mood)
+    .filter(mood => mood in moodValues)
+    .map(mood => moodValues[mood])
+  
+  if (moods.length === 0) return 'unknown'
+  
+  // Compare first half to second half
+  const mid = Math.floor(moods.length / 2)
+  const firstHalf = moods.slice(0, mid)
+  const secondHalf = moods.slice(mid)
+  
+  const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
+  const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
+  
+  const diff = secondAvg - firstAvg
+  
+  if (diff > 0.3) return 'improving'
+  if (diff < -0.3) return 'declining'
+  return 'stable'
+}
+
+// Save chat session summary
+app.post("/save-session-summary", async (req, res) => {
+  const { uid, summary, topics, moodShift, actionItems } = req.body
+  
+  if (!uid || !summary) {
+    return res.status(400).send({ error: "Missing uid or summary" })
+  }
+
+  try {
+    await db.collection("chatSessions").add({
+      userId: uid,
+      summary: summary,
+      topicsDiscussed: topics || [],
+      moodShift: moodShift || null,
+      actionItems: actionItems || [],
+      endedAt: admin.firestore.FieldValue.serverTimestamp(),
+      startedAt: admin.firestore.FieldValue.serverTimestamp(), // Would be set when session starts
+    })
+    
+    res.status(200).send({ message: "Session summary saved successfully" })
+  } catch (error) {
+    console.error("Save session error:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)
 })

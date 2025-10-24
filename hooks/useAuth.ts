@@ -37,8 +37,9 @@ export const useAuth = () => {
         const user = JSON.parse(savedUser) as User
         setCurrentUser(user)
         setCurrentView("dashboard")
-
+        // Store userId for journal feature
         if (user.uid) {
+          localStorage.setItem("userId", user.uid)
           refreshUserProfile(user.uid)
         }
       } catch (error) {
@@ -90,6 +91,8 @@ export const useAuth = () => {
       setCurrentUser(user)
       setCurrentView("dashboard")
       setUnverifiedLoginEmail(null)
+      // Store userId for journal feature
+      localStorage.setItem("userId", user.uid)
     } catch (error) {
       const message = error instanceof Error ? error.message : "An error occurred"
       if ((error as Error & { code?: string }).code === "EMAIL_NOT_VERIFIED") {
@@ -145,11 +148,17 @@ export const useAuth = () => {
     logout()
     setCurrentUser(null)
     setCurrentView("auth")
+    // Clear userId for journal feature
+    localStorage.removeItem("userId")
   }
 
   const updateCurrentUser = (user: User) => {
     setCurrentUser(user)
     localStorage.setItem("curez_user", JSON.stringify(user))
+    // Update userId for journal feature
+    if (user.uid) {
+      localStorage.setItem("userId", user.uid)
+    }
   }
 
   const setForgotPasswordModeState = (mode: boolean) => {

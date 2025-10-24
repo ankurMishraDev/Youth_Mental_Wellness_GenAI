@@ -15,7 +15,8 @@ import {   MessageCircle,
   Dumbbell,
   Gauge,
   Target,
-  Sparkles, } from "lucide-react";
+  Sparkles,
+  BookOpen, } from "lucide-react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -348,6 +349,27 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
               <p className="text-sm text-muted-foreground">
                 "{currentTip}"
               </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border-blue-200 dark:border-blue-800">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span>My Journal</span>
+              </CardTitle>
+              <CardDescription>
+                Express your thoughts and track your emotional journey
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => window.location.href = '/journal'}
+                className="w-full"
+                variant="outline"
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                Open Journal
+              </Button>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
