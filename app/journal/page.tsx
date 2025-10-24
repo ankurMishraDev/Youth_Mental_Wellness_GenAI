@@ -9,7 +9,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/contexts/UserContext';
 import { JournalEntryCard } from '@/components/journal/JournalEntryCard';
-import { PlusCircle, Loader2, BookOpen, TrendingUp, Calendar } from 'lucide-react';
+import { CategoriesSection } from '@/components/journal/CategoriesSection';
+import { PlusCircle, Loader2, BookOpen, TrendingUp, Calendar, MessageCircle } from 'lucide-react';
 import type { JournalEntry } from '@/lib/types/journal';
 
 export default function JournalPage() {
@@ -131,13 +132,22 @@ export default function JournalPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => router.push('/journal/new')}
-              className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-            >
-              <PlusCircle size={20} className="group-hover:rotate-90 transition-transform" />
-              <span className="font-medium">New Entry</span>
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/journal/chat')}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+              >
+                <MessageCircle size={20} />
+                <span className="font-medium">Chat with AI</span>
+              </button>
+              <button
+                onClick={() => router.push('/journal/new')}
+                className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+              >
+                <PlusCircle size={20} className="group-hover:rotate-90 transition-transform" />
+                <span className="font-medium">New Entry</span>
+              </button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -179,6 +189,11 @@ export default function JournalPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Categories Section */}
+          <div className="mb-8">
+            <CategoriesSection />
           </div>
         </div>
 

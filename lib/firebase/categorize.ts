@@ -19,18 +19,16 @@ export async function categorizeJournalEntry(
   content: string
 ): Promise<CategorizationResult> {
   try {
-    // 1. Fetch existing categories
-    const categories = await getCategories(userId);
-    const categoryTitles = categories.map((c) => c.title);
-
-    // 2. Call AI categorization API
+    // Call AI categorization API (it will fetch available categories internally)
     const response = await fetch('/api/categorize', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-user-id': userId 
+      },
       body: JSON.stringify({
         title,
         content,
-        existingCategories: categoryTitles,
       } as CategorizationRequest),
     });
 
@@ -40,54 +38,37 @@ export async function categorizeJournalEntry(
 
     const aiResult = await response.json();
 
-    // 3. Find or create category
-    const existingCategory = categories.find(
-      (c) => c.title.toLowerCase() === aiResult.category.toLowerCase()
-    );
-
-    if (existingCategory) {
-      return {
-        categoryId: existingCategory.id,
-        categoryTitle: existingCategory.title,
-        categoryColor: existingCategory.color,
-        reasoning: aiResult.reasoning || 'Matched existing category',
-        action: 'matched',
-        confidence: aiResult.confidence || 0.8,
-      };
-    }
-
-    // Create new category
-    const newCategoryId = await createCategory(
-      aiResult.category,
-      aiResult.color || generateRandomColor(),
-      null, // System category
-      aiResult.description || ''
-    );
-
     return {
-      categoryId: newCategoryId,
-      categoryTitle: aiResult.category,
-      categoryColor: aiResult.color || generateRandomColor(),
-      reasoning: aiResult.reasoning || 'Created new category',
-      action: 'created',
+      categoryId: aiResult.categoryId,
+      categoryTitle: aiResult.categoryTitle,
+      categoryColor: aiResult.color,
+      reasoning: aiResult.reasoning || 'AI categorization',
+      action: 'matched',
       confidence: aiResult.confidence || 0.7,
     };
   } catch (error) {
     console.error('Error categorizing entry:', error);
     
-    // Fallback: return "Uncategorized"
+    // Fallback: return first available category
     const categories = await getCategories(userId);
-    let uncategorized = categories.find((c) => c.title === 'Uncategorized');
+    const fallback = categories[0];
 
-    if (!uncategorized) {
-      const id = await createCategory('Uncategorized', '#6b7280', null, 'General entries');
-      uncategorized = await getCategoryById(id) as Category;
+    if (!fallback) {
+      // No categories available - return error state
+      return {
+        categoryId: '',
+        categoryTitle: 'Uncategorized',
+        categoryColor: '#6b7280',
+        reasoning: 'No categories available',
+        action: 'matched',
+        confidence: 0,
+      };
     }
 
     return {
-      categoryId: uncategorized!.id,
-      categoryTitle: 'Uncategorized',
-      categoryColor: uncategorized!.color,
+      categoryId: fallback.id,
+      categoryTitle: fallback.title,
+      categoryColor: fallback.color,
       reasoning: 'Failed to categorize, using fallback',
       action: 'matched',
       confidence: 0,

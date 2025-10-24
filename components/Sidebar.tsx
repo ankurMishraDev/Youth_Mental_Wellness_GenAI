@@ -9,14 +9,18 @@ import {
   LogOut,
   Menu,
   ChevronLeft,
+  BookText,
 } from "lucide-react";
 import { DashboardPage } from "../lib/types";
+import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
-  dashboardPage: DashboardPage;
-  setDashboardPage: (page: DashboardPage) => void;
-  handleLogout: () => void;
+  dashboardPage?: DashboardPage;
+  setDashboardPage?: (page: DashboardPage) => void;
+  handleLogout?: () => void;
   onNavigateToLanding?: () => void;
+  sidebarOpen?: boolean;
+  setSidebarOpen?: (open: boolean) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -24,14 +28,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setDashboardPage,
   handleLogout,
   onNavigateToLanding,
+  sidebarOpen,
+  setSidebarOpen,
 }) => {
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const router = useRouter();
+  const [isMobileOpen, setIsMobileOpen] = useState(sidebarOpen || false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
   const navItems = [
     { id: "home", label: "Home", icon: Home },
     { id: "sessions", label: "AI Session", icon: MessageCircle },
     { id: "resources", label: "Resources", icon: BookOpen },
+    { id: "journal", label: "Journal", icon: BookText, href: "/journal" },
     { id: "profile", label: "Profile", icon: UserIcon },
   ];
 
@@ -56,13 +64,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
       <nav className="flex-1 space-y-2">
-        {navItems.map(({ id, label, icon: Icon }) => (
+        {navItems.map(({ id, label, icon: Icon, href }) => (
           <Button
             key={id}
             variant={dashboardPage === id ? "default" : "ghost"}
             onClick={() => {
-              setDashboardPage(id as DashboardPage);
+              if (href) {
+                router.push(href);
+              } else if (setDashboardPage) {
+                setDashboardPage(id as DashboardPage);
+              }
               setIsMobileOpen(false);
+              if (setSidebarOpen) setSidebarOpen(false);
             }}
             className={`w-full justify-start text-lg h-12 ${isCollapsed ? 'justify-center' : ''}`}
             title={isCollapsed ? label : undefined}
@@ -74,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
       <Button
         variant="ghost"
-        onClick={handleLogout}
+        onClick={handleLogout || (() => router.push('/'))}
         className={`w-full justify-start text-lg h-12 mt-auto ${isCollapsed ? 'justify-center' : ''}`}
         title={isCollapsed ? 'Logout' : undefined}
       >

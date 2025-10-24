@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { MoodSelector } from './MoodSelector';
 import { RichTextEditor } from './RichTextEditor';
 import { ImageUploader } from './ImageUploader';
+import { ReflectionQuestions } from './ReflectionQuestions';
 import { Loader2, Save, Sparkles } from 'lucide-react';
 import type {
   MoodType,
@@ -16,6 +17,7 @@ import type {
   JournalImage,
   CreateJournalEntryInput,
 } from '@/lib/types/journal';
+import { portableTextToPlainText } from '@/lib/types/journal';
 
 interface JournalEntryFormProps {
   userId: string;
@@ -47,6 +49,7 @@ export function JournalEntryForm({
   const [images, setImages] = useState<JournalImage[]>(initialData?.images || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showReflection, setShowReflection] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +79,25 @@ export function JournalEntryForm({
       setError(err.message || 'Failed to save journal entry');
       setIsSubmitting(false);
     }
+  };
+
+  const handleAnswerQuestion = (question: string, answer: string) => {
+    // Add the question and answer to the content
+    const newBlock: PortableTextBlock = {
+      _type: 'block',
+      _key: `reflection-${Date.now()}`,
+      style: 'normal',
+      children: [
+        {
+          _type: 'span',
+          _key: `span-${Date.now()}`,
+          text: `\n\n🤔 ${question}\n💭 ${answer}`,
+          marks: [],
+        },
+      ],
+    };
+    
+    setContent([...content, newBlock]);
   };
 
   const isValid = mood !== null && content.length > 0;
@@ -125,6 +147,32 @@ export function JournalEntryForm({
         onChange={setImages}
         disabled={isSubmitting}
       />
+
+      {/* AI Reflection Questions */}
+      {!isEditing && mood && content.length > 0 && (
+        <div className="space-y-3">
+          {!showReflection ? (
+            <button
+              type="button"
+              onClick={() => setShowReflection(true)}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              <Sparkles size={20} />
+              <span>Get AI Reflection Questions</span>
+            </button>
+          ) : (
+            <ReflectionQuestions
+              userId={userId}
+              entryData={{
+                title: title,
+                content: portableTextToPlainText(content),
+                mood: mood,
+              }}
+              onAnswerQuestion={handleAnswerQuestion}
+            />
+          )}
+        </div>
+      )}
 
       {/* Submit Buttons */}
       <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

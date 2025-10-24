@@ -1,0 +1,293 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useUser } from '@/lib/contexts/UserContext';
+import { Button } from '@/components/ui/button';
+import { Plus, Tag, Trash2, Edit2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+
+interface Category {
+  id: string;
+  title: string;
+  description: string | null;
+  color: string;
+  userId: string | null;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+const PRESET_COLORS = [
+  '#9333ea', // purple
+  '#ec4899', // pink
+  '#3b82f6', // blue
+  '#10b981', // green
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // violet
+  '#06b6d4', // cyan
+];
+
+export function CategoriesSection() {
+  const { userId } = useUser();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    color: PRESET_COLORS[0]
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    if (userId) {
+      fetchCategories();
+    }
+  }, [userId]);
+
+  const fetchCategories = async () => {
+    if (!userId) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch('/api/categories', {
+        headers: {
+          'x-user-id': userId
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setCategories(data.categories);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!formData.title.trim() || !userId) return;
+
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setCategories([...categories, data.category]);
+        setIsCreateModalOpen(false);
+        setFormData({ title: '', description: '', color: PRESET_COLORS[0] });
+      }
+    } catch (error) {
+      console.error('Failed to create category:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const defaultCategories = categories.filter(c => c.isDefault);
+  const customCategories = categories.filter(c => !c.isDefault);
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Tag className="w-5 h-5" />
+          Categories
+        </h2>
+        <Button
+          onClick={() => setIsCreateModalOpen(true)}
+          size="sm"
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          New Category
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8 text-gray-500">Loading categories...</div>
+      ) : (
+        <>
+          {/* Default Categories */}
+          {defaultCategories.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-600 mb-3">Default Categories</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {defaultCategories.map((category) => (
+                  <div
+                    key={category.id}
+                    className="p-3 rounded-lg border-2 hover:shadow-sm transition-shadow"
+                    style={{ borderColor: category.color }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span className="font-medium text-sm text-gray-900">
+                        {category.title}
+                      </span>
+                    </div>
+                    {category.description && (
+                      <p className="text-xs text-gray-600 line-clamp-2">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Custom Categories */}
+          {customCategories.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-600 mb-3">My Custom Categories</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {customCategories.map((category) => (
+                  <div
+                    key={category.id}
+                    className="p-3 rounded-lg border-2 hover:shadow-sm transition-shadow group relative"
+                    style={{ borderColor: category.color }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span className="font-medium text-sm text-gray-900">
+                        {category.title}
+                      </span>
+                    </div>
+                    {category.description && (
+                      <p className="text-xs text-gray-600 line-clamp-2">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {categories.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No categories yet. Create your first custom category!
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Create Category Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Custom Category</DialogTitle>
+            <DialogDescription>
+              Add a new category to organize your journal entries
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Category Name *</Label>
+              <Input
+                id="title"
+                placeholder="e.g., Personal Projects"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                placeholder="Brief description of what this category is for..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                maxLength={200}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Category Color</Label>
+              <div className="flex gap-2 flex-wrap">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, color })}
+                    className={`w-8 h-8 rounded-full transition-all ${
+                      formData.color === color
+                        ? 'ring-2 ring-offset-2 ring-gray-900 scale-110'
+                        : 'hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="pt-2">
+              <Label className="text-xs text-gray-500 mb-2 block">Preview</Label>
+              <div
+                className="p-3 rounded-lg border-2"
+                style={{ borderColor: formData.color }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: formData.color }}
+                  />
+                  <span className="font-medium text-sm text-gray-900">
+                    {formData.title || 'Category Name'}
+                  </span>
+                </div>
+                {formData.description && (
+                  <p className="text-xs text-gray-600">
+                    {formData.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateModalOpen(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateCategory}
+              disabled={!formData.title.trim() || submitting}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {submitting ? 'Creating...' : 'Create Category'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -339,6 +339,126 @@ app.post("/save-session-summary", async (req, res) => {
   }
 })
 
+// Seed default categories
+app.post("/seed-categories", async (req, res) => {
+  try {
+    console.log("🌱 Seeding default categories...");
+    
+    const { force } = req.query; // Allow force parameter
+
+    const DEFAULT_CATEGORIES = [
+      {
+        title: 'Wellness',
+        description: 'Physical and mental self-care, exercise, sleep, and healthy habits',
+        color: '#10b981',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Relationships',
+        description: 'Friendships, social connections, conflicts, and meaningful interactions',
+        color: '#ec4899',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'School',
+        description: 'Academic life, classes, homework, exams, and learning experiences',
+        color: '#3b82f6',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Family',
+        description: 'Family relationships, home life, and family activities',
+        color: '#f59e0b',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Personal Growth',
+        description: 'Self-improvement, new skills, challenges, and personal development',
+        color: '#8b5cf6',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Hobbies & Interests',
+        description: 'Creative activities, hobbies, passions, and things you enjoy',
+        color: '#06b6d4',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Mental Health',
+        description: 'Emotions, anxiety, stress, coping strategies, and mental wellbeing',
+        color: '#9333ea',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Goals & Dreams',
+        description: 'Future plans, aspirations, achievements, and things you want to accomplish',
+        color: '#ef4444',
+        userId: null,
+        isDefault: true,
+      },
+      {
+        title: 'Daily Reflections',
+        description: 'Everyday thoughts, gratitude, observations, and general life updates',
+        color: '#6b7280',
+        userId: null,
+        isDefault: true,
+      }
+    ];
+
+    // Check if categories already exist
+    const existingSnapshot = await db.collection("categories")
+      .where("userId", "==", null)
+      .get();
+
+    if (!existingSnapshot.empty && !force) {
+      const existingCategories = existingSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      return res.status(200).json({
+        message: "Default categories already exist. Use ?force=true to add anyway.",
+        count: existingSnapshot.size,
+        categories: existingCategories
+      });
+    }
+
+    // Create all categories
+    const batch = db.batch();
+    const createdIds = [];
+
+    DEFAULT_CATEGORIES.forEach((category) => {
+      const docRef = db.collection("categories").doc();
+      batch.set(docRef, {
+        ...category,
+        createdAt: new Date().toISOString()
+      });
+      createdIds.push({ id: docRef.id, title: category.title });
+    });
+
+    await batch.commit();
+
+    console.log(`✅ Seeded ${DEFAULT_CATEGORIES.length} categories`);
+
+    res.status(200).json({
+      message: "Categories seeded successfully",
+      count: DEFAULT_CATEGORIES.length,
+      categories: createdIds
+    });
+
+  } catch (error) {
+    console.error("Error seeding categories:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)
