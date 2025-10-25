@@ -7,16 +7,15 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
-import { ViewType } from "../../lib/types";
 
 interface SessionsSectionProps {
-  setCurrentView: (view: ViewType) => void;
+  onStartSession: () => void;
   isLoadingSession: boolean;
   sessionSummary: any;
 }
 
 export const SessionsSection: React.FC<SessionsSectionProps> = ({
-  setCurrentView,
+  onStartSession,
   isLoadingSession,
   sessionSummary,
 }) => {
@@ -33,7 +32,7 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => setCurrentView("session")}
+              onClick={onStartSession}
               className="w-full h-16 text-xl font-semibold"
             >
               <MessageCircle className="h-6 w-6 mr-3" />

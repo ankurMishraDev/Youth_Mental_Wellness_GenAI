@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { User, ViewType, AuthMode } from "../lib/types"
+import { User, AuthMode } from "../lib/types"
 import {
   login,
   signup,
@@ -8,11 +8,13 @@ import {
   getCurrentUser,
 } from "../lib/auth"
 import type { SignupResult } from "../lib/auth"
+import { useRouter } from "next/navigation"
 
 export const useAuth = () => {
-  const [currentView, setCurrentView] = useState<ViewType>("landing")
+  const router = useRouter()
   const [authMode, setAuthMode] = useState<AuthMode>("login")
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [isValidatingSession, setIsValidatingSession] = useState(true)
   const [loginForm, setLoginForm] = useState({ email: "", password: "" })
   const [signupForm, setSignupForm] = useState({
     email: "",
@@ -30,23 +32,57 @@ export const useAuth = () => {
   const [signupVerificationEmail, setSignupVerificationEmail] = useState<string | null>(null)
   const [unverifiedLoginEmail, setUnverifiedLoginEmail] = useState<string | null>(null)
 
+  // Initialize and validate user from localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem("curez_user")
-    if (savedUser) {
+    const validateSession = async () => {
+      const savedUser = localStorage.getItem("curez_user")
+      
+      if (!savedUser) {
+        setIsValidatingSession(false)
+        return
+      }
+
       try {
         const user = JSON.parse(savedUser) as User
-        setCurrentUser(user)
-        setCurrentView("dashboard")
-        // Store userId for journal feature
-        if (user.uid) {
-          localStorage.setItem("userId", user.uid)
-          refreshUserProfile(user.uid)
+        
+        // Validate the session by fetching current user data
+        try {
+          const userData = await getCurrentUser(user.uid)
+          
+          // Session is valid, update user data
+          const validatedUser = {
+            uid: user.uid,
+            email: userData.email || user.email,
+            name: userData.name || "",
+            age: userData.age,
+            gender: userData.gender || "",
+          }
+          
+          setCurrentUser(validatedUser)
+          localStorage.setItem("curez_user", JSON.stringify(validatedUser))
+          
+          // Store userId for journal feature
+          if (validatedUser.uid) {
+            localStorage.setItem("userId", validatedUser.uid)
+          }
+        } catch (error) {
+          // Session is invalid, clear it
+          console.error("Invalid session, clearing user data:", error)
+          localStorage.removeItem("curez_user")
+          localStorage.removeItem("userId")
+          setCurrentUser(null)
         }
       } catch (error) {
         console.error("Error parsing saved user:", error)
         localStorage.removeItem("curez_user")
+        localStorage.removeItem("userId")
+        setCurrentUser(null)
+      } finally {
+        setIsValidatingSession(false)
       }
     }
+
+    validateSession()
   }, [])
 
   useEffect(() => {
@@ -89,10 +125,12 @@ export const useAuth = () => {
       setIsLoggingIn(true)
       const user = await login(loginForm.email, loginForm.password)
       setCurrentUser(user)
-      setCurrentView("dashboard")
       setUnverifiedLoginEmail(null)
       // Store userId for journal feature
       localStorage.setItem("userId", user.uid)
+      
+      // Navigate to dashboard after successful login
+      router.push('/dashboard')
     } catch (error) {
       const message = error instanceof Error ? error.message : "An error occurred"
       if ((error as Error & { code?: string }).code === "EMAIL_NOT_VERIFIED") {
@@ -147,9 +185,11 @@ export const useAuth = () => {
   const handleLogout = () => {
     logout()
     setCurrentUser(null)
-    setCurrentView("auth")
     // Clear userId for journal feature
     localStorage.removeItem("userId")
+    
+    // Navigate to landing page
+    router.push('/')
   }
 
   const updateCurrentUser = (user: User) => {
@@ -169,11 +209,10 @@ export const useAuth = () => {
   }
 
   return {
-    currentView,
-    setCurrentView,
     authMode,
     setAuthMode,
     currentUser,
+    isValidatingSession,
     loginForm,
     setLoginForm,
     signupForm,
@@ -182,6 +221,7 @@ export const useAuth = () => {
     handleSignup,
     handleLogout,
     updateCurrentUser,
+    refreshUserProfile,
     forgotPasswordMode: forgotPasswordModeState,
     setForgotPasswordMode: setForgotPasswordModeState,
     forgotPasswordEmail,

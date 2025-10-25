@@ -5,3 +5,7 @@ python-dotenv==1.0.0
 numpy==1.24.3
 scipy==1.11.1
 google-genai
+aiohttp
+google-genai
+google-auth
+requests

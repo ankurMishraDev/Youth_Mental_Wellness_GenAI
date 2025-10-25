@@ -1,18 +1,21 @@
-import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Home,
   MessageCircle,
   BookOpen,
-  User as UserIcon,
-  LogOut,
-  Menu,
-  ChevronLeft,
   BookText,
-} from "lucide-react";
-import { DashboardPage } from "../lib/types";
-import { useRouter } from 'next/navigation';
+  User as UserIcon,
+  Menu,
+  X,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+
+export type DashboardPage = 'home' | 'sessions' | 'resources' | 'profile' | 'journal';
 
 interface SidebarProps {
   dashboardPage?: DashboardPage;
@@ -32,99 +35,184 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setSidebarOpen,
 }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(sidebarOpen || false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
+  // Determine active page based on pathname if dashboardPage not provided
+  const getActivePage = (): DashboardPage => {
+    if (dashboardPage) return dashboardPage;
+    
+    if (pathname?.startsWith('/journal')) return 'journal';
+    if (pathname?.startsWith('/dashboard/sessions')) return 'sessions';
+    if (pathname?.startsWith('/dashboard/resources')) return 'resources';
+    if (pathname?.startsWith('/dashboard/profile')) return 'profile';
+    if (pathname?.startsWith('/dashboard')) return 'home';
+    return 'home';
+  };
+
+  const activePage = getActivePage();
+
   const navItems = [
-    { id: "home", label: "Home", icon: Home },
-    { id: "sessions", label: "AI Session", icon: MessageCircle },
-    { id: "resources", label: "Resources", icon: BookOpen },
-    { id: "journal", label: "Journal", icon: BookText, href: "/journal" },
-    { id: "profile", label: "Profile", icon: UserIcon },
+    { id: 'home', label: 'Home', icon: Home, path: '/dashboard' },
+    { id: 'sessions', label: 'AI Session', icon: MessageCircle, path: '/dashboard/sessions' },
+    { id: 'resources', label: 'Resources', icon: BookOpen, path: '/dashboard/resources' },
+    { id: 'journal', label: 'Journal', icon: BookText, path: '/journal' },
+    { id: 'profile', label: 'Profile', icon: UserIcon, path: '/dashboard/profile' },
   ];
 
-  const sidebarContent = (isCollapsed: boolean) => (
-    <div className={`flex flex-col h-full bg-card p-4 ${isCollapsed ? 'items-center' : ''}`}>
-      <div className={`flex items-center mb-8 ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
-        <div 
-          className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
-          onClick={onNavigateToLanding}
-        >
-          <MessageCircle className="h-7 w-7 text-primary-foreground" />
-        </div>
-        {!isCollapsed && (
-          <div>
-            <h1 
-              className="text-2xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
-              onClick={onNavigateToLanding}
-            >
-              CureZ
-            </h1>
-          </div>
-        )}
-      </div>
-      <nav className="flex-1 space-y-2">
-        {navItems.map(({ id, label, icon: Icon, href }) => (
-          <Button
-            key={id}
-            variant={dashboardPage === id ? "default" : "ghost"}
-            onClick={() => {
-              if (href) {
-                router.push(href);
-              } else if (setDashboardPage) {
-                setDashboardPage(id as DashboardPage);
-              }
-              setIsMobileOpen(false);
-              if (setSidebarOpen) setSidebarOpen(false);
-            }}
-            className={`w-full justify-start text-lg h-12 ${isCollapsed ? 'justify-center' : ''}`}
-            title={isCollapsed ? label : undefined}
-          >
-            <Icon className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
-            {!isCollapsed && label}
-          </Button>
-        ))}
-      </nav>
-      <Button
-        variant="ghost"
-        onClick={handleLogout || (() => router.push('/'))}
-        className={`w-full justify-start text-lg h-12 mt-auto ${isCollapsed ? 'justify-center' : ''}`}
-        title={isCollapsed ? 'Logout' : undefined}
-      >
-        <LogOut className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
-        {!isCollapsed && 'Logout'}
-      </Button>
-    </div>
-  );
+  const handleNavigation = (item: typeof navItems[0]) => {
+    // Use Next.js router for navigation
+    router.push(item.path);
+    
+    // Also call setDashboardPage if provided (for backward compatibility)
+    if (setDashboardPage) {
+      setDashboardPage(item.id as DashboardPage);
+    }
+    
+    // Close mobile menu after navigation
+    if (isMobileOpen) {
+      setIsMobileOpen(false);
+    }
+  };
+
+  const toggleMobileSidebar = () => {
+    const newState = !isMobileOpen;
+    setIsMobileOpen(newState);
+    if (setSidebarOpen) setSidebarOpen(newState);
+  };
+
+  const toggleDesktopCollapse = () => {
+    setIsDesktopCollapsed(!isDesktopCollapsed);
+  };
 
   return (
     <>
-      {/* Mobile Sidebar */}
-      <div className="md:hidden">
-        <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="absolute top-4 left-4 z-20">
-              <Menu className="h-6 w-6" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 bg-card p-0">
-            {sidebarContent(false)}
-          </SheetContent>
-        </Sheet>
-      </div>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={toggleMobileSidebar}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
+        aria-label="Toggle menu"
+      >
+        {isMobileOpen ? (
+          <X className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+        ) : (
+          <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+        )}
+      </button>
 
-      {/* Desktop Sidebar */}
-      <div className={`hidden md:flex flex-col h-screen transition-all duration-300 relative ${isDesktopCollapsed ? 'w-20' : 'w-64'} sticky top-0`}>
-        {sidebarContent(isDesktopCollapsed)}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="absolute top-4 right-0 transform translate-x-1/2 bg-card border rounded-full z-10"
-          onClick={() => setIsDesktopCollapsed(!isDesktopCollapsed)}
-        >
-          <ChevronLeft className={`transition-transform duration-300 ${isDesktopCollapsed ? 'rotate-180' : ''}`} />
-        </Button>
-      </div>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+          onClick={toggleMobileSidebar}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed lg:sticky top-0 left-0 h-screen z-40
+          bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl
+          border-r border-gray-200 dark:border-gray-700
+          transition-all duration-300 ease-in-out
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+          ${isDesktopCollapsed ? 'lg:w-20' : 'lg:w-64'}
+          w-64
+        `}
+      >
+        <div className="flex flex-col h-full p-4">
+          {/* Logo/Header */}
+          <div className="flex items-center justify-between mb-8">
+            <button
+              onClick={() => {
+                if (onNavigateToLanding) {
+                  onNavigateToLanding();
+                } else {
+                  router.push('/');
+                }
+              }}
+              className={`flex items-center gap-3 transition-opacity ${
+                isDesktopCollapsed ? 'lg:opacity-0 lg:w-0' : 'opacity-100'
+              }`}
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-white" />
+              </div>
+              {!isDesktopCollapsed && (
+                <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  CureZ
+                </span>
+              )}
+            </button>
+
+            {/* Desktop Collapse Button */}
+            <button
+              onClick={toggleDesktopCollapse}
+              className="hidden lg:block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label={isDesktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isDesktopCollapsed ? (
+                <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              ) : (
+                <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              )}
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 space-y-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activePage === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavigation(item)}
+                  className={`
+                    w-full flex items-center gap-3 px-4 py-3 rounded-xl
+                    transition-all duration-200
+                    ${
+                      isActive
+                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }
+                    ${isDesktopCollapsed ? 'lg:justify-center' : ''}
+                  `}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {!isDesktopCollapsed && (
+                    <span className="font-medium">{item.label}</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Logout Button */}
+          <button
+            onClick={() => {
+              if (handleLogout) {
+                handleLogout();
+              } else {
+                router.push('/');
+              }
+            }}
+            className={`
+              w-full flex items-center gap-3 px-4 py-3 rounded-xl
+              text-red-600 dark:text-red-400
+              hover:bg-red-50 dark:hover:bg-red-900/20
+              transition-all duration-200
+              ${isDesktopCollapsed ? 'lg:justify-center' : ''}
+            `}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {!isDesktopCollapsed && <span className="font-medium">Logout</span>}
+          </button>
+        </div>
+      </aside>
     </>
   );
 };

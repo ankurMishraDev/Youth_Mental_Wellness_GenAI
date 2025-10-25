@@ -15,6 +15,7 @@ export const useSession = (
 
   const audioClientRef = useRef<AudioClientType | null>(null)
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitializingRef = useRef(false)
 
   // Session timer
   useEffect(() => {
@@ -37,7 +38,13 @@ export const useSession = (
 
   const initializeAudioClient = async () => {
     if (!currentUser?.uid) {
-      throw new Error("User must be logged in to start a session")
+      console.warn("Cannot initialize audio client: User not logged in")
+      return
+    }
+
+    if (isInitializingRef.current || audioClientRef.current) {
+      console.log("Audio client already initialized or initializing")
+      return
     }
 
     try {
