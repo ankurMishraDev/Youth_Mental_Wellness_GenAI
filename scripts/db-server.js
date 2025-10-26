@@ -37,6 +37,7 @@ app.post("/signup", async (req, res) => {
     const profileData = {
       email,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     }
 
     if (typeof emailVerified === "boolean") {
@@ -58,7 +59,14 @@ app.post("/signup", async (req, res) => {
       }
     }
 
-    await db.collection("users").doc(userRecord.uid).set(profileData, { merge: true })
+    // Store profile in new subcollection structure
+    await db.collection("users").doc(userRecord.uid).collection("user_profiling").doc("profile").set(profileData, { merge: true })
+    
+    // Initialize metrics collection with empty moods array
+    await db.collection("users").doc(userRecord.uid).collection("metrics").doc("mood_history").set({
+      moods: [],
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true })
 
     if (name && userRecord.displayName !== name) {
       try {
@@ -88,8 +96,9 @@ app.post("/login", async (req, res) => {
       return res.status(403).send({ error: "Please verify your email before logging in." })
     }
 
-    const userDoc = await db.collection("users").doc(userRecord.uid).get()
-    const profile = userDoc.exists ? userDoc.data() : null
+    // Read from new user_profiling subcollection
+    const profileDoc = await db.collection("users").doc(userRecord.uid).collection("user_profiling").doc("profile").get()
+    const profile = profileDoc.exists ? profileDoc.data() : null
 
     res.status(200).send({ uid: userRecord.uid, profile })
   } catch (error) {
@@ -104,8 +113,9 @@ app.post("/save-summary", async (req, res) => {
   }
 
   try {
-    const userRef = db.collection("users").doc(uid)
-    await userRef.set({ latestSummary: summary }, { merge: true })
+    // Save to new summaries subcollection
+    const summaryRef = db.collection("users").doc(uid).collection("summaries").doc("latestSummary")
+    await summaryRef.set(summary, { merge: true })
     res.status(200).send({ message: "Summary saved successfully" })
   } catch (error) {
     res.status(500).send({ error: error.message })
@@ -119,8 +129,9 @@ app.post("/save-name", async (req, res) => {
   }
 
   try {
-    const userRef = db.collection("users").doc(uid)
-    await userRef.set({ name }, { merge: true })
+    // Update in user_profiling subcollection
+    const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
+    await profileRef.set({ name, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })
     res.status(200).send({ message: "Name saved successfully" })
   } catch (error) {
     res.status(500).send({ error: error.message })
@@ -134,15 +145,18 @@ app.post("/update-profile", async (req, res) => {
   }
 
   try {
-    const userRef = db.collection("users").doc(uid)
-    const updateData = {}
+    // Update in user_profiling subcollection
+    const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }
 
     if (name !== undefined) updateData.name = name
     if (age !== undefined && age !== "") updateData.age = Number.parseInt(age, 10)
     if (gender !== undefined) updateData.gender = gender
     if (typeof emailVerified === "boolean") updateData.emailVerified = emailVerified
 
-    await userRef.set(updateData, { merge: true })
+    await profileRef.set(updateData, { merge: true })
     res.status(200).send({ message: "Profile updated successfully" })
   } catch (error) {
     res.status(500).send({ error: error.message })
@@ -152,8 +166,9 @@ app.post("/update-profile", async (req, res) => {
 app.get("/get-summary/:uid", async (req, res) => {
   const { uid } = req.params
   try {
-    const userRef = db.collection("users").doc(uid)
-    const doc = await userRef.get()
+    // Read from new summaries subcollection
+    const summaryRef = db.collection("users").doc(uid).collection("summaries").doc("latestSummary")
+    const doc = await summaryRef.get()
     if (!doc.exists) {
       res.status(404).send({ error: "No summary found for this user." })
     } else {
@@ -167,14 +182,30 @@ app.get("/get-summary/:uid", async (req, res) => {
 app.get("/user/:uid", async (req, res) => {
   const { uid } = req.params
   try {
-    const userRef = db.collection("users").doc(uid)
-    const doc = await userRef.get()
-    if (!doc.exists) {
-      res.status(404).send({ error: "User not found" })
-    } else {
-      const userData = doc.data()
-      res.status(200).send({ uid, ...userData })
+    // Read from new subcollections
+    const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
+    const summaryRef = db.collection("users").doc(uid).collection("summaries").doc("latestSummary")
+    
+    const [profileDoc, summaryDoc] = await Promise.all([
+      profileRef.get(),
+      summaryRef.get()
+    ])
+    
+    if (!profileDoc.exists) {
+      return res.status(404).send({ error: "User not found" })
     }
+    
+    const userData = {
+      uid,
+      ...profileDoc.data()
+    }
+    
+    // Add latestSummary if it exists
+    if (summaryDoc.exists) {
+      userData.latestSummary = summaryDoc.data()
+    }
+    
+    res.status(200).send(userData)
   } catch (error) {
     res.status(500).send({ error: error.message })
   }
@@ -189,23 +220,24 @@ app.post("/get-user-context", async (req, res) => {
   }
 
   try {
-    // Get user profile
-    const userDoc = await db.collection("users").doc(uid).get()
+    // Get user profile from new structure
+    const profileDoc = await db.collection("users").doc(uid).collection("user_profiling").doc("profile").get()
     
-    if (!userDoc.exists) {
+    if (!profileDoc.exists) {
       return res.status(404).send({ error: "User not found" })
     }
 
-    const userData = userDoc.data()
+    const userData = profileDoc.data()
     
-    // Fetch recent journal entries (last 30 days)
+    // Fetch recent journal entries from new subcollection (last 30 days)
     const thirtyDaysAgo = admin.firestore.Timestamp.fromDate(
       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     )
     
     const journalSnapshot = await db
+      .collection("users")
+      .doc(uid)
       .collection("journalEntries")
-      .where("userId", "==", uid)
       .where("createdAt", ">=", thirtyDaysAgo)
       .orderBy("createdAt", "desc")
       .limit(10)

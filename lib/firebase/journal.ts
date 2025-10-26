@@ -17,6 +17,7 @@ import {
   Timestamp,
   serverTimestamp,
   QueryConstraint,
+  collectionGroup,
 } from 'firebase/firestore';
 import { db } from './config';
 import { deleteMultipleImages } from './storage';
@@ -28,9 +29,13 @@ import type {
   DailyPrompt,
 } from '../types/journal';
 
-const JOURNAL_COLLECTION = 'journalEntries';
 const CATEGORIES_COLLECTION = 'categories';
 const PROMPTS_COLLECTION = 'dailyPrompts';
+
+// Helper function to get user's journal entries subcollection
+const getUserJournalCollection = (userId: string) => {
+  return collection(db, 'users', userId, 'journalEntries');
+};
 
 // ========================================
 // JOURNAL ENTRIES
@@ -44,8 +49,8 @@ export async function createJournalEntry(
   data: CreateJournalEntryInput
 ): Promise<string> {
   try {
-    const entryRef = await addDoc(collection(db, JOURNAL_COLLECTION), {
-      userId,
+    // Use new subcollection structure: users/{uid}/journalEntries
+    const entryRef = await addDoc(getUserJournalCollection(userId), {
       title: data.title || '',
       content: data.content,
       mood: data.mood,
@@ -75,8 +80,8 @@ export async function getJournalEntries(
   }
 ): Promise<JournalEntry[]> {
   try {
+    // Use new subcollection structure: users/{uid}/journalEntries
     const constraints: QueryConstraint[] = [
-      where('userId', '==', userId),
       orderBy('createdAt', 'desc'),
     ];
 
@@ -98,14 +103,14 @@ export async function getJournalEntries(
       constraints.push(limit(options.limitCount));
     }
 
-    const q = query(collection(db, JOURNAL_COLLECTION), ...constraints);
+    const q = query(getUserJournalCollection(userId), ...constraints);
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
-        userId: data.userId,
+        userId: userId,
         title: data.title,
         content: data.content,
         mood: data.mood,
@@ -129,7 +134,8 @@ export async function getJournalEntryById(
   entryId: string
 ): Promise<JournalEntry | null> {
   try {
-    const docRef = doc(db, JOURNAL_COLLECTION, entryId);
+    // Use new subcollection structure: users/{uid}/journalEntries/{entryId}
+    const docRef = doc(db, 'users', userId, 'journalEntries', entryId);
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
@@ -138,14 +144,9 @@ export async function getJournalEntryById(
 
     const data = docSnap.data();
 
-    // Security check: verify ownership
-    if (data.userId !== userId) {
-      throw new Error('Unauthorized access to journal entry');
-    }
-
     return {
       id: docSnap.id,
-      userId: data.userId,
+      userId: userId,
       title: data.title,
       content: data.content,
       mood: data.mood,
@@ -169,12 +170,13 @@ export async function updateJournalEntry(
   updates: UpdateJournalEntryInput
 ): Promise<void> {
   try {
-    const docRef = doc(db, JOURNAL_COLLECTION, entryId);
+    // Use new subcollection structure: users/{uid}/journalEntries/{entryId}
+    const docRef = doc(db, 'users', userId, 'journalEntries', entryId);
 
-    // Verify ownership
+    // Verify entry exists
     const docSnap = await getDoc(docRef);
-    if (!docSnap.exists() || docSnap.data().userId !== userId) {
-      throw new Error('Unauthorized');
+    if (!docSnap.exists()) {
+      throw new Error('Journal entry not found');
     }
 
     // Prepare update data
@@ -200,12 +202,13 @@ export async function updateJournalEntry(
  */
 export async function deleteJournalEntry(userId: string, entryId: string): Promise<void> {
   try {
-    const docRef = doc(db, JOURNAL_COLLECTION, entryId);
+    // Use new subcollection structure: users/{uid}/journalEntries/{entryId}
+    const docRef = doc(db, 'users', userId, 'journalEntries', entryId);
 
-    // Verify ownership and get data
+    // Verify entry exists and get data
     const docSnap = await getDoc(docRef);
-    if (!docSnap.exists() || docSnap.data().userId !== userId) {
-      throw new Error('Unauthorized');
+    if (!docSnap.exists()) {
+      throw new Error('Journal entry not found');
     }
 
     const data = docSnap.data();
