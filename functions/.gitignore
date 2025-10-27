@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Service account credentials (NEVER COMMIT!)
+admin-key.json
+service-account.json
+
+# Logs
+*.log
+npm-debug.log*
+firebase-debug.log*
+firebase-debug.*.log*
+
+# Firebase cache
+.firebase/
+
+# OS files
+.DS_Store
+Thumbs.db

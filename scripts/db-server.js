@@ -728,6 +728,92 @@ app.post("/get-all-summaries", async (req, res) => {
   }
 })
 
+// Get weekly archives for a user
+app.get("/get-weekly-archives/:uid", async (req, res) => {
+  const { uid } = req.params
+  const limit = parseInt(req.query.limit) || 4 // Default: last 4 weeks
+
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid." })
+  }
+
+  try {
+    console.log(`📚 Fetching last ${limit} weekly archives for user ${uid}`)
+
+    const archivesSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("context_archives")
+      .orderBy("week_start", "desc")
+      .limit(limit)
+      .get()
+
+    if (archivesSnapshot.empty) {
+      console.log(`  ℹ️  No archives found for user ${uid}`)
+      return res.status(200).send({ 
+        archives: [],
+        total: 0
+      })
+    }
+
+    const archives = archivesSnapshot.docs.map(doc => {
+      const data = doc.data()
+      return {
+        id: doc.id,
+        week_number: data.week_number,
+        year: data.year,
+        week_start: data.week_start?.toDate()?.toISOString() || null,
+        week_end: data.week_end?.toDate()?.toISOString() || null,
+        created_at: data.created_at?.toDate()?.toISOString() || null,
+        
+        // Archive content
+        narrative_summary: data.narrative_summary || "",
+        dominant_themes: data.dominant_themes || [],
+        emotional_trajectory: data.emotional_trajectory || "",
+        
+        // Metrics
+        mood_avg: data.mood_avg || null,
+        mood_range: data.mood_range || null,
+        stress_avg: data.stress_avg || null,
+        energy_avg: data.energy_avg || null,
+        
+        // Behavioral
+        sleep_quality: data.sleep_quality || null,
+        social_connection: data.social_connection || null,
+        physical_activity: data.physical_activity || null,
+        
+        // Highlights
+        significant_events: data.significant_events || [],
+        coping_strategies: data.coping_strategies || [],
+        goals_set: data.goals_set || [],
+        progress_notes: data.progress_notes || "",
+        
+        // Risk & support
+        risk_flags: data.risk_flags || { any_critical: false },
+        protective_factors: data.protective_factors || [],
+        
+        // Patterns
+        patterns_detected: data.patterns_detected || [],
+        
+        // Metadata
+        summary_count: data.summary_count || { sessions: 0, journals: 0, total: 0 },
+        included_summaries: data.included_summaries || []
+      }
+    })
+
+    console.log(`  ✅ Retrieved ${archives.length} archives`)
+
+    res.status(200).send({
+      archives,
+      total: archives.length
+    })
+
+  } catch (error) {
+    console.error("Error fetching weekly archives:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
 // Helper function to calculate mood trend
 function calculateMoodTrend(journalDocs) {
   if (journalDocs.length === 0) return 'unknown'

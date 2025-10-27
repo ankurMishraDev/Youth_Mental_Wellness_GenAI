@@ -280,6 +280,7 @@ class LiveAPIWebSocketServer:
     async def generate_dynamic_system_instruction(self, uid: str) -> str:
         """
         Generates a dynamic system instruction based on user data from the database.
+        Uses unified context system: 7-day recent summaries + historical archives
         """
         if not uid:
             logger.warning("No UID provided, using default system instruction.")
@@ -296,42 +297,185 @@ class LiveAPIWebSocketServer:
             user_name = user_data.get("name", "there")
             latest_summary = user_data.get("latestSummary", {}).get("summary_data", {})
 
-            # 2. Fetch recent session summaries (last 7 sessions)
-            summaries_response = requests.post(
-                "http://localhost:3000/get-session-summaries",
-                json={"uid": uid, "limit": 7}
+            # 2. Fetch recent activity (last 7 days - ALL summaries: sessions + journals)
+            from datetime import datetime, timedelta
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            
+            all_summaries_response = requests.post(
+                "http://localhost:3000/get-all-summaries",
+                json={"uid": uid, "limit": 20}  # Fetch enough to cover 7 days
             )
             
-            session_history = ""
-            if summaries_response.status_code == 200:
-                summaries_data = summaries_response.json()
-                summaries = summaries_data.get("summaries", [])
+            # 3. Fetch weekly archives (last 4 weeks of compressed history)
+            weekly_archives_response = requests.get(
+                f"http://localhost:3000/get-weekly-archives/{uid}?limit=4"
+            )
+            
+            recent_activity = ""
+            if all_summaries_response.status_code == 200:
+                summaries_data = all_summaries_response.json()
+                all_summaries = summaries_data.get("summaries", [])
                 
-                if summaries:
-                    from datetime import datetime
-                    session_history = "\n\n--- Recent Session History (Last 7 Sessions) ---\n"
-                    for idx, summary in enumerate(summaries, 1):
+                # Filter for last 7 days
+                recent_summaries = []
+                for summary in all_summaries:
+                    timestamp = summary.get("timestamp")
+                    if timestamp:
+                        try:
+                            summary_date = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                            if summary_date.replace(tzinfo=None) >= seven_days_ago:
+                                recent_summaries.append(summary)
+                        except:
+                            pass
+                
+                if recent_summaries:
+                    recent_activity = "\n\n--- RECENT ACTIVITY (Last 7 Days) ---\n"
+                    recent_activity += "Full details of all interactions:\n\n"
+                    
+                    for summary in recent_summaries:
                         timestamp = summary.get("timestamp")
+                        source = summary.get("source", "unknown")
+                        
+                        # Calculate days ago
                         days_ago = "recent"
+                        date_str = "Unknown date"
                         if timestamp:
                             try:
-                                session_date = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                                days_diff = (datetime.now(session_date.tzinfo) - session_date).days
-                                days_ago = f"{days_diff} day(s) ago"
+                                summary_date = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                                days_diff = (datetime.now(summary_date.tzinfo) - summary_date).days
+                                if days_diff == 0:
+                                    days_ago = "Today"
+                                elif days_diff == 1:
+                                    days_ago = "Yesterday"
+                                else:
+                                    days_ago = f"{days_diff} days ago"
+                                date_str = summary_date.strftime("%b %d, %I:%M %p")
                             except:
                                 pass
                         
-                        session_text = summary.get("summary_text", "")
-                        key_topics = summary.get("key_topics", [])
+                        # Source icon
+                        icon = "🎙️" if source == "ai_session" else "📔"
+                        source_label = "AI Session" if source == "ai_session" else "Journal Entry"
                         
-                        session_history += f"\nSession {idx} ({days_ago}):\n"
-                        session_history += f"{session_text}\n"
+                        recent_activity += f"{icon} {date_str} ({days_ago}) - {source_label}\n"
+                        
+                        # Add source-specific details
+                        if source == "journal_entry":
+                            title = summary.get("title", "Untitled")
+                            mood = summary.get("mood_emoji", "")
+                            if title and title != "Untitled":
+                                recent_activity += f"Title: \"{title}\"\n"
+                            if mood:
+                                recent_activity += f"Mood: {mood}\n"
+                        
+                        # Summary text
+                        summary_text = summary.get("summary_text", "")
+                        if summary_text:
+                            recent_activity += f"{summary_text}\n"
+                        
+                        # Key topics
+                        key_topics = summary.get("key_topics", [])
                         if key_topics:
-                            session_history += f"Key topics: {', '.join(key_topics)}\n"
+                            recent_activity += f"Key topics: {', '.join(key_topics)}\n"
+                        
+                        # Add source-specific context
+                        if source == "ai_session":
+                            action_items = summary.get("action_items", [])
+                            if action_items:
+                                recent_activity += f"Action items: {', '.join(action_items)}\n"
+                        
+                        recent_activity += "\n"
                     
-                    session_history += "------------------------------------------------\n"
+                    recent_activity += "------------------------------------------------\n"
+                    
+                    # Add summary statistics
+                    session_count = sum(1 for s in recent_summaries if s.get("source") == "ai_session")
+                    journal_count = sum(1 for s in recent_summaries if s.get("source") == "journal_entry")
+                    recent_activity += f"\nRecent activity summary: {session_count} AI sessions, {journal_count} journal entries\n"
 
-            # 3. Generate questions using Gemini based on the latest summary
+            # Format weekly archives
+            weekly_archives_section = ""
+            if weekly_archives_response.status_code == 200:
+                archives_data = weekly_archives_response.json()
+                archives = archives_data.get("archives", [])
+                
+                if archives:
+                    weekly_archives_section = "\n\n--- WEEKLY ARCHIVES (Historical Context) ---\n"
+                    weekly_archives_section += "Compressed summaries of previous weeks:\n\n"
+                    
+                    for i, archive in enumerate(archives):
+                        week_num = archive.get("week_number", "?")
+                        year = archive.get("year", "?")
+                        week_start = archive.get("week_start", "")
+                        week_end = archive.get("week_end", "")
+                        
+                        # Format date range
+                        date_range = f"Week {week_num}, {year}"
+                        try:
+                            if week_start and week_end:
+                                start_date = datetime.fromisoformat(week_start.replace('Z', '+00:00'))
+                                end_date = datetime.fromisoformat(week_end.replace('Z', '+00:00'))
+                                date_range = f"{start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')}"
+                        except:
+                            pass
+                        
+                        weekly_archives_section += f"📅 {date_range}\n"
+                        
+                        # Activity count
+                        summary_count = archive.get("summary_count", {})
+                        sessions = summary_count.get("sessions", 0)
+                        journals = summary_count.get("journals", 0)
+                        weekly_archives_section += f"Activity: {sessions} sessions, {journals} journals\n\n"
+                        
+                        # Narrative summary
+                        narrative = archive.get("narrative_summary", "")
+                        if narrative:
+                            weekly_archives_section += f"{narrative}\n\n"
+                        
+                        # Key information
+                        themes = archive.get("dominant_themes", [])
+                        if themes:
+                            weekly_archives_section += f"Main themes: {', '.join(themes)}\n"
+                        
+                        trajectory = archive.get("emotional_trajectory", "")
+                        if trajectory:
+                            weekly_archives_section += f"Emotional journey: {trajectory}\n"
+                        
+                        # Metrics
+                        mood_avg = archive.get("mood_avg")
+                        stress_avg = archive.get("stress_avg")
+                        if mood_avg is not None or stress_avg is not None:
+                            metrics = []
+                            if mood_avg is not None:
+                                metrics.append(f"Mood: {mood_avg}/100")
+                            if stress_avg is not None:
+                                metrics.append(f"Stress: {stress_avg}/100")
+                            weekly_archives_section += f"Metrics: {', '.join(metrics)}\n"
+                        
+                        # Significant events
+                        events = archive.get("significant_events", [])
+                        if events:
+                            weekly_archives_section += f"Key events:\n"
+                            for event in events[:3]:  # Limit to top 3
+                                weekly_archives_section += f"  • {event}\n"
+                        
+                        # Patterns detected
+                        patterns = archive.get("patterns_detected", [])
+                        if patterns:
+                            weekly_archives_section += f"Patterns:\n"
+                            for pattern in patterns[:2]:  # Limit to top 2
+                                weekly_archives_section += f"  • {pattern}\n"
+                        
+                        # Coping strategies
+                        strategies = archive.get("coping_strategies", [])
+                        if strategies:
+                            weekly_archives_section += f"Coping strategies used: {', '.join(strategies[:3])}\n"
+                        
+                        weekly_archives_section += "\n" + "-" * 50 + "\n\n"
+                    
+                    logger.info(f"Included {len(archives)} weekly archives in context")
+
+            # 4. Generate questions using Gemini based on the latest summary
             generated_questions = ""
             if latest_summary:
                 question_prompt = (
@@ -362,7 +506,7 @@ class LiveAPIWebSocketServer:
                     logger.error(f"Error generating questions with Gemini: {e}")
                     generated_questions = "How have you been feeling since we last talked?" # Fallback question
 
-            # 4. Construct the dynamic system instruction with session history
+            # 4. Construct the dynamic system instruction with unified context + archives
             greeting = f"Start the conversation by warmly welcoming the user back. Greet them by name: '{user_name}'."
             
             dynamic_instruction = (
@@ -371,16 +515,30 @@ class LiveAPIWebSocketServer:
                 f"{greeting}\n"
             )
 
-            # Add session history if available
-            if session_history:
-                dynamic_instruction += session_history
+            # Add recent activity timeline if available
+            if recent_activity:
+                dynamic_instruction += recent_activity
                 dynamic_instruction += (
-                    "\nUse the session history above to:\n"
-                    "- Reference past topics naturally when relevant\n"
-                    "- Follow up on action items from previous sessions\n"
-                    "- Notice patterns across sessions\n"
-                    "- Celebrate progress and gently address ongoing concerns\n"
-                    "- Avoid repeating questions the user already answered\n\n"
+                    "\nUse the recent activity timeline above to:\n"
+                    "- Reference both journal entries and AI sessions naturally\n"
+                    "- Notice patterns across different types of interactions\n"
+                    "- Follow up on action items from previous AI sessions\n"
+                    "- Acknowledge journal entries when relevant (e.g., 'I see you wrote about...')\n"
+                    "- Celebrate progress shown in journals or sessions\n"
+                    "- Connect themes between written reflections and conversations\n"
+                    "- Avoid repeating questions they already explored in journals\n\n"
+                )
+            
+            # Add weekly archives if available
+            if weekly_archives_section:
+                dynamic_instruction += weekly_archives_section
+                dynamic_instruction += (
+                    "\nUse the weekly archives to:\n"
+                    "- Recognize long-term patterns and progress\n"
+                    "- Reference past breakthroughs or challenges when relevant\n"
+                    "- Celebrate growth over weeks (e.g., 'You've come a long way since...')\n"
+                    "- Connect current struggles to past experiences\n"
+                    "- Notice recurring themes or triggers\n\n"
                 )
 
             if generated_questions:
@@ -394,7 +552,7 @@ class LiveAPIWebSocketServer:
 
             dynamic_instruction += "--------------------------"
             
-            logger.info(f"Generated dynamic instruction for UID {uid}")
+            logger.info(f"Generated dynamic instruction with unified context for UID {uid}")
             return dynamic_instruction
 
         except requests.exceptions.RequestException as e:
