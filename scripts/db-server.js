@@ -113,11 +113,310 @@ app.post("/save-summary", async (req, res) => {
   }
 
   try {
-    // Save to new summaries subcollection
-    const summaryRef = db.collection("users").doc(uid).collection("summaries").doc("latestSummary")
-    await summaryRef.set(summary, { merge: true })
-    res.status(200).send({ message: "Summary saved successfully" })
+    const { summary_data, meta } = summary
+    const sessionId = meta?.session_id || `sess_${Date.now()}`
+    const timestamp = admin.firestore.FieldValue.serverTimestamp()
+    
+    // 1. Save to metrics/{sessionId} (flat structure with source tracking)
+    const metricsData = {
+      timestamp,
+      sessionId,
+      source: "ai_session", // Track data source for multi-source analytics
+      confidence: 0.90, // AI session confidence weight
+      duration_minutes: meta?.duration_minutes || null,
+      
+      // Core numeric metrics
+      mood_percentage: summary_data?.mood_percentage || 0,
+      energy_level: summary_data?.energy_level || 0,
+      stress_level: summary_data?.stress_level || 0,
+      cognitive_score: summary_data?.cognitive_score || 0,
+      emotional_score: summary_data?.emotional_score || 0,
+      anxiety_level: summary_data?.anxiety_level || null,
+      
+      // Sleep metrics
+      sleep_quality: summary_data?.sleep_quality || null,
+      sleep_duration_hours: summary_data?.sleep_duration_hours || null,
+      
+      // Additional metrics
+      mood_stability: summary_data?.mood_stability || null,
+      mood_calmness: summary_data?.mood_calmness || null,
+      social_connection_level: summary_data?.social_connection_level || null,
+      physical_activity_minutes: summary_data?.physical_activity_minutes || null,
+      focus_level: summary_data?.focus_level || null,
+      
+      // Arrays (short data)
+      main_topics: summary_data?.main_points || summary_data?.main_topics || [],
+      suggested_exercises: summary_data?.suggested_exercises || [],
+      risk_flags: summary_data?.risk_flags || {},
+      
+      // Metadata
+      language: summary_data?.language || "en",
+      sentiment: summary_data?.mood || summary_data?.sentiment || "neutral",
+    }
+    
+    await db.collection("users").doc(uid)
+      .collection("metrics").doc(sessionId)
+      .set(metricsData)
+    
+    // 2. Save to summaries subcollection (text data for AI context)
+    const summaryData = {
+      timestamp,
+      sessionId,
+      
+      // Full text summary
+      summary_text: summary_data?.summary || summary_data?.raw || "",
+      
+      // Key insights
+      key_topics: summary_data?.main_points || summary_data?.main_topics || [],
+      key_phrases: summary_data?.emotions_themes || [],
+      
+      // Conversation flow
+      sentiment_trajectory: summary_data?.mood_stability || "",
+      
+      // Action items & strategies
+      action_items: summary_data?.action_items_suggested || summary_data?.action_items || [],
+      coping_strategies: summary_data?.coping_strategies_discussed || [],
+      suggestions: summary_data?.suggestions_non_clinical || [],
+      
+      // Flags & concerns
+      ongoing_concerns: summary_data?.stressors || [],
+      risk_flags: summary_data?.risk_flags || {},
+      urgency_level: summary_data?.urgency_level || "low",
+      
+      // Strengths & positives
+      strengths_shown: summary_data?.protective_factors || [],
+      positive_moments: summary_data?.positive_event || null,
+      
+      // Goals
+      goals: summary_data?.goals_or_hopes || [],
+      
+      // Original meta
+      meta: meta || {}
+    }
+    
+    await db.collection("users").doc(uid)
+      .collection("summaries").doc(sessionId)
+      .set(summaryData)
+    
+    // 3. Update latest/metrics (cache for quick access)
+    const latestCache = {
+      sessionId,
+      timestamp,
+      source: "ai_session",
+      confidence: 0.90,
+      mood_percentage: summary_data?.mood_percentage || 0,
+      energy_level: summary_data?.energy_level || 0,
+      stress_level: summary_data?.stress_level || 0,
+      sleep_quality: summary_data?.sleep_quality || null,
+      cognitive_score: summary_data?.cognitive_score || 0,
+      emotional_score: summary_data?.emotional_score || 0,
+      main_topics: (summary_data?.main_points || summary_data?.main_topics || []).slice(0, 3),
+      suggested_exercises: (summary_data?.suggested_exercises || []).slice(0, 3),
+      risk_flags: summary_data?.risk_flags || {},
+    }
+    
+    await db.collection("users").doc(uid)
+      .collection("latest").doc("metrics")
+      .set(latestCache)
+    
+    console.log(`✅ Summary saved for user ${uid} with flat metrics structure:`)
+    console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%)`)
+    console.log(`   - summaries/${sessionId}`)
+    console.log(`   - latest/metrics (cache updated)`)
+    
+    res.status(200).send({ 
+      message: "Summary saved successfully with source tracking",
+      sessionId,
+      source: "ai_session",
+      confidence: 0.90,
+      paths: {
+        metrics: `users/${uid}/metrics/${sessionId}`,
+        summary: `users/${uid}/summaries/${sessionId}`,
+        latest: `users/${uid}/latest/metrics`
+      }
+    })
   } catch (error) {
+    console.error("Error saving summary:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
+// Save journal entry metrics (extracted by AI)
+app.post("/save-journal-metrics", async (req, res) => {
+  const { uid, entryId, metrics } = req.body
+  
+  if (!uid || !entryId || !metrics) {
+    return res.status(400).send({ error: "Missing uid, entryId, or metrics" })
+  }
+
+  try {
+    const metricId = `jour_${Date.now()}`
+    const timestamp = admin.firestore.FieldValue.serverTimestamp()
+
+    // Build metrics data (same structure as AI sessions!)
+    const metricsData = {
+      timestamp,
+      metricId,
+      source: "journal_entry",
+      confidence: metrics.confidence || 0.75,
+      entry_id: entryId,
+      
+      // Core metrics (0-100 scale)
+      mood_percentage: metrics.mood_percentage || null,
+      energy_level: metrics.energy_level || null,
+      stress_level: metrics.stress_level || null,
+      anxiety_level: metrics.anxiety_level || null,
+      emotional_score: metrics.emotional_score || null,
+      cognitive_score: metrics.cognitive_score || null,
+      
+      // Behavioral metrics
+      sleep_quality: metrics.sleep_quality || null,
+      sleep_duration_hours: metrics.sleep_duration_hours || null,
+      social_connection_level: metrics.social_connection_level || null,
+      physical_activity_minutes: metrics.physical_activity_minutes || null,
+      focus_level: metrics.focus_level || null,
+      
+      // Emotional granularity
+      mood_stability: metrics.mood_stability || null,
+      mood_calmness: metrics.mood_calmness || null,
+      
+      // Context arrays
+      main_topics: metrics.main_topics || [],
+      stressors: metrics.stressors || [],
+      protective_factors: metrics.protective_factors || [],
+      coping_strategies_discussed: metrics.coping_strategies_discussed || [],
+      goals_or_hopes: metrics.goals_or_hopes || [],
+      
+      // Additional context
+      positive_event: metrics.positive_event || null,
+      sentiment: metrics.sentiment || "neutral",
+      
+      // Risk assessment
+      risk_flags: metrics.risk_flags || {
+        mentions_self_harm: false,
+        mentions_harming_others: false,
+        mentions_abuse_or_unsafe: false,
+        urgent_support_recommended: false
+      },
+      
+      // Metadata
+      analyzed_at: metrics.analyzed_at || null
+    }
+
+    // Save to flat metrics structure
+    await db.collection("users").doc(uid)
+      .collection("metrics").doc(metricId)
+      .set(metricsData)
+
+    // Update latest cache if this has mood data
+    if (metrics.mood_percentage !== null) {
+      const latestCache = {
+        metricId,
+        timestamp,
+        source: "journal_entry",
+        confidence: metrics.confidence || 0.75,
+        mood_percentage: metrics.mood_percentage,
+        energy_level: metrics.energy_level || null,
+        stress_level: metrics.stress_level || null,
+        anxiety_level: metrics.anxiety_level || null,
+        main_topics: (metrics.main_topics || []).slice(0, 3),
+        sentiment: metrics.sentiment || "neutral",
+        risk_flags: metrics.risk_flags || {}
+      }
+      
+      await db.collection("users").doc(uid)
+        .collection("latest").doc("metrics")
+        .set(latestCache)
+    }
+
+    console.log(`✅ Journal metrics saved: users/${uid}/metrics/${metricId}`)
+    console.log(`   Source: journal_entry, Confidence: ${Math.round((metrics.confidence || 0.75) * 100)}%`)
+    console.log(`   Entry ID: ${entryId}`)
+
+    res.status(200).send({
+      message: "Journal metrics saved successfully",
+      metricId,
+      source: "journal_entry",
+      confidence: metrics.confidence || 0.75,
+      path: `users/${uid}/metrics/${metricId}`
+    })
+
+  } catch (error) {
+    console.error("Error saving journal metrics:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
+// Save journal entry summary (confidence-based storage)
+app.post("/save-journal-summary", async (req, res) => {
+  const { uid, entryId, summary } = req.body
+  
+  if (!uid || !entryId || !summary) {
+    return res.status(400).send({ error: "Missing uid, entryId, or summary" })
+  }
+
+  try {
+    // Check if summary should be stored (confidence >= 0.65)
+    if (!summary.summary_generated || summary.confidence < 0.65) {
+      console.log(`⏭️  Journal summary NOT stored (confidence: ${summary.confidence || 0}, reason: ${summary.reasoning || 'below threshold'})`)
+      return res.status(200).send({
+        message: "Summary not stored (below confidence threshold)",
+        stored: false,
+        confidence: summary.confidence,
+        reasoning: summary.reasoning
+      })
+    }
+
+    const summaryId = `jour_${Date.now()}`
+    const timestamp = admin.firestore.FieldValue.serverTimestamp()
+
+    // Build summary data for unified summaries collection
+    const summaryData = {
+      timestamp,
+      summaryId,
+      source: "journal_entry",
+      entry_id: entryId,
+      
+      // AI-generated summary
+      summary_text: summary.summary_text,
+      
+      // Context data
+      key_topics: summary.key_topics || [],
+      key_insights: summary.key_insights || [],
+      emotional_themes: summary.emotional_themes || [],
+      stressors: summary.stressors || [],
+      goals: summary.goals || [],
+      
+      // User-provided data
+      mood_emoji: summary.mood_emoji || null,
+      title: summary.title || "Untitled",
+      
+      // Quality indicators
+      confidence: summary.confidence,
+      value_category: summary.value_category || "moderate"
+    }
+
+    // Save to unified summaries collection (same collection as AI sessions!)
+    await db.collection("users").doc(uid)
+      .collection("summaries").doc(summaryId)
+      .set(summaryData)
+
+    console.log(`✅ Journal summary saved: users/${uid}/summaries/${summaryId}`)
+    console.log(`   Source: journal_entry, Confidence: ${Math.round(summary.confidence * 100)}%`)
+    console.log(`   Category: ${summary.value_category}, Entry ID: ${entryId}`)
+
+    res.status(200).send({
+      message: "Journal summary saved successfully",
+      summaryId,
+      source: "journal_entry",
+      confidence: summary.confidence,
+      value_category: summary.value_category,
+      stored: true,
+      path: `users/${uid}/summaries/${summaryId}`
+    })
+
+  } catch (error) {
+    console.error("Error saving journal summary:", error)
     res.status(500).send({ error: error.message })
   }
 })
@@ -166,9 +465,9 @@ app.post("/update-profile", async (req, res) => {
 app.get("/get-summary/:uid", async (req, res) => {
   const { uid } = req.params
   try {
-    // Read from new summaries subcollection
-    const summaryRef = db.collection("users").doc(uid).collection("summaries").doc("latestSummary")
-    const doc = await summaryRef.get()
+    // Read from new metrics/latest for quick access
+    const latestRef = db.collection("users").doc(uid).collection("metrics").doc("latest")
+    const doc = await latestRef.get()
     if (!doc.exists) {
       res.status(404).send({ error: "No summary found for this user." })
     } else {
@@ -184,11 +483,11 @@ app.get("/user/:uid", async (req, res) => {
   try {
     // Read from new subcollections
     const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
-    const summaryRef = db.collection("users").doc(uid).collection("summaries").doc("latestSummary")
+    const latestMetricsRef = db.collection("users").doc(uid).collection("metrics").doc("latest")
     
-    const [profileDoc, summaryDoc] = await Promise.all([
+    const [profileDoc, metricsDoc] = await Promise.all([
       profileRef.get(),
-      summaryRef.get()
+      latestMetricsRef.get()
     ])
     
     if (!profileDoc.exists) {
@@ -200,9 +499,11 @@ app.get("/user/:uid", async (req, res) => {
       ...profileDoc.data()
     }
     
-    // Add latestSummary if it exists
-    if (summaryDoc.exists) {
-      userData.latestSummary = summaryDoc.data()
+    // Add latestSummary (from metrics/latest) for backward compatibility
+    if (metricsDoc.exists) {
+      userData.latestSummary = {
+        summary_data: metricsDoc.data()
+      }
     }
     
     res.status(200).send(userData)
@@ -307,6 +608,122 @@ app.post("/get-user-context", async (req, res) => {
     
   } catch (error) {
     console.error("Context retrieval error:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
+// Get session summaries for AI context (last N summaries)
+// DEPRECATED: Use /get-all-summaries instead for unified timeline
+app.post("/get-session-summaries", async (req, res) => {
+  const { uid, limit = 7 } = req.body
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" })
+  }
+
+  try {
+    const summariesSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("summaries")
+      .where("source", "==", "ai_session")  // Filter for sessions only
+      .orderBy("timestamp", "desc")
+      .limit(limit)
+      .get()
+
+    const summaries = summariesSnapshot.docs.map(doc => {
+      const data = doc.data()
+      return {
+        sessionId: doc.id,
+        timestamp: data.timestamp?.toDate()?.toISOString() || null,
+        summary_text: data.summary_text || "",
+        key_topics: data.key_topics || [],
+        sentiment: data.sentiment || "neutral",
+        action_items: data.action_items || [],
+        risk_flags: data.risk_flags || []
+      }
+    })
+
+    res.status(200).send({ summaries, count: summaries.length })
+  } catch (error) {
+    console.error("Error fetching session summaries:", error)
+    res.status(500).send({ error: error.message })
+  }
+})
+
+// Get ALL summaries (sessions + journals) for AI context - UNIFIED TIMELINE
+app.post("/get-all-summaries", async (req, res) => {
+  const { uid, limit = 10 } = req.body
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" })
+  }
+
+  try {
+    // Fetch all summaries (both ai_session and journal_entry) from unified collection
+    const summariesSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("summaries")
+      .orderBy("timestamp", "desc")
+      .limit(limit)
+      .get()
+
+    const summaries = summariesSnapshot.docs.map(doc => {
+      const data = doc.data()
+      const source = data.source || "unknown"
+      
+      // Build unified summary format
+      const summary = {
+        id: doc.id,
+        source: source,  // "ai_session" or "journal_entry"
+        timestamp: data.timestamp?.toDate()?.toISOString() || null,
+        summary_text: data.summary_text || "",
+        key_topics: data.key_topics || [],
+        
+        // Common fields
+        confidence: data.confidence || (source === "ai_session" ? 0.90 : 0.75),
+      }
+      
+      // Add source-specific fields
+      if (source === "ai_session") {
+        summary.sessionId = data.sessionId || doc.id
+        summary.sentiment = data.sentiment || "neutral"
+        summary.action_items = data.action_items || []
+        summary.coping_strategies = data.coping_strategies_discussed || []
+        summary.ongoing_concerns = data.ongoing_concerns || []
+        summary.strengths_shown = data.strengths_shown || []
+      } else if (source === "journal_entry") {
+        summary.entryId = data.entry_id || doc.id
+        summary.mood_emoji = data.mood_emoji || null
+        summary.title = data.title || "Untitled"
+        summary.emotional_themes = data.emotional_themes || []
+        summary.stressors = data.stressors || []
+        summary.goals = data.goals || []
+        summary.value_category = data.value_category || "moderate"
+      }
+      
+      return summary
+    })
+
+    console.log(`📊 Fetched ${summaries.length} summaries (unified timeline) for user ${uid}`)
+    
+    // Count by source for logging
+    const sessionCount = summaries.filter(s => s.source === "ai_session").length
+    const journalCount = summaries.filter(s => s.source === "journal_entry").length
+    console.log(`   - ${sessionCount} AI sessions, ${journalCount} journal entries`)
+
+    res.status(200).send({
+      summaries,
+      total: summaries.length,
+      breakdown: {
+        ai_sessions: sessionCount,
+        journal_entries: journalCount
+      }
+    })
+
+  } catch (error) {
+    console.error("Error fetching all summaries:", error)
     res.status(500).send({ error: error.message })
   }
 })

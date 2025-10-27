@@ -296,7 +296,42 @@ class LiveAPIWebSocketServer:
             user_name = user_data.get("name", "there")
             latest_summary = user_data.get("latestSummary", {}).get("summary_data", {})
 
-            # 2. Generate questions using Gemini based on the summary
+            # 2. Fetch recent session summaries (last 7 sessions)
+            summaries_response = requests.post(
+                "http://localhost:3000/get-session-summaries",
+                json={"uid": uid, "limit": 7}
+            )
+            
+            session_history = ""
+            if summaries_response.status_code == 200:
+                summaries_data = summaries_response.json()
+                summaries = summaries_data.get("summaries", [])
+                
+                if summaries:
+                    from datetime import datetime
+                    session_history = "\n\n--- Recent Session History (Last 7 Sessions) ---\n"
+                    for idx, summary in enumerate(summaries, 1):
+                        timestamp = summary.get("timestamp")
+                        days_ago = "recent"
+                        if timestamp:
+                            try:
+                                session_date = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                                days_diff = (datetime.now(session_date.tzinfo) - session_date).days
+                                days_ago = f"{days_diff} day(s) ago"
+                            except:
+                                pass
+                        
+                        session_text = summary.get("summary_text", "")
+                        key_topics = summary.get("key_topics", [])
+                        
+                        session_history += f"\nSession {idx} ({days_ago}):\n"
+                        session_history += f"{session_text}\n"
+                        if key_topics:
+                            session_history += f"Key topics: {', '.join(key_topics)}\n"
+                    
+                    session_history += "------------------------------------------------\n"
+
+            # 3. Generate questions using Gemini based on the latest summary
             generated_questions = ""
             if latest_summary:
                 question_prompt = (
@@ -327,7 +362,7 @@ class LiveAPIWebSocketServer:
                     logger.error(f"Error generating questions with Gemini: {e}")
                     generated_questions = "How have you been feeling since we last talked?" # Fallback question
 
-            # 3. Construct the dynamic system instruction
+            # 4. Construct the dynamic system instruction with session history
             greeting = f"Start the conversation by warmly welcoming the user back. Greet them by name: '{user_name}'."
             
             dynamic_instruction = (
@@ -335,6 +370,18 @@ class LiveAPIWebSocketServer:
                 f"--- Conversation Context ---\n"
                 f"{greeting}\n"
             )
+
+            # Add session history if available
+            if session_history:
+                dynamic_instruction += session_history
+                dynamic_instruction += (
+                    "\nUse the session history above to:\n"
+                    "- Reference past topics naturally when relevant\n"
+                    "- Follow up on action items from previous sessions\n"
+                    "- Notice patterns across sessions\n"
+                    "- Celebrate progress and gently address ongoing concerns\n"
+                    "- Avoid repeating questions the user already answered\n\n"
+                )
 
             if generated_questions:
                 dynamic_instruction += (

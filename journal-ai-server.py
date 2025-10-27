@@ -501,6 +501,473 @@ Recent journal entries (most recent first):"""
         )
 
 
+async def evaluate_journal_summary_value(entry_data: dict) -> dict:
+    """
+    Determine if journal entry warrants summary storage
+    Returns confidence score and decision on whether to store
+    Threshold: 0.65 (only store if >= 0.65)
+    """
+    try:
+        title = entry_data.get('title', 'Untitled')
+        mood_emoji = entry_data.get('mood', 'not specified')
+        content_text = entry_data.get('content_text', '')
+        
+        evaluation_prompt = f"""Analyze this journal entry to determine its value for mental health tracking.
+
+JOURNAL ENTRY:
+Title: {title}
+Mood: {mood_emoji}
+Content: {content_text}
+
+EVALUATION CRITERIA:
+Rate how valuable this entry is for understanding the user's mental wellness journey.
+
+Consider:
+1. Emotional depth (stress, anxiety, depression, joy indicators)
+2. Behavioral patterns (sleep, social interactions, coping strategies)
+3. Significant life events affecting mental health
+4. Progress or setbacks in wellness journey
+5. Risk factors or protective factors
+6. Self-reflection and emotional awareness
+
+VALUE CATEGORIES:
+- CRISIS (1.0): Self-harm, suicidal ideation, severe distress, urgent support needed
+- SIGNIFICANT (0.80-0.95): Major emotional events, therapy breakthroughs, important realizations
+- MODERATE (0.65-0.79): Meaningful mood check-ins, coping strategies used, progress noted
+- ROUTINE (0.40-0.64): Daily activities with minimal emotional content
+- IRRELEVANT (0.20-0.39): Pure routine logging, no mental health relevance
+
+Return ONLY a valid JSON object:
+{{
+  "confidence": 0.0-1.0,
+  "value_category": "crisis" | "significant" | "moderate" | "routine" | "irrelevant",
+  "should_store_summary": boolean,
+  "key_insights": ["insight1", "insight2"],
+  "reasoning": "Brief explanation of rating"
+}}
+
+IMPORTANT: 
+- should_store_summary = true if confidence >= 0.65
+- should_store_summary = false if confidence < 0.65"""
+
+        logger.info(f"Evaluating journal entry summary value")
+        
+        response = await client.aio.models.generate_content(
+            model=MODEL,
+            contents=[evaluation_prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                top_p=0.95,
+                response_mime_type="application/json"
+            )
+        )
+        
+        # Extract text from response
+        text = ""
+        if response and getattr(response, "candidates", None):
+            for c in response.candidates:
+                if getattr(c, "content", None) and getattr(c.content, "parts", None):
+                    for p in c.content.parts:
+                        if getattr(p, "text", None):
+                            text += p.text
+        
+        evaluation = extract_json(text) if text else {}
+        
+        # Ensure confidence is within bounds
+        confidence = max(0.0, min(1.0, evaluation.get('confidence', 0.5)))
+        should_store = confidence >= 0.65
+        
+        result = {
+            'confidence': confidence,
+            'value_category': evaluation.get('value_category', 'routine'),
+            'should_store_summary': should_store,
+            'key_insights': evaluation.get('key_insights', []),
+            'reasoning': evaluation.get('reasoning', 'Unable to evaluate')
+        }
+        
+        logger.info(f"Evaluation result: {result['value_category']} (confidence: {confidence:.2f}, store: {should_store})")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error evaluating journal summary value: {e}")
+        # Default to storing if evaluation fails (fail-safe)
+        return {
+            'confidence': 0.70,
+            'value_category': 'moderate',
+            'should_store_summary': True,
+            'key_insights': [],
+            'reasoning': 'Evaluation failed, defaulting to store'
+        }
+
+
+async def generate_journal_summary(uid: str, entry_data: dict, evaluation: dict) -> dict:
+    """
+    Generate narrative summary for journal entry (only if has mental health value)
+    Similar to AI session summaries but from journal content
+    """
+    try:
+        title = entry_data.get('title', 'Untitled')
+        mood_emoji = entry_data.get('mood', 'not specified')
+        content_text = entry_data.get('content_text', '')
+        key_insights = evaluation.get('key_insights', [])
+        
+        summary_prompt = f"""Generate a concise narrative summary of this journal entry for mental health tracking.
+
+JOURNAL ENTRY:
+Title: {title}
+Mood: {mood_emoji}
+Content: {content_text}
+
+KEY INSIGHTS IDENTIFIED:
+{', '.join(key_insights) if key_insights else 'General mental wellness update'}
+
+INSTRUCTIONS:
+Create a 3-4 sentence summary that captures:
+1. Main emotional themes and mental state
+2. Key events or stressors mentioned
+3. Coping strategies or protective factors noted
+4. Any goals, hopes, or concerns expressed
+
+Write in third person ("User wrote about...", "They expressed...") for consistent AI context building.
+Focus on mental health aspects, not routine details.
+Be compassionate and non-judgmental in tone.
+
+Return the summary as plain text (no JSON, no formatting)."""
+
+        logger.info(f"Generating narrative summary for journal entry")
+        
+        response = await client.aio.models.generate_content(
+            model=MODEL,
+            contents=[summary_prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.7,  # Slightly creative for natural language
+                top_p=0.95,
+                max_output_tokens=300
+            )
+        )
+        
+        # Extract summary text
+        summary_text = ""
+        if response and getattr(response, "candidates", None):
+            for c in response.candidates:
+                if getattr(c, "content", None) and getattr(c.content, "parts", None):
+                    for p in c.content.parts:
+                        if getattr(p, "text", None):
+                            summary_text += p.text
+        
+        if not summary_text:
+            summary_text = f"User wrote about {title.lower() if title != 'Untitled' else 'their day'} with a {mood_emoji} mood."
+        
+        logger.info(f"✅ Summary generated: {len(summary_text)} characters")
+        
+        return {
+            'summary_generated': True,
+            'summary_text': summary_text.strip(),
+            'confidence': evaluation['confidence'],
+            'value_category': evaluation['value_category'],
+            'key_insights': key_insights
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating journal summary: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # Return minimal summary on error
+        return {
+            'summary_generated': True,
+            'summary_text': f"User created a journal entry titled '{entry_data.get('title', 'Untitled')}' with mood {entry_data.get('mood', 'not specified')}.",
+            'confidence': evaluation.get('confidence', 0.70),
+            'value_category': evaluation.get('value_category', 'moderate'),
+            'key_insights': []
+        }
+
+
+def calculate_journal_confidence(entry_data: dict) -> float:
+    """
+    Calculate dynamic confidence based on journal entry richness
+    Range: 0.65 - 0.85 (never exceeds AI session confidence of 0.90)
+    """
+    base_confidence = 0.70  # Start here
+    
+    content_length = len(entry_data.get('content_text', ''))
+    has_reflection = entry_data.get('reflection_qa') is not None
+    emoji_provided = entry_data.get('mood') is not None
+    has_title = entry_data.get('title') and entry_data.get('title') != 'Untitled'
+    
+    # Boost for long, detailed entry
+    if content_length > 500:
+        base_confidence += 0.05
+    elif content_length > 300:
+        base_confidence += 0.03
+    
+    # Boost for reflection Q&A answered
+    if has_reflection:
+        base_confidence += 0.05
+    
+    # Boost for explicit emotion keywords
+    emotion_keywords = ['feel', 'felt', 'feeling', 'emotion', 'anxious', 'happy', 'sad', 'stressed', 'worried', 'excited', 'afraid', 'angry', 'frustrated', 'hopeful']
+    content_lower = entry_data.get('content_text', '').lower()
+    emotion_count = sum(1 for keyword in emotion_keywords if keyword in content_lower)
+    
+    if emotion_count >= 3:
+        base_confidence += 0.03
+    elif emotion_count >= 1:
+        base_confidence += 0.02
+    
+    # Boost for title provided
+    if has_title:
+        base_confidence += 0.02
+    
+    # Cap at 0.85 (never higher than AI session)
+    return min(base_confidence, 0.85)
+
+
+async def extract_journal_metrics(uid: str, entry_data: dict) -> dict:
+    """
+    Extract wellness metrics from journal entry using Gemini
+    Returns same format as AI session summaries for unified analytics
+    """
+    try:
+        # Extract entry details
+        entry_id = entry_data.get('id', 'unknown')
+        title = entry_data.get('title', 'Untitled')
+        mood_emoji = entry_data.get('mood', 'not specified')
+        content_text = entry_data.get('content_text', '')
+        reflection_qa = entry_data.get('reflection_qa', None)
+        
+        # Build comprehensive analysis prompt
+        analysis_prompt = f"""You are analyzing a mental wellness journal entry to extract structured metrics.
+
+JOURNAL ENTRY DETAILS:
+Title: {title}
+User's Mood Selection (emoji): {mood_emoji}
+Entry Content:
+{content_text}
+
+Reflection Q&A Responses:
+{reflection_qa if reflection_qa else "No reflection questions answered yet"}
+
+YOUR TASK:
+Extract wellness metrics from this journal entry. Analyze the text carefully for:
+- Emotional state and mood indicators
+- Energy level mentions ("tired", "energetic", "exhausted")
+- Stress indicators ("overwhelmed", "stressed", "pressure")
+- Anxiety mentions ("anxious", "worried", "nervous")
+- Sleep quality and duration mentions
+- Social connection references ("alone", "friends", "isolated", "connected")
+- Physical activity mentions
+- Cognitive function indicators ("focused", "can't concentrate", "clear thinking")
+
+IMPORTANT SCORING GUIDELINES:
+- mood_percentage: 0-100 (0=severe distress, 50=neutral, 100=thriving)
+  Consider overall emotional tone, not just the emoji
+- energy_level: 0-100 (0=exhausted, 100=highly energetic)
+- stress_level: 0-100 (0=no stress, 100=extreme stress)
+- anxiety_level: 0-100 (0=calm, 100=severe anxiety)
+- emotional_score: 0-100 (emotional awareness and regulation)
+- cognitive_score: 0-100 (focus, clarity, problem-solving ability)
+
+If a metric is not mentioned or cannot be inferred, set it to null.
+
+Return ONLY a valid JSON object with this structure:
+{{
+  "mood_percentage": number or null,
+  "energy_level": number or null,
+  "stress_level": number or null,
+  "anxiety_level": number or null,
+  "emotional_score": number or null,
+  "cognitive_score": number or null,
+  "sleep_quality": "Rested" | "Okay" | "Exhausted" | null,
+  "sleep_duration_hours": number or null,
+  "social_connection_level": "Isolated" | "Some Connection" | "Connected" | null,
+  "physical_activity_minutes": number or null,
+  "focus_level": "Focused" | "Distracted" | "Scattered" | null,
+  "mood_stability": "stable" | "fluctuating" | "improving" | "declining" | null,
+  "mood_calmness": "calm" | "anxious" | "agitated" | "relaxed" | null,
+  "main_topics": ["topic1", "topic2"],
+  "stressors": ["stressor1", "stressor2"],
+  "protective_factors": ["strength1", "strength2"],
+  "coping_strategies_discussed": ["strategy1"],
+  "goals_or_hopes": ["goal1"],
+  "positive_event": "brief description" or null,
+  "sentiment": "positive" | "negative" | "mixed" | "neutral",
+  "risk_flags": {{
+    "mentions_self_harm": boolean,
+    "mentions_harming_others": boolean,
+    "mentions_abuse_or_unsafe": boolean,
+    "urgent_support_recommended": boolean
+  }}
+}}"""
+
+        logger.info(f"Extracting metrics from journal entry {entry_id} for user {uid}")
+        
+        # Call Gemini for analysis
+        response = await client.aio.models.generate_content(
+            model=MODEL,
+            contents=[analysis_prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.3,  # Lower temperature for consistent metric extraction
+                top_p=0.95,
+                response_mime_type="application/json"
+            )
+        )
+        
+        # Extract text from response
+        text = ""
+        if response and getattr(response, "candidates", None):
+            for c in response.candidates:
+                if getattr(c, "content", None) and getattr(c.content, "parts", None):
+                    for p in c.content.parts:
+                        if getattr(p, "text", None):
+                            text += p.text
+        
+        logger.info(f"Raw Gemini metrics response: {text}")
+        
+        # Parse JSON response
+        metrics = extract_json(text) if text else {}
+        
+        # Validate metrics are within bounds
+        for key in ['mood_percentage', 'energy_level', 'stress_level', 'anxiety_level', 'emotional_score', 'cognitive_score']:
+            if key in metrics and metrics[key] is not None:
+                # Ensure values are between 0-100
+                metrics[key] = max(0, min(100, metrics[key]))
+        
+        # Calculate dynamic confidence
+        confidence = calculate_journal_confidence(entry_data)
+        
+        # Add metadata
+        metrics['source'] = 'journal_entry'
+        metrics['confidence'] = confidence
+        metrics['entry_id'] = entry_id
+        metrics['analyzed_at'] = datetime.now(timezone.utc).isoformat()
+        
+        logger.info(f"✅ Metrics extracted with confidence: {confidence}")
+        
+        return {
+            'success': True,
+            'metrics': metrics,
+            'confidence': confidence
+        }
+        
+    except Exception as e:
+        logger.error(f"Error extracting journal metrics: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # Return minimal fallback metrics based on emoji
+        mood_map = {
+            'very-happy': 85,
+            'happy': 70,
+            'neutral': 50,
+            'sad': 35,
+            'very-sad': 20
+        }
+        
+        fallback_mood = mood_map.get(entry_data.get('mood'), 50)
+        
+        return {
+            'success': False,
+            'error': str(e),
+            'metrics': {
+                'mood_percentage': fallback_mood,
+                'source': 'journal_entry',
+                'confidence': 0.60,  # Low confidence for fallback
+                'entry_id': entry_data.get('id', 'unknown'),
+                'sentiment': 'neutral',
+                'main_topics': [],
+                'risk_flags': {
+                    'mentions_self_harm': False,
+                    'mentions_harming_others': False,
+                    'mentions_abuse_or_unsafe': False,
+                    'urgent_support_recommended': False
+                }
+            }
+        }
+
+
+async def handle_extract_metrics(request):
+    """
+    POST /extract-journal-metrics
+    Extract wellness metrics AND evaluate if summary should be stored
+    Body: {
+        "uid": "user_id",
+        "entry": {
+            "id": "entry_id",
+            "title": "Entry title",
+            "mood": "happy",
+            "content_text": "Plain text content...",
+            "reflection_qa": "Q&A responses (optional)"
+        }
+    }
+    
+    Returns: {
+        "success": true,
+        "metrics": {...},
+        "summary": {
+            "summary_generated": true/false,
+            "summary_text": "...",
+            "confidence": 0.75,
+            "should_store": true/false
+        }
+    }
+    """
+    try:
+        data = await request.json()
+        uid = data.get('uid')
+        entry = data.get('entry', {})
+        
+        if not uid:
+            return web.json_response(
+                {'error': 'Missing uid parameter'},
+                status=400
+            )
+        
+        if not entry.get('content_text'):
+            return web.json_response(
+                {'error': 'Missing entry content_text'},
+                status=400
+            )
+        
+        logger.info(f"Processing journal entry {entry.get('id')} for user {uid}")
+        
+        # Step 1: Extract metrics (always done)
+        metrics_result = await extract_journal_metrics(uid, entry)
+        
+        # Step 2: Evaluate if summary should be stored
+        evaluation = await evaluate_journal_summary_value(entry)
+        
+        # Step 3: Generate summary only if confidence >= 0.65
+        if evaluation['should_store_summary']:
+            summary_result = await generate_journal_summary(uid, entry, evaluation)
+            logger.info(f"✅ Summary will be stored (confidence: {evaluation['confidence']:.2f})")
+        else:
+            summary_result = {
+                'summary_generated': False,
+                'summary_text': None,
+                'confidence': evaluation['confidence'],
+                'value_category': evaluation['value_category'],
+                'reasoning': evaluation['reasoning'],
+                'should_store': False
+            }
+            logger.info(f"⏭️  Summary skipped (confidence: {evaluation['confidence']:.2f}, reason: {evaluation['reasoning']})")
+        
+        # Return both metrics and summary decision
+        return web.json_response({
+            'success': True,
+            'metrics': metrics_result.get('metrics', {}),
+            'summary': summary_result
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in handle_extract_metrics: {e}")
+        return web.json_response(
+            {'error': str(e), 'success': False},
+            status=500
+        )
+
+
 async def init_app():
     """Initialize the aiohttp application"""
     app = web.Application()
@@ -509,6 +976,7 @@ async def init_app():
     app.router.add_get('/health', health_check)
     app.router.add_post('/generate-reflection-questions', handle_reflection_questions)
     app.router.add_post('/journal-chat', handle_journal_chat)
+    app.router.add_post('/extract-journal-metrics', handle_extract_metrics)
     
     return app
 
