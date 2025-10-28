@@ -311,6 +311,42 @@ class LiveAPIWebSocketServer:
                 f"http://localhost:3000/get-weekly-archives/{uid}?limit=4"
             )
             
+            # 4. Fetch user profile (long-term understanding)
+            logger.info(f"Fetching user profile for UID: {uid}")
+            user_profile_response = requests.get(
+                f"http://localhost:3000/user-profile/{uid}"
+            )
+            
+            # 4a. Initialize profile if it doesn't exist (404 means not found)
+            if user_profile_response.status_code == 404:
+                logger.info(f"Profile not found for UID {uid} (404), initializing empty profile...")
+                try:
+                    init_response = requests.post(
+                        f"http://localhost:3000/initialize-profile/{uid}"
+                    )
+                    if init_response.status_code in [200, 201]:
+                        logger.info(f"✅ Initialized empty profile for UID {uid}")
+                        # Fetch again to get the initialized profile
+                        user_profile_response = requests.get(
+                            f"http://localhost:3000/user-profile/{uid}"
+                        )
+                        if user_profile_response.status_code == 200:
+                            logger.info(f"✅ Profile fetched successfully after initialization")
+                    else:
+                        logger.error(f"Failed to initialize profile. Status: {init_response.status_code}")
+                except Exception as init_error:
+                    logger.error(f"Error initializing profile: {init_error}")
+            
+            # 4b. Validate profile data
+            if user_profile_response.status_code == 200:
+                profile_data = user_profile_response.json()
+                if profile_data.get("exists"):
+                    logger.info(f"✅ Profile exists for UID {uid}, including in context")
+                else:
+                    logger.warning(f"Profile response OK but exists=false for UID {uid}")
+            else:
+                logger.error(f"❌ Failed to fetch user profile. Status: {user_profile_response.status_code}")
+            
             recent_activity = ""
             if all_summaries_response.status_code == 200:
                 summaries_data = all_summaries_response.json()
@@ -475,6 +511,192 @@ class LiveAPIWebSocketServer:
                     
                     logger.info(f"Included {len(archives)} weekly archives in context")
 
+            # Format user profile for AI context
+            user_profile_section = ""
+            if user_profile_response.status_code == 200:
+                profile_data = user_profile_response.json()
+                
+                if profile_data.get("exists"):
+                    profile = profile_data.get("profile", {})
+                    user_profile_section = "\n\n--- USER PROFILE (Long-term Understanding) ---\n"
+                    user_profile_section += "Deep knowledge built organically over time:\n\n"
+                    
+                    # Core Identity
+                    core = profile.get("core_identity", {})
+                    if any(core.values()):
+                        user_profile_section += "IDENTITY:\n"
+                        if core.get("preferred_name"):
+                            user_profile_section += f"  • Preferred name: {core['preferred_name']}\n"
+                        if core.get("age_range"):
+                            user_profile_section += f"  • Age range: {core['age_range']}\n"
+                        if core.get("gender_identity"):
+                            user_profile_section += f"  • Gender: {core['gender_identity']}\n"
+                        if core.get("pronouns"):
+                            user_profile_section += f"  • Pronouns: {core['pronouns']}\n"
+                        if core.get("region"):
+                            user_profile_section += f"  • Region: {core['region']}\n"
+                        user_profile_section += "\n"
+                    
+                    # Communication Style
+                    comm = profile.get("communication_profile", {})
+                    if any(comm.values()):
+                        user_profile_section += "COMMUNICATION STYLE:\n"
+                        if comm.get("verbal_expressiveness"):
+                            user_profile_section += f"  • Expressiveness: {comm['verbal_expressiveness']}\n"
+                        if comm.get("emotional_vocabulary_range"):
+                            user_profile_section += f"  • Emotional vocabulary: {comm['emotional_vocabulary_range']}\n"
+                        if comm.get("typical_conversation_length"):
+                            user_profile_section += f"  • Conversation length: {comm['typical_conversation_length']}\n"
+                        if comm.get("comfort_with_vulnerability"):
+                            user_profile_section += f"  • Comfort with vulnerability: {comm['comfort_with_vulnerability']}\n"
+                        if comm.get("uses_humor") is not None:
+                            user_profile_section += f"  • Uses humor: {'Yes' if comm['uses_humor'] else 'No'}\n"
+                        if comm.get("common_phrases"):
+                            phrases = comm['common_phrases']
+                            if isinstance(phrases, list) and phrases:
+                                user_profile_section += f"  • Common phrases: {', '.join(phrases[:3])}\n"
+                        user_profile_section += "\n"
+                    
+                    # Psychological Patterns
+                    psych = profile.get("psychological_profile", {})
+                    if any(psych.values()):
+                        user_profile_section += "PSYCHOLOGICAL PATTERNS:\n"
+                        if psych.get("typical_coping_mechanisms"):
+                            coping = psych['typical_coping_mechanisms']
+                            if isinstance(coping, list) and coping:
+                                user_profile_section += f"  • Coping mechanisms: {', '.join(coping)}\n"
+                        if psych.get("stress_response_pattern"):
+                            user_profile_section += f"  • Stress response: {psych['stress_response_pattern']}\n"
+                        if psych.get("core_beliefs"):
+                            beliefs = psych['core_beliefs']
+                            if isinstance(beliefs, list) and beliefs:
+                                user_profile_section += f"  • Core beliefs:\n"
+                                for belief in beliefs[:2]:
+                                    user_profile_section += f"    - {belief}\n"
+                        if psych.get("anxiety_triggers"):
+                            triggers = psych['anxiety_triggers']
+                            if isinstance(triggers, list) and triggers:
+                                user_profile_section += f"  • Anxiety triggers: {', '.join(triggers)}\n"
+                        user_profile_section += "\n"
+                    
+                    # Life Context
+                    life = profile.get("life_context_profile", {})
+                    if any(life.values()):
+                        user_profile_section += "LIFE CONTEXT:\n"
+                        if life.get("current_life_stage"):
+                            user_profile_section += f"  • Life stage: {life['current_life_stage']}\n"
+                        if life.get("academic_pressure_level"):
+                            user_profile_section += f"  • Academic pressure: {life['academic_pressure_level']}\n"
+                        if life.get("family_dynamics"):
+                            user_profile_section += f"  • Family dynamics: {life['family_dynamics']}\n"
+                        if life.get("social_support_level"):
+                            user_profile_section += f"  • Social support: {life['social_support_level']}\n"
+                        if life.get("upcoming_major_events"):
+                            events = life['upcoming_major_events']
+                            if isinstance(events, list) and events:
+                                user_profile_section += f"  • Upcoming events: {', '.join(events)}\n"
+                        user_profile_section += "\n"
+                    
+                    # Strengths
+                    strengths = profile.get("strengths_profile", {})
+                    if any(strengths.values()):
+                        user_profile_section += "STRENGTHS & RESOURCES:\n"
+                        if strengths.get("character_strengths"):
+                            chars = strengths['character_strengths']
+                            if isinstance(chars, list) and chars:
+                                user_profile_section += f"  • Character strengths: {', '.join(chars)}\n"
+                        if strengths.get("past_successes"):
+                            successes = strengths['past_successes']
+                            if isinstance(successes, list) and successes:
+                                user_profile_section += f"  • Past successes:\n"
+                                for success in successes[:2]:
+                                    user_profile_section += f"    - {success}\n"
+                        if strengths.get("activities_that_help"):
+                            activities = strengths['activities_that_help']
+                            if isinstance(activities, list) and activities:
+                                user_profile_section += f"  • Activities that help: {', '.join(activities)}\n"
+                        user_profile_section += "\n"
+                    
+                    # Behavioral Patterns
+                    behavior = profile.get("behavioral_profile", {})
+                    if any(behavior.values()):
+                        user_profile_section += "BEHAVIORAL PATTERNS:\n"
+                        if behavior.get("sleep_patterns"):
+                            user_profile_section += f"  • Sleep: {behavior['sleep_patterns']}\n"
+                        if behavior.get("physical_activity_habits"):
+                            user_profile_section += f"  • Physical activity: {behavior['physical_activity_habits']}\n"
+                        if behavior.get("social_withdrawal_patterns"):
+                            user_profile_section += f"  • Social patterns: {behavior['social_withdrawal_patterns']}\n"
+                        user_profile_section += "\n"
+                    
+                    # Treatment Response
+                    treatment = profile.get("treatment_response_profile", {})
+                    if any(treatment.values()):
+                        user_profile_section += "WHAT WORKS FOR THIS USER:\n"
+                        if treatment.get("helpful_exercises"):
+                            helpful = treatment['helpful_exercises']
+                            if isinstance(helpful, list) and helpful:
+                                user_profile_section += f"  • Helpful exercises: {', '.join(helpful)}\n"
+                        if treatment.get("unhelpful_exercises"):
+                            unhelpful = treatment['unhelpful_exercises']
+                            if isinstance(unhelpful, list) and unhelpful:
+                                user_profile_section += f"  • Avoid suggesting: {', '.join(unhelpful)}\n"
+                        if treatment.get("preferred_intervention_types"):
+                            preferred = treatment['preferred_intervention_types']
+                            if isinstance(preferred, list) and preferred:
+                                user_profile_section += f"  • Prefers: {', '.join(preferred)}\n"
+                        user_profile_section += "\n"
+                    
+                    # Cultural Context
+                    cultural = profile.get("cultural_profile", {})
+                    if any(cultural.values()):
+                        user_profile_section += "CULTURAL CONTEXT:\n"
+                        if cultural.get("family_cultural_expectations"):
+                            expectations = cultural['family_cultural_expectations']
+                            if isinstance(expectations, list) and expectations:
+                                user_profile_section += f"  • Family expectations: {', '.join(expectations)}\n"
+                        if cultural.get("stigma_concerns"):
+                            stigma = cultural['stigma_concerns']
+                            if isinstance(stigma, list) and stigma:
+                                user_profile_section += f"  • Stigma concerns: {', '.join(stigma)}\n"
+                        if cultural.get("family_mh_literacy"):
+                            user_profile_section += f"  • Family MH literacy: {cultural['family_mh_literacy']}\n"
+                        user_profile_section += "\n"
+                    
+                    # Risk Awareness (handled sensitively)
+                    risk = profile.get("risk_profile", {})
+                    if risk.get("risk_level") and risk['risk_level'] != "low":
+                        user_profile_section += "IMPORTANT CONSIDERATIONS:\n"
+                        if risk.get("protective_factors_present"):
+                            factors = risk['protective_factors_present']
+                            if isinstance(factors, list) and factors:
+                                user_profile_section += f"  • Protective factors: {', '.join(factors)}\n"
+                        if risk.get("coping_strategies_for_crisis"):
+                            strategies = risk['coping_strategies_for_crisis']
+                            if isinstance(strategies, list) and strategies:
+                                user_profile_section += f"  • Crisis coping: {', '.join(strategies)}\n"
+                        user_profile_section += "\n"
+                    
+                    # Metadata
+                    metadata = profile.get("metadata", {})
+                    confidence = metadata.get("confidence_level", "low")
+                    total_updates = metadata.get("total_updates", 0)
+                    
+                    user_profile_section += f"Profile confidence: {confidence} ({total_updates} updates)\n"
+                    user_profile_section += "-" * 50 + "\n\n"
+                    
+                    logger.info(f"Included user profile (confidence: {confidence}) in context")
+                else:
+                    # Profile doesn't exist yet - initialize it
+                    try:
+                        init_response = requests.post(
+                            f"http://localhost:3000/initialize-profile/{uid}"
+                        )
+                        if init_response.status_code in [200, 201]:
+                            logger.info(f"Initialized empty profile for new user: {uid}")
+                    except Exception as e:
+                        logger.error(f"Error initializing profile: {e}")
+
             # 4. Generate questions using Gemini based on the latest summary
             generated_questions = ""
             if latest_summary:
@@ -539,6 +761,30 @@ class LiveAPIWebSocketServer:
                     "- Celebrate growth over weeks (e.g., 'You've come a long way since...')\n"
                     "- Connect current struggles to past experiences\n"
                     "- Notice recurring themes or triggers\n\n"
+                )
+            
+            # Add user profile if available
+            if user_profile_section:
+                dynamic_instruction += user_profile_section
+                dynamic_instruction += (
+                    "\nUse the user profile to:\n"
+                    "- Adapt your communication style to match theirs (expressiveness, pace, directness)\n"
+                    "- Reference their strengths when they feel discouraged\n"
+                    "- Avoid suggesting interventions they find unhelpful\n"
+                    "- Be sensitive to cultural context and family dynamics\n"
+                    "- Use language that matches their emotional vocabulary range\n"
+                    "- Remember their coping mechanisms and reinforce what works\n"
+                    "- Connect current situations to their known triggers or patterns\n"
+                    "- NEVER explicitly mention 'the profile' - just naturally incorporate the knowledge\n"
+                    "- Treat profile as deep friendship understanding, not clinical data\n\n"
+                    "PROFILE UPDATE GUIDELINES:\n"
+                    "- Update profile fields organically during conversation (NEVER ask directly)\n"
+                    "- Use soft language: 'I've noticed...' not 'You are...'\n"
+                    "- Validate inferences: 'Does this resonate with you?'\n"
+                    "- Only update when you have clear evidence (multiple mentions or explicit statements)\n"
+                    "- For sensitive fields (trauma, self-harm, substance use): ONLY update if user explicitly shares\n"
+                    "- Mark your confidence level: high (user stated clearly) vs. inferred (pattern observed)\n"
+                    "- Use the update-profile endpoint to store new insights\n\n"
                 )
 
             if generated_questions:

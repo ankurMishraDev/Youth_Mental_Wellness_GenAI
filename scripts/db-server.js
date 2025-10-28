@@ -995,6 +995,333 @@ app.post("/seed-categories", async (req, res) => {
 });
 
 
+// ============================================================================
+// USER PROFILING ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /user-profile/:uid
+ * Fetch user's complete profile for AI context
+ */
+app.get("/user-profile/:uid", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    
+    const profileDoc = await db
+      .collection("users")
+      .doc(uid)
+      .collection("user_profiling")
+      .doc("user_details")
+      .get();
+    
+    if (!profileDoc.exists) {
+      // Profile doesn't exist yet - return null
+      return res.status(404).json({
+        exists: false,
+        message: "Profile not initialized",
+        uid
+      });
+    }
+    
+    const profile = profileDoc.data();
+    
+    res.status(200).json({
+      exists: true,
+      uid,
+      profile
+    });
+    
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /initialize-profile/:uid
+ * Initialize empty profile for new user
+ */
+app.post("/initialize-profile/:uid", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    
+    // Check if profile already exists
+    const existingProfile = await db
+      .collection("users")
+      .doc(uid)
+      .collection("user_profiling")
+      .doc("user_details")
+      .get();
+    
+    if (existingProfile.exists) {
+      return res.status(200).json({
+        message: "Profile already exists",
+        uid,
+        profile: existingProfile.data()
+      });
+    }
+    
+    // Initialize empty profile with all fields as null
+    const emptyProfile = {
+      core_identity: {
+        preferred_name: null,
+        age_range: null,
+        gender_identity: null,
+        pronouns: null,
+        primary_language: "English",
+        language_preferences: null,
+        cultural_background: null,
+        region: null,
+        last_updated: null
+      },
+      
+      communication_profile: {
+        verbal_expressiveness: null,
+        emotional_vocabulary_range: null,
+        typical_conversation_length: null,
+        preferred_conversation_pace: null,
+        uses_humor: null,
+        uses_sarcasm: null,
+        comfort_with_vulnerability: null,
+        directness_level: null,
+        code_switches: null,
+        common_phrases: null,
+        metaphors_used: null,
+        asks_clarifying_questions: null,
+        reflects_back_insights: null,
+        follows_up_on_suggestions: null,
+        engagement_trajectory: null,
+        last_updated: null
+      },
+      
+      psychological_profile: {
+        typical_coping_mechanisms: null,
+        healthy_coping_strategies: null,
+        unhealthy_coping_patterns: null,
+        emotional_regulation_capacity: null,
+        thinking_styles: null,
+        core_beliefs: null,
+        stress_response_pattern: null,
+        anxiety_triggers: null,
+        anxiety_manifestations: null,
+        baseline_mood_range: null,
+        mood_stability: null,
+        seasonal_patterns: null,
+        time_of_day_patterns: null,
+        last_updated: null
+      },
+      
+      life_context_profile: {
+        current_life_stage: null,
+        academic_pressure_level: null,
+        career_stressors: null,
+        academic_performance_concerns: null,
+        upcoming_major_events: null,
+        living_situation: null,
+        family_dynamics: null,
+        family_relationship_quality: null,
+        peer_relationships: null,
+        romantic_relationship_status: null,
+        social_support_level: null,
+        financial_stressors: null,
+        housing_stability: null,
+        access_to_resources: null,
+        last_updated: null
+      },
+      
+      historical_profile: {
+        childhood_experiences: null,
+        significant_life_events: null,
+        trauma_history: null,
+        trauma_disclosed: false,
+        safe_to_reference: false,
+        previous_mental_health_experiences: null,
+        prior_therapy_experience: null,
+        medication_history: null,
+        family_mental_health_history: null,
+        recent_major_stressors: null,
+        last_updated: null
+      },
+      
+      strengths_profile: {
+        character_strengths: null,
+        skills_and_capabilities: null,
+        interests_and_passions: null,
+        past_successes: null,
+        meaning_making_ability: null,
+        growth_mindset_indicators: null,
+        self_awareness_level: null,
+        supportive_relationships: null,
+        activities_that_help: null,
+        values_and_motivations: null,
+        last_updated: null
+      },
+      
+      behavioral_profile: {
+        sleep_patterns: null,
+        physical_activity_habits: null,
+        eating_patterns: null,
+        substance_use: null,
+        daily_routine_structure: null,
+        productivity_patterns: null,
+        procrastination_tendency: null,
+        social_withdrawal_patterns: null,
+        help_seeking_behavior: null,
+        boundary_setting_ability: null,
+        last_updated: null
+      },
+      
+      risk_profile: {
+        past_self_harm_behavior: false,
+        past_suicidal_ideation: false,
+        past_crisis_episodes: null,
+        current_warning_signs: null,
+        protective_factors_present: null,
+        risk_escalation_pattern: null,
+        identified_support_persons: null,
+        coping_strategies_for_crisis: null,
+        emergency_resources_awareness: null,
+        last_risk_assessment: null,
+        risk_level: null,
+        last_updated: null
+      },
+      
+      treatment_response_profile: {
+        helpful_exercises: null,
+        unhelpful_exercises: null,
+        preferred_intervention_types: null,
+        follows_through_on_suggestions: null,
+        reports_back_on_progress: null,
+        receptive_to_feedback: null,
+        resistance_patterns: null,
+        goals_identified: null,
+        goals_achieved: null,
+        barriers_to_progress: null,
+        trajectory_over_time: null,
+        last_updated: null
+      },
+      
+      cultural_profile: {
+        cultural_values: null,
+        family_cultural_expectations: null,
+        stigma_concerns: null,
+        gender_related_stressors: null,
+        safety_concerns: null,
+        discrimination_experiences: null,
+        traditional_support_systems: null,
+        cultural_healing_practices: null,
+        spirituality_role: null,
+        family_mh_literacy: null,
+        comfort_discussing_mh: null,
+        last_updated: null
+      },
+      
+      metadata: {
+        profile_created_at: admin.firestore.FieldValue.serverTimestamp(),
+        profile_version: "1.0",
+        total_updates: 0,
+        last_comprehensive_review: null,
+        confidence_level: "low",
+        data_sources: [],
+        user_validated_fields: null,
+        ai_inferred_fields: null
+      }
+    };
+    
+    await db
+      .collection("users")
+      .doc(uid)
+      .collection("user_profiling")
+      .doc("user_details")
+      .set(emptyProfile);
+    
+    console.log(`✅ Initialized profile for user: ${uid}`);
+    
+    res.status(201).json({
+      message: "Profile initialized successfully",
+      uid,
+      profile: emptyProfile
+    });
+    
+  } catch (error) {
+    console.error("Error initializing profile:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PATCH /update-profile/:uid
+ * Update specific fields in user profile
+ * Body: { category: "core_identity", updates: { preferred_name: "Alex" } }
+ */
+app.patch("/update-profile/:uid", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { category, updates } = req.body;
+    
+    if (!category || !updates) {
+      return res.status(400).json({
+        error: "Missing required fields: category and updates"
+      });
+    }
+    
+    // Valid profile categories
+    const validCategories = [
+      "core_identity",
+      "communication_profile",
+      "psychological_profile",
+      "life_context_profile",
+      "historical_profile",
+      "strengths_profile",
+      "behavioral_profile",
+      "risk_profile",
+      "treatment_response_profile",
+      "cultural_profile"
+    ];
+    
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({
+        error: `Invalid category. Must be one of: ${validCategories.join(", ")}`
+      });
+    }
+    
+    // Add last_updated timestamp to updates
+    const updatesWithTimestamp = {
+      ...updates,
+      last_updated: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    // Build update object with dot notation
+    const updateData = {};
+    Object.keys(updatesWithTimestamp).forEach(key => {
+      updateData[`${category}.${key}`] = updatesWithTimestamp[key];
+    });
+    
+    // Increment total_updates counter
+    updateData["metadata.total_updates"] = admin.firestore.FieldValue.increment(1);
+    
+    await db
+      .collection("users")
+      .doc(uid)
+      .collection("user_profiling")
+      .doc("user_details")
+      .update(updateData);
+    
+    console.log(`✅ Updated ${category} for user: ${uid}`);
+    
+    res.status(200).json({
+      message: "Profile updated successfully",
+      uid,
+      category,
+      updated_fields: Object.keys(updates)
+    });
+    
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)
 })
