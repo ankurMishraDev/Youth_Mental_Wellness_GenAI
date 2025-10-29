@@ -196,18 +196,18 @@ export interface ChatSession {
   startedAt: Date;
   endedAt?: Date;
   durationMinutes?: number;
-  
+
   // Compressed summary only (no full transcript)
   summary?: string; // AI-generated, 3-5 sentences
-  
+
   // Structured metadata
   topicsDiscussed: string[]; // ["anxiety", "work", "sleep"]
   moodAtStart?: MoodType;
   moodAtEnd?: MoodType;
-  
+
   // Actionable insights
   actionItems?: string[]; // ["Journal about work situation", "Try meditation"]
-  
+
   // Connections
   journalEntriesReferenced: string[]; // IDs of entries discussed
 }
@@ -237,12 +237,23 @@ export function moodToNumber(mood: MoodType): number {
 
 /**
  * Extract plain text from PortableText blocks
+ * Handles both normal PortableText arrays and encrypted strings
  */
-export function portableTextToPlainText(blocks: PortableTextBlock[]): string {
+export function portableTextToPlainText(blocks: PortableTextBlock[] | any): string {
+  // Handle encrypted content (string instead of array)
+  if (typeof blocks === 'string') {
+    return ''; // Return empty string for encrypted content (will be decrypted elsewhere)
+  }
+
+  // Handle null/undefined
+  if (!blocks || !Array.isArray(blocks)) {
+    return '';
+  }
+
   return blocks
     .map((block) => {
       if (block._type === 'block' && block.children) {
-        return block.children.map((child) => child.text).join('');
+        return block.children.map((child: PortableTextSpan) => child.text).join('');
       }
       return '';
     })

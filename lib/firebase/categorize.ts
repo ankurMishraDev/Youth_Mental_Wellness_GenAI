@@ -19,8 +19,12 @@ export async function categorizeJournalEntry(
   content: string
 ): Promise<CategorizationResult> {
   try {
+    // Construct absolute URL for server-side fetch
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const apiUrl = `${baseUrl}/api/categorize`;
+
     // Call AI categorization API (it will fetch available categories internally)
-    const response = await fetch('/api/categorize', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
