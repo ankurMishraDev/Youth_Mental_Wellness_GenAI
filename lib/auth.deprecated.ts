@@ -280,3 +280,10 @@ export const getCurrentUser = async (uid: string): Promise<User> => {
 export const logout = () => {
   localStorage.removeItem("curez_user")
 }
+
+/*
+ * DEPRECATED: This file is no longer used.
+ * Use lib/api/auth.ts for authentication functions.
+ * This file used insecure localStorage and has been replaced with
+ * secure HTTP-only cookie-based authentication.
+ */

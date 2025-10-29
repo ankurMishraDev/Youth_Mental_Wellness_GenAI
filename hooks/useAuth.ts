@@ -6,8 +6,8 @@ import {
   logout,
   requestPasswordReset,
   getCurrentUser,
-} from "../lib/auth"
-import type { SignupResult } from "../lib/auth"
+} from "../lib/api/auth"
+import type { SignupResult } from "../lib/api/auth"
 import { useRouter } from "next/navigation"
 
 export const useAuth = () => {
@@ -32,50 +32,17 @@ export const useAuth = () => {
   const [signupVerificationEmail, setSignupVerificationEmail] = useState<string | null>(null)
   const [unverifiedLoginEmail, setUnverifiedLoginEmail] = useState<string | null>(null)
 
-  // Initialize and validate user from localStorage
+  // Initialize and validate user from secure session
   useEffect(() => {
     const validateSession = async () => {
-      const savedUser = localStorage.getItem("curez_user")
-      
-      if (!savedUser) {
-        setIsValidatingSession(false)
-        return
-      }
-
       try {
-        const user = JSON.parse(savedUser) as User
+        const user = await getCurrentUser()
         
-        // Validate the session by fetching current user data
-        try {
-          const userData = await getCurrentUser(user.uid)
-          
-          // Session is valid, update user data
-          const validatedUser = {
-            uid: user.uid,
-            email: userData.email || user.email,
-            name: userData.name || "",
-            age: userData.age,
-            gender: userData.gender || "",
-          }
-          
-          setCurrentUser(validatedUser)
-          localStorage.setItem("curez_user", JSON.stringify(validatedUser))
-          
-          // Store userId for journal feature
-          if (validatedUser.uid) {
-            localStorage.setItem("userId", validatedUser.uid)
-          }
-        } catch (error) {
-          // Session is invalid, clear it
-          console.error("Invalid session, clearing user data:", error)
-          localStorage.removeItem("curez_user")
-          localStorage.removeItem("userId")
-          setCurrentUser(null)
+        if (user) {
+          setCurrentUser(user)
         }
       } catch (error) {
-        console.error("Error parsing saved user:", error)
-        localStorage.removeItem("curez_user")
-        localStorage.removeItem("userId")
+        console.error("Session validation error:", error)
         setCurrentUser(null)
       } finally {
         setIsValidatingSession(false)
@@ -99,17 +66,10 @@ export const useAuth = () => {
 
   const refreshUserProfile = async (uid: string) => {
     try {
-      const userData = await getCurrentUser(uid)
-      const updatedUser = {
-        uid,
-        email: userData.email || currentUser?.email || "",
-        name: userData.name || "",
-        age: userData.age,
-        gender: userData.gender || "",
+      const user = await getCurrentUser()
+      if (user) {
+        setCurrentUser(user)
       }
-
-      setCurrentUser(updatedUser)
-      localStorage.setItem("curez_user", JSON.stringify(updatedUser))
     } catch (error) {
       console.error("Failed to refresh user profile:", error)
     }
@@ -124,20 +84,52 @@ export const useAuth = () => {
     try {
       setIsLoggingIn(true)
       const user = await login(loginForm.email, loginForm.password)
-      setCurrentUser(user)
-      setUnverifiedLoginEmail(null)
-      // Store userId for journal feature
-      localStorage.setItem("userId", user.uid)
       
-      // Navigate to dashboard after successful login
-      router.push('/dashboard')
+      // Wait a bit to ensure cookie is set
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verify session with retries
+      let retries = 3;
+      let userFetched = false;
+      
+      while (retries > 0 && !userFetched) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        const checkResponse = await fetch('/api/auth/me', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+        
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.user) {
+            setCurrentUser(checkData.user);
+            userFetched = true;
+            break;
+          }
+        }
+        
+        retries--;
+      }
+      
+      if (!userFetched) {
+        throw new Error('Failed to validate session. Please try again.');
+      }
+      
+      setUnverifiedLoginEmail(null)
+      
+      // Force a hard navigation to clear any stale state
+      window.location.href = '/dashboard';
     } catch (error) {
       const message = error instanceof Error ? error.message : "An error occurred"
       if ((error as Error & { code?: string }).code === "EMAIL_NOT_VERIFIED") {
         setUnverifiedLoginEmail(loginForm.email)
       }
       alert(message)
-    } finally {
       setIsLoggingIn(false)
     }
   }
@@ -182,22 +174,29 @@ export const useAuth = () => {
     }
   }
 
-  const handleLogout = () => {
-    logout()
-    setCurrentUser(null)
-    // Clear userId for journal feature
-    localStorage.removeItem("userId")
-    
-    // Navigate to landing page
-    router.push('/')
+  const handleLogout = async () => {
+    try {
+      await logout()
+      setCurrentUser(null)
+      
+      // Navigate to landing page
+      router.push('/')
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Still clear local state and redirect even if API call fails
+      setCurrentUser(null)
+      router.push('/')
+    }
   }
 
-  const updateCurrentUser = (user: User) => {
-    setCurrentUser(user)
-    localStorage.setItem("curez_user", JSON.stringify(user))
-    // Update userId for journal feature
-    if (user.uid) {
-      localStorage.setItem("userId", user.uid)
+  const updateCurrentUser = async (updates: Partial<User>) => {
+    try {
+      const user = await getCurrentUser()
+      if (user) {
+        setCurrentUser({ ...user, ...updates })
+      }
+    } catch (error) {
+      console.error("Failed to update user:", error)
     }
   }
 

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Landing from "./Landing"
-import { getCurrentUser } from "@/lib/auth"
 
 export default function HomePage() {
   const router = useRouter()
@@ -11,30 +10,19 @@ export default function HomePage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const savedUser = localStorage.getItem("curez_user")
-      
-      if (savedUser) {
-        try {
-          const user = JSON.parse(savedUser)
-          if (user?.uid) {
-            // Validate session before redirecting
-            try {
-              await getCurrentUser(user.uid)
-              // Valid session, redirect to dashboard
-              router.push('/dashboard')
-              return
-            } catch (error) {
-              // Invalid session, clear it
-              console.error("Invalid session on landing page:", error)
-              localStorage.removeItem("curez_user")
-              localStorage.removeItem("userId")
-            }
-          }
-        } catch (error) {
-          console.error("Error checking saved user:", error)
-          localStorage.removeItem("curez_user")
-          localStorage.removeItem("userId")
+      try {
+        // Check if user is authenticated via secure cookie
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+        })
+        
+        if (response.ok) {
+          // User is authenticated, redirect to dashboard
+          router.push('/dashboard')
+          return
         }
+      } catch (error) {
+        console.error("Error checking auth:", error)
       }
       
       setIsCheckingAuth(false)

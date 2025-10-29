@@ -52,7 +52,7 @@ export interface MoodData {
 
 export type ViewType = "landing" | "auth" | "dashboard" | "session"
 export type AuthMode = "login" | "signup"
-export type DashboardPage = "home" | "sessions" | "resources" | "community" | "profile"
+export type DashboardPage = "home" | "sessions" | "resources" | "profile" | "journal"
 export type InputMode = "audio" | "text"
 
 export interface Exercise {

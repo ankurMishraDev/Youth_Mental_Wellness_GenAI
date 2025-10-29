@@ -24,10 +24,23 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Ribeye&display=swap" rel="stylesheet" />
+        {/* Prefetch critical routes for faster navigation */}
+        <link rel="prefetch" href="/dashboard" />
+        <link rel="prefetch" href="/journal" />
+        <link rel="prefetch" href="/auth" />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased doodle-background`}>
         <UserProvider>
-          <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+              </div>
+            </div>
+          }>
+            {children}
+          </Suspense>
         </UserProvider>
         <Analytics />
       </body>

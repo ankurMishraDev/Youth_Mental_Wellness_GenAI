@@ -31,6 +31,41 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Enable SWC minification for faster builds
+  swcMinify: true,
+  
+  // Optimize webpack for development
+  webpack: (config, { dev, isServer }) => {
+    if (dev && !isServer) {
+      // Optimize chunk splitting for faster recompilation
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            default: false,
+            vendors: false,
+            // Common chunks across pages
+            commons: {
+              name: 'commons',
+              chunks: 'all',
+              minChunks: 2,
+              priority: 10,
+            },
+            // React and Next.js in separate chunk
+            framework: {
+              name: 'framework',
+              test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
+              priority: 40,
+              enforce: true,
+            },
+          },
+        },
+      };
+    }
+    return config;
+  },
+  
   async rewrites() {
     if (!wsServiceUrl) {
       return []

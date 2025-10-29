@@ -141,16 +141,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (response.ok) {
-        // Update local storage with new data
+        // Update current user in parent component
         const updatedUser = {
           ...currentUser,
           name: editedName.trim() || currentUser.name,
           age: editedAge.trim() ? Number.parseInt(editedAge) : currentUser.age,
           gender: editedGender.trim() || currentUser.gender,
         };
-        localStorage.setItem("curez_user", JSON.stringify(updatedUser));
 
-        // Update current user in parent component
         if (onUserUpdate) {
           onUserUpdate(updatedUser);
         }
@@ -320,7 +318,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {dashboardPage === "sessions" && (
           <SessionsSection
-            setCurrentView={setCurrentView}
+            onStartSession={() => setCurrentView("session")}
             isLoadingSession={isLoadingSession}
             sessionSummary={sessionSummary}
           />

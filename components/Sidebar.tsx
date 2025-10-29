@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Home,
   MessageCircle,
@@ -14,30 +15,30 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-
-export type DashboardPage = 'home' | 'sessions' | 'resources' | 'profile' | 'journal';
+import { useUser } from '@/lib/contexts/UserContext';
+import type { DashboardPage } from '@/lib/types';
 
 interface SidebarProps {
   dashboardPage?: DashboardPage;
   setDashboardPage?: (page: DashboardPage) => void;
-  handleLogout?: () => void;
   onNavigateToLanding?: () => void;
   sidebarOpen?: boolean;
   setSidebarOpen?: (open: boolean) => void;
+  handleLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   dashboardPage,
   setDashboardPage,
-  handleLogout,
   onNavigateToLanding,
   sidebarOpen,
   setSidebarOpen,
 }) => {
-  const router = useRouter();
   const pathname = usePathname();
+  const { logout } = useUser();
   const [isMobileOpen, setIsMobileOpen] = useState(sidebarOpen || false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Determine active page based on pathname if dashboardPage not provided
   const getActivePage = (): DashboardPage => {
@@ -62,10 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const handleNavigation = (item: typeof navItems[0]) => {
-    // Use Next.js router for navigation
-    router.push(item.path);
-    
-    // Also call setDashboardPage if provided (for backward compatibility)
+    // Call setDashboardPage if provided (for backward compatibility)
     if (setDashboardPage) {
       setDashboardPage(item.id as DashboardPage);
     }
@@ -73,6 +71,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Close mobile menu after navigation
     if (isMobileOpen) {
       setIsMobileOpen(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setIsLoggingOut(false);
     }
   };
 
@@ -125,17 +133,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col h-full p-4">
           {/* Logo/Header */}
           <div className="flex items-center justify-between mb-8">
-            <button
+            <Link
+              href="/"
               onClick={() => {
                 if (onNavigateToLanding) {
                   onNavigateToLanding();
-                } else {
-                  router.push('/');
                 }
               }}
               className={`flex items-center gap-3 transition-opacity ${
                 isDesktopCollapsed ? 'lg:opacity-0 lg:w-0' : 'opacity-100'
               }`}
+              prefetch={true}
             >
               <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
                 <MessageCircle className="w-6 h-6 text-white" />
@@ -145,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   CureZ
                 </span>
               )}
-            </button>
+            </Link>
 
             {/* Desktop Collapse Button */}
             <button
@@ -168,8 +176,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               const isActive = activePage === item.id;
 
               return (
-                <button
+                <Link
                   key={item.id}
+                  href={item.path}
                   onClick={() => handleNavigation(item)}
                   className={`
                     w-full flex items-center gap-3 px-4 py-3 rounded-xl
@@ -181,35 +190,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }
                     ${isDesktopCollapsed ? 'lg:justify-center' : ''}
                   `}
+                  prefetch={true}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   {!isDesktopCollapsed && (
                     <span className="font-medium">{item.label}</span>
                   )}
-                </button>
+                </Link>
               );
             })}
           </nav>
 
           {/* Logout Button */}
           <button
-            onClick={() => {
-              if (handleLogout) {
-                handleLogout();
-              } else {
-                router.push('/');
-              }
-            }}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
             className={`
               w-full flex items-center gap-3 px-4 py-3 rounded-xl
               text-red-600 dark:text-red-400
               hover:bg-red-50 dark:hover:bg-red-900/20
               transition-all duration-200
+              disabled:opacity-50 disabled:cursor-not-allowed
               ${isDesktopCollapsed ? 'lg:justify-center' : ''}
             `}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!isDesktopCollapsed && <span className="font-medium">Logout</span>}
+            {!isDesktopCollapsed && (
+              <span className="font-medium">
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </span>
+            )}
           </button>
         </div>
       </aside>

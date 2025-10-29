@@ -13,17 +13,17 @@ import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import type { CreateJournalEntryInput } from '@/lib/types/journal';
 
 export default function NewJournalEntryPage() {
-  const { userId, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!userLoading && !userId) {
-      router.push('/');
+    if (!userLoading && !user) {
+      router.push('/auth');
     }
-  }, [userLoading, userId, router]);
+  }, [userLoading, user, router]);
 
   async function handleSubmit(data: CreateJournalEntryInput) {
-    if (!userId) {
+    if (!user?.uid) {
       alert('You must be signed in to create an entry');
       return;
     }
@@ -33,7 +33,7 @@ export default function NewJournalEntryPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': userId,
+          'x-user-id': user.uid,
         },
         body: JSON.stringify({
           ...data,
@@ -71,7 +71,7 @@ export default function NewJournalEntryPage() {
     );
   }
 
-  if (!userId) {
+  if (!user) {
     return null;
   }
 
@@ -106,7 +106,7 @@ export default function NewJournalEntryPage() {
         {/* Form Container with beautiful styling */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
           <JournalEntryForm
-            userId={userId!}
+            userId={user!.uid}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             submitLabel="Save Entry"

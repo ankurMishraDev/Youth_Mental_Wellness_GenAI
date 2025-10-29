@@ -15,30 +15,30 @@ import type { JournalEntry, CreateJournalEntryInput } from '@/lib/types/journal'
 export default function EditJournalEntryPage() {
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
-  const { userId, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const params = useParams();
   const entryId = params.id as string;
 
   useEffect(() => {
-    if (!userLoading && !userId) {
+    if (!userLoading && !user) {
       router.push('/');
       return;
     }
 
-    if (userId && entryId) {
+    if (user && entryId) {
       fetchEntry();
     }
-  }, [userId, entryId, userLoading, router]);
+  }, [user, entryId, userLoading, router]);
 
   async function fetchEntry() {
-    if (!userId || !entryId) return;
+    if (!user || !entryId) return;
 
     try {
       setLoading(true);
       const response = await fetch(`/api/journal/${entryId}`, {
         headers: {
-          'x-user-id': userId,
+          'x-user-id': user.uid,
         },
       });
 
@@ -58,14 +58,14 @@ export default function EditJournalEntryPage() {
   }
 
   async function handleSubmit(data: CreateJournalEntryInput) {
-    if (!userId || !entryId) return;
+    if (!user || !entryId) return;
 
     try {
       const response = await fetch(`/api/journal/${entryId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': userId,
+          'x-user-id': user.uid,
         },
         body: JSON.stringify(data),
       });
@@ -99,7 +99,7 @@ export default function EditJournalEntryPage() {
     );
   }
 
-  if (!userId || !entry) {
+  if (!user || !entry) {
     return null;
   }
 
@@ -134,7 +134,7 @@ export default function EditJournalEntryPage() {
         {/* Form Container */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
           <JournalEntryForm
-            userId={userId!}
+            userId={user!.uid}
             initialData={{
               title: entry.title,
               content: entry.content,

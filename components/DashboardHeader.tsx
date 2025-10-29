@@ -1,31 +1,33 @@
-import { User } from "../lib/types";
+import { User, DashboardPage } from "../lib/types";
 
 interface DashboardHeaderProps {
-  title: string;
+  title?: string;
   description?: string;
   currentUser: User | null;
+  currentUserName?: string;
+  dashboardPage?: DashboardPage;
 }
 
-const getHeaderDetails = (pathname: string, name: string) => {
-  if (pathname.includes('/sessions')) {
+const getHeaderDetails = (dashboardPage: DashboardPage | undefined, name: string) => {
+  if (dashboardPage === 'sessions') {
     return {
       title: "AI Guide Session",
       description: "Connect with your AI mentor for personalized support and guidance.",
     };
   }
-  if (pathname.includes('/resources')) {
+  if (dashboardPage === 'resources') {
     return {
       title: "Wellness Resources",
       description: "Explore exercises and tips to support your mental well-being.",
     };
   }
-  if (pathname.includes('/profile')) {
+  if (dashboardPage === 'profile') {
     return {
       title: "Profile Settings",
       description: "Manage your personal information.",
     };
   }
-  if (pathname.includes('/journal')) {
+  if (dashboardPage === 'journal') {
     return {
       title: "Journal",
       description: "Reflect on your thoughts and feelings.",
@@ -39,10 +41,15 @@ const getHeaderDetails = (pathname: string, name: string) => {
 };
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-  title,
-  description,
+  title: propTitle,
+  description: propDescription,
   currentUser,
+  currentUserName,
+  dashboardPage,
 }) => {
+  const headerDetails = getHeaderDetails(dashboardPage, currentUserName || currentUser?.name || 'User');
+  const title = propTitle || headerDetails.title;
+  const description = propDescription !== undefined ? propDescription : headerDetails.description;
   return (
     <header className="flex justify-between items-center mb-8 md:mt-0 mt-12">
       <div>

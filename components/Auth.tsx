@@ -3,8 +3,9 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MessageCircle } from "lucide-react"
+import { MessageCircle, Home } from "lucide-react"
 import { AuthMode } from "../lib/types"
+import Link from "next/link"
 
 interface AuthProps {
   authMode: AuthMode
@@ -63,6 +64,15 @@ export const Auth: React.FC<AuthProps> = ({
 }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background flex items-center justify-center p-4">
+      {/* Home Button */}
+      <Link
+        href="/"
+        className="fixed top-4 left-4 z-50 inline-flex items-center gap-2 px-4 py-2 bg-card hover:bg-accent text-card-foreground rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 border"
+      >
+        <Home size={20} />
+        <span className="font-medium">Home</span>
+      </Link>
+
       <Card className="w-full max-w-md shadow-xl border-0 bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-4">
           <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mx-auto shadow-lg">

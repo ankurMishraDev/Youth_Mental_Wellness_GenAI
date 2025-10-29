@@ -16,29 +16,29 @@ import type { JournalEntry } from '@/lib/types/journal';
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const { userId, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!userLoading && !userId) {
-      // If no user, redirect to sign-in
-      router.push('/');
+    if (!userLoading && !user) {
+      // If no user, redirect to auth (but middleware should handle this)
+      router.push('/auth');
       return;
     }
 
-    if (userId) {
+    if (user?.uid) {
       fetchEntries();
     }
-  }, [userId, userLoading, router]);
+  }, [user, userLoading, router]);
 
   async function fetchEntries() {
-    if (!userId) return;
+    if (!user?.uid) return;
 
     try {
       setLoading(true);
       const response = await fetch('/api/journal', {
         headers: {
-          'x-user-id': userId,
+          'x-user-id': user.uid,
         },
       });
 
@@ -64,7 +64,7 @@ export default function JournalPage() {
       const response = await fetch(`/api/journal/${entryId}`, {
         method: 'DELETE',
         headers: {
-          'x-user-id': userId!,
+          'x-user-id': user!.uid,
         },
       });
 
@@ -93,7 +93,7 @@ export default function JournalPage() {
   }
 
   // Don't render if not authenticated (will redirect)
-  if (!userId) {
+  if (!user) {
     return null;
   }
 

@@ -12,14 +12,14 @@ import { JournalChat } from '@/components/journal/JournalChat';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function JournalChatPage() {
-  const { userId, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!userLoading && !userId) {
+    if (!userLoading && !user) {
       router.push('/');
     }
-  }, [userLoading, userId, router]);
+  }, [userLoading, user, router]);
 
   if (userLoading) {
     return (
@@ -32,7 +32,7 @@ export default function JournalChatPage() {
     );
   }
 
-  if (!userId) {
+  if (!user) {
     return null;
   }
 
@@ -62,7 +62,7 @@ export default function JournalChatPage() {
 
         {/* Chat Component */}
         <div className="max-w-4xl mx-auto">
-          <JournalChat userId={userId} />
+          <JournalChat userId={user.uid} />
         </div>
 
         {/* Info Cards */}

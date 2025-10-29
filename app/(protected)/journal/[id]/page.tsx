@@ -15,30 +15,30 @@ import { getMoodConfig, portableTextToPlainText } from '@/lib/types/journal';
 export default function ViewJournalEntryPage() {
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState(true);
-  const { userId, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const params = useParams();
   const entryId = params.id as string;
 
   useEffect(() => {
-    if (!userLoading && !userId) {
+    if (!userLoading && !user) {
       router.push('/');
       return;
     }
 
-    if (userId && entryId) {
+    if (user && entryId) {
       fetchEntry();
     }
-  }, [userId, entryId, userLoading, router]);
+  }, [user, entryId, userLoading, router]);
 
   async function fetchEntry() {
-    if (!userId || !entryId) return;
+    if (!user || !entryId) return;
 
     try {
       setLoading(true);
       const response = await fetch(`/api/journal/${entryId}`, {
         headers: {
-          'x-user-id': userId,
+          'x-user-id': user.uid,
         },
       });
 
@@ -66,7 +66,7 @@ export default function ViewJournalEntryPage() {
       const response = await fetch(`/api/journal/${entryId}`, {
         method: 'DELETE',
         headers: {
-          'x-user-id': userId!,
+          'x-user-id': user!.uid,
         },
       });
 
@@ -92,7 +92,7 @@ export default function ViewJournalEntryPage() {
     );
   }
 
-  if (!userId || !entry) {
+  if (!user || !entry) {
     return null;
   }
 
