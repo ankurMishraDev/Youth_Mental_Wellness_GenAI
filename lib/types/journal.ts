@@ -238,11 +238,17 @@ export function moodToNumber(mood: MoodType): number {
 /**
  * Extract plain text from PortableText blocks
  */
-export function portableTextToPlainText(blocks: PortableTextBlock[]): string {
+export function portableTextToPlainText(blocks: PortableTextBlock[] | any): string {
+  // Safety checks for invalid input
+  if (!blocks) return '';
+  if (typeof blocks === 'string') return blocks;
+  if (!Array.isArray(blocks)) return '';
+  if (blocks.length === 0) return '';
+
   return blocks
     .map((block) => {
       if (block._type === 'block' && block.children) {
-        return block.children.map((child) => child.text).join('');
+        return block.children.map((child: PortableTextSpan) => child.text).join('');
       }
       return '';
     })
