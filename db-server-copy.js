@@ -1,12 +1,6 @@
-// Load environment variables FIRST
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-
 const express = require("express")
 const admin = require("firebase-admin")
 const cors = require("cors")
-const { encryptField, decryptField, encryptFields, decryptFields, encryptArray, decryptArray } = require("./encryption")
-const { GoogleGenerativeAI } = require('@google/generative-ai')
 
 const serviceAccount = require("./admin-key.json")
 
@@ -50,20 +44,18 @@ app.post("/signup", async (req, res) => {
       profileData.emailVerified = emailVerified
     }
 
-    // Encrypt sensitive fields
     if (name) {
-      profileData.name = await encryptField(name, userRecord.uid)
+      profileData.name = name
     }
 
     if (gender) {
-      profileData.gender = await encryptField(gender, userRecord.uid)
+      profileData.gender = gender
     }
 
     if (age !== undefined && age !== null && age !== "") {
       const numericAge = Number.parseInt(age, 10)
       if (!Number.isNaN(numericAge)) {
-        // Store age as encrypted string
-        profileData.age = await encryptField(numericAge.toString(), userRecord.uid)
+        profileData.age = numericAge
       }
     }
 
@@ -107,22 +99,6 @@ app.post("/login", async (req, res) => {
     // Read from new user_profiling subcollection
     const profileDoc = await db.collection("users").doc(userRecord.uid).collection("user_profiling").doc("profile").get()
     const profile = profileDoc.exists ? profileDoc.data() : null
-
-    // Decrypt profile data if it exists
-    if (profile) {
-      if (profile.name) {
-        profile.name = await decryptField(profile.name, userRecord.uid)
-      }
-      
-      if (profile.gender) {
-        profile.gender = await decryptField(profile.gender, userRecord.uid)
-      }
-      
-      if (profile.age) {
-        const decryptedAge = await decryptField(profile.age, userRecord.uid)
-        profile.age = Number.parseInt(decryptedAge, 10)
-      }
-    }
 
     res.status(200).send({ uid: userRecord.uid, profile })
   } catch (error) {
@@ -378,147 +354,6 @@ app.get("/get-analytics-summary/:uid", async (req, res) => {
 
 // ==================== END ANALYTICS FUNCTIONS ====================
 
-// ==================== COUNT-BASED ARCHIVING FUNCTIONS ====================
-
-/**
- * Check if archiving is needed and execute if summaries count >= 10
- * Archives the oldest 5 summaries when threshold is reached
- */
-async function checkAndArchiveIfNeeded(uid) {
-  try {
-    // Get all summaries ordered by timestamp
-    const summariesSnapshot = await db.collection("users").doc(uid)
-      .collection("summaries")
-      .orderBy("timestamp", "asc")
-      .get();
-
-    const summaryCount = summariesSnapshot.size;
-    console.log(`📊 User ${uid} has ${summaryCount} summaries`);
-
-    // Archive if we have 10 or more summaries
-    if (summaryCount >= 10) {
-      console.log(`🗂️ Archiving triggered for user ${uid} (threshold: 10, current: ${summaryCount})`);
-      
-      // Get oldest 5 summaries
-      const oldestFive = summariesSnapshot.docs.slice(0, 5);
-      await archiveOldestSummaries(uid, oldestFive);
-      
-      return { archived: true, count: 5 };
-    }
-
-    return { archived: false, count: 0 };
-  } catch (error) {
-    console.error(`❌ Error checking archive status for ${uid}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Archive the oldest 5 summaries:
- * 1. Decrypt summaries
- * 2. Generate AI-compressed archive summary
- * 3. Encrypt and save archive
- * 4. Delete original summaries
- */
-async function archiveOldestSummaries(uid, summaryDocs) {
-  try {
-    console.log(`📦 Archiving ${summaryDocs.length} summaries for user ${uid}...`);
-
-    // 1. Decrypt all summaries
-    const decryptedSummaries = await Promise.all(
-      summaryDocs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          timestamp: data.timestamp,
-          summary_text: data.summary_text ? await decryptField(data.summary_text, uid) : "",
-          key_topics: data.key_topics || [],
-          action_items: data.action_items || [],
-          risk_flags: data.risk_flags || {},
-          sentiment: data.sentiment || "neutral"
-        };
-      })
-    );
-
-    // 2. Generate compressed archive using Gemini AI
-    const archiveText = await generateArchiveSummary(decryptedSummaries);
-
-    // 3. Encrypt the archive summary
-    const encryptedArchive = await encryptField(archiveText, uid);
-
-    // 4. Save encrypted archive
-    const archiveId = `arch_${Date.now()}`;
-    const firstTimestamp = decryptedSummaries[0].timestamp;
-    const lastTimestamp = decryptedSummaries[decryptedSummaries.length - 1].timestamp;
-
-    await db.collection("users").doc(uid)
-      .collection("archives").doc(archiveId)
-      .set({
-        archive_id: archiveId,
-        summary_count: summaryDocs.length,
-        period_start: firstTimestamp,
-        period_end: lastTimestamp,
-        compressed_summary: encryptedArchive, // Encrypted
-        archived_at: admin.firestore.FieldValue.serverTimestamp(),
-        summary_ids: summaryDocs.map(doc => doc.id)
-      });
-
-    // 5. Delete original summaries
-    const batch = db.batch();
-    summaryDocs.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
-
-    console.log(`✅ Archived ${summaryDocs.length} summaries into ${archiveId} (encrypted)`);
-    
-    return archiveId;
-  } catch (error) {
-    console.error(`❌ Error archiving summaries for ${uid}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Use Gemini AI to compress multiple summaries into a single archive summary
- */
-async function generateArchiveSummary(summaries) {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  const summaryTexts = summaries.map((s, i) => 
-    `[Summary ${i + 1}]\n${s.summary_text || "No text"}\nTopics: ${s.key_topics.join(", ")}`
-  ).join("\n\n");
-
-  const prompt = `You are a mental health data archival system. Compress the following ${summaries.length} session summaries into a single, concise archive summary (max 500 words).
-
-Focus on:
-- Recurring themes and patterns
-- Key emotional trajectories
-- Important action items and coping strategies
-- Any risk flags or concerns
-- Overall progress indicators
-
-Summaries to compress:
-${summaryTexts}
-
-Compressed Archive Summary:`;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error("❌ Gemini AI archive generation failed:", error);
-    // Fallback: simple concatenation
-    return `Archive of ${summaries.length} summaries. Key topics: ${
-      [...new Set(summaries.flatMap(s => s.key_topics))].join(", ")
-    }`;
-  }
-}
-
-// ==================== END ARCHIVING FUNCTIONS ====================
-
 app.post("/save-summary", async (req, res) => {
   const { uid, summary } = req.body
   if (!uid || !summary) {
@@ -530,7 +365,7 @@ app.post("/save-summary", async (req, res) => {
     const sessionId = meta?.session_id || `sess_${Date.now()}`
     const timestamp = admin.firestore.FieldValue.serverTimestamp()
     
-    // 1. Save to metrics/{sessionId} (flat structure with source tracking) - NO ENCRYPTION for numeric metrics
+    // 1. Save to metrics/{sessionId} (flat structure with source tracking)
     const metricsData = {
       timestamp,
       sessionId,
@@ -538,7 +373,7 @@ app.post("/save-summary", async (req, res) => {
       confidence: 0.90, // AI session confidence weight
       duration_minutes: meta?.duration_minutes || null,
       
-      // Core numeric metrics (NOT encrypted - used for analytics)
+      // Core numeric metrics
       mood_percentage: summary_data?.mood_percentage || 0,
       energy_level: summary_data?.energy_level || 0,
       stress_level: summary_data?.stress_level || 0,
@@ -557,7 +392,7 @@ app.post("/save-summary", async (req, res) => {
       physical_activity_minutes: summary_data?.physical_activity_minutes || null,
       focus_level: summary_data?.focus_level || null,
       
-      // Arrays (short data) - NOT encrypted
+      // Arrays (short data)
       main_topics: summary_data?.main_points || summary_data?.main_topics || [],
       suggested_exercises: summary_data?.suggested_exercises || [],
       risk_flags: summary_data?.risk_flags || {},
@@ -571,17 +406,15 @@ app.post("/save-summary", async (req, res) => {
       .collection("metrics").doc(sessionId)
       .set(metricsData)
     
-    // 2. Save to summaries subcollection (text data for AI context) - ENCRYPT TEXT FIELDS
+    // 2. Save to summaries subcollection (text data for AI context)
     const summaryData = {
       timestamp,
       sessionId,
       
-      // Full text summary (ENCRYPTED)
-      summary_text: summary_data?.summary || summary_data?.raw 
-        ? await encryptField(summary_data?.summary || summary_data?.raw || "", uid)
-        : "",
+      // Full text summary
+      summary_text: summary_data?.summary || summary_data?.raw || "",
       
-      // Key insights (arrays, not encrypted for now - consider encrypting if sensitive)
+      // Key insights
       key_topics: summary_data?.main_points || summary_data?.main_topics || [],
       key_phrases: summary_data?.emotions_themes || [],
       
@@ -636,25 +469,17 @@ app.post("/save-summary", async (req, res) => {
     
     // 4. Update analytics summary (Embedded Windows System)
     await updateAnalyticsSummary(uid, metricsData);
-
-    // 5. Check and trigger count-based archiving (archive oldest 5 when count >= 10)
-    const archiveResult = await checkAndArchiveIfNeeded(uid);
     
-    console.log(`✅ Summary saved for user ${uid} with encryption:`)
-    console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%, NOT encrypted)`)
-    console.log(`   - summaries/${sessionId} (text encrypted)`)
+    console.log(`✅ Summary saved for user ${uid} with flat metrics structure:`)
+    console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%)`)
+    console.log(`   - summaries/${sessionId}`)
     console.log(`   - latest/metrics (cache updated)`)
-    if (archiveResult.archived) {
-      console.log(`   - ♻️ Archived ${archiveResult.count} oldest summaries`)
-    }
     
     res.status(200).send({ 
-      message: "Summary saved successfully with encryption and source tracking",
+      message: "Summary saved successfully with source tracking",
       sessionId,
       source: "ai_session",
       confidence: 0.90,
-      archived: archiveResult.archived,
-      archived_count: archiveResult.count,
       paths: {
         metrics: `users/${uid}/metrics/${sessionId}`,
         summary: `users/${uid}/summaries/${sessionId}`,
@@ -799,19 +624,17 @@ app.post("/save-journal-summary", async (req, res) => {
     const summaryId = `jour_${Date.now()}`
     const timestamp = admin.firestore.FieldValue.serverTimestamp()
 
-    // Build summary data for unified summaries collection (ENCRYPT TEXT)
+    // Build summary data for unified summaries collection
     const summaryData = {
       timestamp,
       summaryId,
       source: "journal_entry",
       entry_id: entryId,
       
-      // AI-generated summary (ENCRYPTED)
-      summary_text: summary.summary_text 
-        ? await encryptField(summary.summary_text, uid)
-        : "",
+      // AI-generated summary
+      summary_text: summary.summary_text,
       
-      // Context data (arrays - not encrypted for now)
+      // Context data
       key_topics: summary.key_topics || [],
       key_insights: summary.key_insights || [],
       emotional_themes: summary.emotional_themes || [],
@@ -832,25 +655,17 @@ app.post("/save-journal-summary", async (req, res) => {
       .collection("summaries").doc(summaryId)
       .set(summaryData)
 
-    // Check and trigger count-based archiving (archive oldest 5 when count >= 10)
-    const archiveResult = await checkAndArchiveIfNeeded(uid);
-
-    console.log(`✅ Journal summary saved: users/${uid}/summaries/${summaryId} (text encrypted)`)
+    console.log(`✅ Journal summary saved: users/${uid}/summaries/${summaryId}`)
     console.log(`   Source: journal_entry, Confidence: ${Math.round(summary.confidence * 100)}%`)
     console.log(`   Category: ${summary.value_category}, Entry ID: ${entryId}`)
-    if (archiveResult.archived) {
-      console.log(`   - ♻️ Archived ${archiveResult.count} oldest summaries`)
-    }
 
     res.status(200).send({
-      message: "Journal summary saved successfully with encryption",
+      message: "Journal summary saved successfully",
       summaryId,
       source: "journal_entry",
       confidence: summary.confidence,
       value_category: summary.value_category,
       stored: true,
-      archived: archiveResult.archived,
-      archived_count: archiveResult.count,
       path: `users/${uid}/summaries/${summaryId}`
     })
 
@@ -867,17 +682,10 @@ app.post("/save-name", async (req, res) => {
   }
 
   try {
-    // Encrypt name before storing
-    const encryptedName = await encryptField(name, uid)
-    
     // Update in user_profiling subcollection
     const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
-    await profileRef.set({ 
-      name: encryptedName, 
-      updatedAt: admin.firestore.FieldValue.serverTimestamp() 
-    }, { merge: true })
-    
-    res.status(200).send({ message: "Name saved successfully (encrypted)" })
+    await profileRef.set({ name, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    res.status(200).send({ message: "Name saved successfully" })
   } catch (error) {
     res.status(500).send({ error: error.message })
   }
@@ -896,23 +704,10 @@ app.post("/update-profile", async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }
 
-    // Encrypt sensitive fields before storing
-    if (name !== undefined) {
-      updateData.name = await encryptField(name, uid)
-    }
-    
-    if (age !== undefined && age !== "") {
-      const ageStr = Number.parseInt(age, 10).toString()
-      updateData.age = await encryptField(ageStr, uid)
-    }
-    
-    if (gender !== undefined) {
-      updateData.gender = await encryptField(gender, uid)
-    }
-    
-    if (typeof emailVerified === "boolean") {
-      updateData.emailVerified = emailVerified
-    }
+    if (name !== undefined) updateData.name = name
+    if (age !== undefined && age !== "") updateData.age = Number.parseInt(age, 10)
+    if (gender !== undefined) updateData.gender = gender
+    if (typeof emailVerified === "boolean") updateData.emailVerified = emailVerified
 
     await profileRef.set(updateData, { merge: true })
     res.status(200).send({ message: "Profile updated successfully" })
@@ -956,20 +751,6 @@ app.get("/user/:uid", async (req, res) => {
     const userData = {
       uid,
       ...profileDoc.data()
-    }
-
-    // Decrypt sensitive profile fields
-    if (userData.name) {
-      userData.name = await decryptField(userData.name, uid)
-    }
-    
-    if (userData.gender) {
-      userData.gender = await decryptField(userData.gender, uid)
-    }
-    
-    if (userData.age) {
-      const decryptedAge = await decryptField(userData.age, uid)
-      userData.age = Number.parseInt(decryptedAge, 10)
     }
     
     // Add latestSummary (from metrics/latest) for backward compatibility
@@ -1794,156 +1575,6 @@ app.patch("/update-profile/:uid", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// ==================== ENCRYPTED CONTEXT RETRIEVAL ENDPOINTS ====================
-
-/**
- * Get user context with decrypted summaries for AI
- * Returns recent summaries and user profile with decrypted sensitive fields
- */
-app.get("/get-user-context/:uid", async (req, res) => {
-  const { uid } = req.params;
-  const limit = parseInt(req.query.limit) || 5;
-
-  try {
-    // Get recent summaries
-    const summariesSnapshot = await db.collection("users").doc(uid)
-      .collection("summaries")
-      .orderBy("timestamp", "desc")
-      .limit(limit)
-      .get();
-
-    // Decrypt summary texts
-    const decryptedSummaries = await Promise.all(
-      summariesSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          timestamp: data.timestamp,
-          source: data.source,
-          summary_text: data.summary_text 
-            ? await decryptField(data.summary_text, uid)
-            : "",
-          key_topics: data.key_topics || [],
-          sentiment: data.sentiment || "neutral"
-        };
-      })
-    );
-
-    // Get user profile
-    const profileDoc = await db.collection("users").doc(uid)
-      .collection("user_profiling").doc("profile").get();
-    
-    let decryptedProfile = null;
-    if (profileDoc.exists) {
-      const profileData = profileDoc.data();
-      decryptedProfile = {
-        name: profileData.name ? await decryptField(profileData.name, uid) : null,
-        age: profileData.age ? parseInt(await decryptField(profileData.age, uid), 10) : null,
-        gender: profileData.gender ? await decryptField(profileData.gender, uid) : null,
-        emailVerified: profileData.emailVerified || false
-      };
-    }
-
-    res.status(200).json({
-      success: true,
-      profile: decryptedProfile,
-      recent_summaries: decryptedSummaries,
-      count: decryptedSummaries.length
-    });
-
-  } catch (error) {
-    console.error("Error fetching user context:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * Get all summaries with decryption (for context window)
- */
-app.get("/get-all-summaries/:uid", async (req, res) => {
-  const { uid } = req.params;
-
-  try {
-    const summariesSnapshot = await db.collection("users").doc(uid)
-      .collection("summaries")
-      .orderBy("timestamp", "desc")
-      .get();
-
-    const decryptedSummaries = await Promise.all(
-      summariesSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          timestamp: data.timestamp,
-          source: data.source,
-          sessionId: data.sessionId || data.summaryId,
-          summary_text: data.summary_text 
-            ? await decryptField(data.summary_text, uid)
-            : "",
-          key_topics: data.key_topics || [],
-          action_items: data.action_items || [],
-          risk_flags: data.risk_flags || {},
-          confidence: data.confidence || 0.90
-        };
-      })
-    );
-
-    res.status(200).json({
-      success: true,
-      summaries: decryptedSummaries,
-      count: decryptedSummaries.length
-    });
-
-  } catch (error) {
-    console.error("Error fetching all summaries:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * Get archives with decryption
- */
-app.get("/get-archives/:uid", async (req, res) => {
-  const { uid } = req.params;
-
-  try {
-    const archivesSnapshot = await db.collection("users").doc(uid)
-      .collection("archives")
-      .orderBy("archived_at", "desc")
-      .get();
-
-    const decryptedArchives = await Promise.all(
-      archivesSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          archive_id: data.archive_id,
-          summary_count: data.summary_count,
-          period_start: data.period_start,
-          period_end: data.period_end,
-          archived_at: data.archived_at,
-          compressed_summary: data.compressed_summary 
-            ? await decryptField(data.compressed_summary, uid)
-            : "",
-          summary_ids: data.summary_ids || []
-        };
-      })
-    );
-
-    res.status(200).json({
-      success: true,
-      archives: decryptedArchives,
-      count: decryptedArchives.length
-    });
-
-  } catch (error) {
-    console.error("Error fetching archives:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==================== END ENCRYPTED CONTEXT ENDPOINTS ====================
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)

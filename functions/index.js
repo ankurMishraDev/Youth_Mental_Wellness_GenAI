@@ -1,7 +1,11 @@
+// Load environment variables FIRST
+require('dotenv').config();
+
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { encryptField, decryptField, encryptArray, decryptArray } = require('./encryption');
 
 // Import service account credentials for production Firestore access
 const serviceAccount = require('./admin-key.json');
@@ -137,10 +141,97 @@ async function archiveUserWeek(uid, weekStart, weekEnd, weekNumber, year) {
     
     console.log(`  📦 Found ${summaries.length} summaries to archive`);
     
-    // 2. Use Gemini to compress into weekly archive
-    const archive = await generateWeeklyArchive(summaries, weekStart, weekEnd);
+    // 2. 🔓 DECRYPT summaries before passing to AI
+    console.log('  🔓 Decrypting summaries for AI processing...');
+    const decryptedSummaries = await Promise.all(summaries.map(async (summary) => {
+      try {
+        const decrypted = { ...summary };
+        
+        // Decrypt text fields
+        if (summary.summary_text) {
+          decrypted.summary_text = await decryptField(summary.summary_text, uid);
+        }
+        if (summary.title) {
+          decrypted.title = await decryptField(summary.title, uid);
+        }
+        
+        // Decrypt arrays
+        if (summary.key_topics) {
+          decrypted.key_topics = await decryptArray(summary.key_topics, uid);
+        }
+        if (summary.key_insights) {
+          decrypted.key_insights = await decryptArray(summary.key_insights, uid);
+        }
+        if (summary.emotional_themes) {
+          decrypted.emotional_themes = await decryptArray(summary.emotional_themes, uid);
+        }
+        if (summary.stressors) {
+          decrypted.stressors = await decryptArray(summary.stressors, uid);
+        }
+        if (summary.action_items) {
+          decrypted.action_items = await decryptArray(summary.action_items, uid);
+        }
+        if (summary.coping_strategies) {
+          decrypted.coping_strategies = await decryptArray(summary.coping_strategies, uid);
+        }
+        if (summary.ongoing_concerns) {
+          decrypted.ongoing_concerns = await decryptArray(summary.ongoing_concerns, uid);
+        }
+        if (summary.strengths_shown) {
+          decrypted.strengths_shown = await decryptArray(summary.strengths_shown, uid);
+        }
+        if (summary.goals) {
+          decrypted.goals = await decryptArray(summary.goals, uid);
+        }
+        if (summary.urgency_level) {
+          decrypted.urgency_level = await decryptField(summary.urgency_level, uid);
+        }
+        if (summary.positive_moments) {
+          decrypted.positive_moments = await decryptField(summary.positive_moments, uid);
+        }
+        
+        return decrypted;
+      } catch (error) {
+        console.error(`  ⚠️  Decryption error for summary ${summary.id}:`, error.message);
+        // Return original if decryption fails (might be old unencrypted data)
+        return summary;
+      }
+    }));
     
-    console.log('  🔍 Archive generated, preparing to save...');
+    // 3. Use Gemini to compress into weekly archive (with DECRYPTED data)
+    const archive = await generateWeeklyArchive(decryptedSummaries, weekStart, weekEnd);
+    
+    // 4. 🔐 ENCRYPT the archive before saving
+    console.log('  🔐 Encrypting archive before saving...');
+    const encryptedArchive = {
+      // Encrypt narrative and text fields
+      narrative_summary: archive.narrative_summary ? await encryptField(archive.narrative_summary, uid) : null,
+      emotional_trajectory: archive.emotional_trajectory ? await encryptField(archive.emotional_trajectory, uid) : null,
+      sleep_quality: archive.sleep_quality ? await encryptField(archive.sleep_quality, uid) : null,
+      social_connection: archive.social_connection ? await encryptField(archive.social_connection, uid) : null,
+      physical_activity: archive.physical_activity ? await encryptField(archive.physical_activity, uid) : null,
+      progress_notes: archive.progress_notes ? await encryptField(archive.progress_notes, uid) : null,
+      
+      // Encrypt arrays
+      dominant_themes: await encryptArray(archive.dominant_themes || [], uid),
+      significant_events: await encryptArray(archive.significant_events || [], uid),
+      coping_strategies: await encryptArray(archive.coping_strategies || [], uid),
+      goals_set: await encryptArray(archive.goals_set || [], uid),
+      protective_factors: await encryptArray(archive.protective_factors || [], uid),
+      patterns_detected: await encryptArray(archive.patterns_detected || [], uid),
+      
+      // Keep numeric values unencrypted (for analytics)
+      mood_avg: archive.mood_avg,
+      mood_range: archive.mood_range,
+      stress_avg: archive.stress_avg,
+      energy_avg: archive.energy_avg,
+      risk_flags: archive.risk_flags,
+      
+      // Metadata
+      summary_count: archive.summary_count || summaries.length
+    };
+    
+    console.log('  🔍 Archive generated and encrypted, preparing to save...');
     console.log('  weekStart type:', typeof weekStart, weekStart);
     console.log('  weekEnd type:', typeof weekEnd, weekEnd);
     
@@ -157,7 +248,7 @@ async function archiveUserWeek(uid, weekStart, weekEnd, weekNumber, year) {
       .collection('context_archives')
       .doc(archiveId)
       .set({
-        ...archive,
+        ...encryptedArchive,
         week_number: weekNumber,
         year: year,
         week_start: weekStartTimestamp,

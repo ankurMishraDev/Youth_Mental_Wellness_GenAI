@@ -297,25 +297,49 @@ class LiveAPIWebSocketServer:
             user_name = user_data.get("name", "there")
             latest_summary = user_data.get("latestSummary", {}).get("summary_data", {})
 
-            # 2. Fetch recent activity (last 7 days - ALL summaries: sessions + journals)
+            # 2. Fetch recent context (last 5 sessions + last 5 journals)
             from datetime import datetime, timedelta
-            seven_days_ago = datetime.now() - timedelta(days=7)
             
-            all_summaries_response = requests.post(
-                "http://localhost:3000/get-all-summaries",
-                json={"uid": uid, "limit": 20}  # Fetch enough to cover 7 days
-            )
+            try:
+                recent_context_response = requests.post(
+                    "http://localhost:3000/get-recent-context",
+                    json={"uid": uid},  # Fetches last 5 sessions + last 5 journals automatically
+                    timeout=5  # 5 second timeout
+                )
+            except requests.Timeout:
+                logger.error("⚠️ Recent context fetch timed out")
+                recent_context_response = type('obj', (object,), {'status_code': 500})()
+            except Exception as e:
+                logger.error(f"⚠️ Recent context fetch failed: {e}")
+                recent_context_response = type('obj', (object,), {'status_code': 500})()
             
             # 3. Fetch weekly archives (last 4 weeks of compressed history)
-            weekly_archives_response = requests.get(
-                f"http://localhost:3000/get-weekly-archives/{uid}?limit=4"
-            )
+            try:
+                weekly_archives_response = requests.get(
+                    f"http://localhost:3000/get-weekly-archives/{uid}?limit=4",
+                    timeout=5  # 5 second timeout
+                )
+            except requests.Timeout:
+                logger.error("⚠️ Weekly archives fetch timed out")
+                weekly_archives_response = type('obj', (object,), {'status_code': 500})()
+            except Exception as e:
+                logger.error(f"⚠️ Weekly archives fetch failed: {e}")
+                weekly_archives_response = type('obj', (object,), {'status_code': 500})()
             
             # 4. Fetch user profile (long-term understanding)
             logger.info(f"Fetching user profile for UID: {uid}")
-            user_profile_response = requests.get(
-                f"http://localhost:3000/user-profile/{uid}"
-            )
+            try:
+                user_profile_response = requests.get(
+                    f"http://localhost:3000/user-profile/{uid}",
+                    timeout=3  # 3 second timeout
+                )
+            except requests.Timeout:
+                logger.error("⚠️ User profile fetch timed out")
+                user_profile_response = type('obj', (object,), {'status_code': 500})()
+            except Exception as e:
+                logger.error(f"⚠️ User profile fetch failed: {e}")
+                user_profile_response = type('obj', (object,), {'status_code': 500})()
+
             
             # 4a. Initialize profile if it doesn't exist (404 means not found)
             if user_profile_response.status_code == 404:
@@ -348,27 +372,15 @@ class LiveAPIWebSocketServer:
                 logger.error(f"❌ Failed to fetch user profile. Status: {user_profile_response.status_code}")
             
             recent_activity = ""
-            if all_summaries_response.status_code == 200:
-                summaries_data = all_summaries_response.json()
-                all_summaries = summaries_data.get("summaries", [])
+            if recent_context_response.status_code == 200:
+                context_data = recent_context_response.json()
+                all_summaries = context_data.get("summaries", [])
                 
-                # Filter for last 7 days
-                recent_summaries = []
-                for summary in all_summaries:
-                    timestamp = summary.get("timestamp")
-                    if timestamp:
-                        try:
-                            summary_date = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                            if summary_date.replace(tzinfo=None) >= seven_days_ago:
-                                recent_summaries.append(summary)
-                        except:
-                            pass
-                
-                if recent_summaries:
-                    recent_activity = "\n\n--- RECENT ACTIVITY (Last 7 Days) ---\n"
+                if all_summaries:
+                    recent_activity = "\n\n--- RECENT ACTIVITY (Last 5 Summaries) ---\n"
                     recent_activity += "Full details of all interactions:\n\n"
                     
-                    for summary in recent_summaries:
+                    for summary in all_summaries:
                         timestamp = summary.get("timestamp")
                         source = summary.get("source", "unknown")
                         
@@ -425,8 +437,8 @@ class LiveAPIWebSocketServer:
                     recent_activity += "------------------------------------------------\n"
                     
                     # Add summary statistics
-                    session_count = sum(1 for s in recent_summaries if s.get("source") == "ai_session")
-                    journal_count = sum(1 for s in recent_summaries if s.get("source") == "journal_entry")
+                    session_count = sum(1 for s in all_summaries if s.get("source") == "ai_session")
+                    journal_count = sum(1 for s in all_summaries if s.get("source") == "journal_entry")
                     recent_activity += f"\nRecent activity summary: {session_count} AI sessions, {journal_count} journal entries\n"
 
             # Format weekly archives
@@ -837,10 +849,31 @@ class LiveAPIWebSocketServer:
             logger.error(f"Error receiving user_id from client: {e}")
             return # Connection is likely already closed or message was malformed
 
+        # Send status update to client
+        try:
+            await websocket.send(json.dumps({
+                "type": "status",
+                "data": "Preparing your personalized AI companion..."
+            }))
+        except Exception:
+            pass
+
         # Generate dynamic system instruction using the received UID
+        logger.info(f"⏳ Generating dynamic system instruction for UID: {uid}")
         dynamic_system_instruction = await self.generate_dynamic_system_instruction(uid)
+        logger.info(f"✅ Dynamic instruction generated successfully (length: {len(dynamic_system_instruction)} chars)")
+
+        # Send status update to client
+        try:
+            await websocket.send(json.dumps({
+                "type": "status",
+                "data": "Connecting to AI service..."
+            }))
+        except Exception:
+            pass
 
         # Create a new LiveAPI Config for this session with the dynamic instruction
+        logger.info(f"⏳ Creating LiveAPI config for session...")
         live_config = LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription={},
@@ -854,194 +887,220 @@ class LiveAPIWebSocketServer:
             system_instruction=dynamic_system_instruction,
             tools=[],
         )
+        logger.info(f"✅ LiveAPI config created")
 
         # Connect to Gemini using LiveAPI with the session-specific config
-        async with client.aio.live.connect(model=MODEL, config=live_config) as session:
-            async with asyncio.TaskGroup() as tg:
-                # Create a queue for audio data from the client
-                audio_queue = asyncio.Queue()
+        logger.info(f"⏳ Connecting to Gemini LiveAPI (model: {MODEL})...")
+        try:
+            async with client.aio.live.connect(model=MODEL, config=live_config) as session:
+                logger.info(f"✅ Successfully connected to Gemini LiveAPI!")
+                
+                # Send success status to client
+                try:
+                    await websocket.send(json.dumps({
+                        "type": "status",
+                        "data": "AI companion ready! You can start talking now."
+                    }))
+                except Exception:
+                    pass
+                
+                async with asyncio.TaskGroup() as tg:
+                    # Create a queue for audio data from the client
+                    audio_queue = asyncio.Queue()
 
-                # Task to process incoming WebSocket messages (audio, text, end)
-                async def handle_websocket_messages():
-                    async for message in websocket:
-                        try:
-                            data = json.loads(message)
-                            if data.get("type") == "audio":
-                                audio_bytes = base64.b64decode(data.get("data", ""))
-                                await audio_queue.put(audio_bytes)
-                            elif data.get("type") == "end":
-                                logger.info("Received end signal from client")
-                                # Summarize on demand when client signals end
-                                try:
-                                    uid = self.user_ids.get(client_id)
-                                    if not uid:
-                                        logger.error("No user ID found for client")
-                                        continue
-                                    
-                                    saved_path = await self.summarize_and_store(client_id, uid)
+                    # Task to process incoming WebSocket messages (audio, text, end)
+                    async def handle_websocket_messages():
+                        async for message in websocket:
+                            try:
+                                data = json.loads(message)
+                                if data.get("type") == "audio":
+                                    audio_bytes = base64.b64decode(data.get("data", ""))
+                                    await audio_queue.put(audio_bytes)
+                                elif data.get("type") == "end":
+                                    logger.info("Received end signal from client")
+                                    # Summarize on demand when client signals end
                                     try:
-                                        await websocket.send(json.dumps({
-                                            "type": "summary_saved",
-                                            "data": saved_path or "ok"
-                                        }))
-                                    except Exception as se:
-                                        logger.error(f"Error sending summary_saved over WS: {se}")
-                                except Exception as e:
-                                    logger.error(f"Summarization error: {e}")
-                                    try:
-                                        await websocket.send(json.dumps({
-                                            "type": "summary_saved",
-                                            "data": f"error: {e}"
-                                        }))
-                                    except Exception as se:
-                                        logger.error(f"Error sending error over WS: {se}")
-                            elif data.get("type") == "text":
-                                txt = data.get("data")
-                                logger.info(f"Received text: {txt}")
-                                # Record explicit text messages from client as user turns
-                                if txt:
-                                    self.session_transcripts[client_id].append({
-                                        "role": "user",
-                                        "text": txt,
-                                        "ts": datetime.now(timezone.utc).isoformat()
-                                    })
-                                    # Corrected method to send text content
-                                    await session.send_realtime_input(text=txt)
-                            elif data.get("type") == "user_id":
-                                # This shouldn't happen if client logic is correct, but log it.
-                                logger.warning(f"Received subsequent user_id message for client {client_id}.")
-                        except json.JSONDecodeError:
-                            logger.error("Invalid JSON message received")
-                        except Exception as e:
-                            logger.error(f"Error processing message: {e}")
-
-                # Task to process and send audio to Gemini
-                async def process_and_send_audio():
-                    while True:
-                        data = await audio_queue.get()
-                        await session.send_realtime_input(
-                            media={
-                                "data": data,
-                                "mime_type": f"audio/pcm;rate={SEND_SAMPLE_RATE}",
-                            }
-                        )
-                        audio_queue.task_done()
-
-                # Task to receive and play responses
-                async def receive_and_play():
-                    while True:
-                        input_transcriptions = []
-                        output_transcriptions = []
-
-                        async for response in session.receive():
-                            if response.session_resumption_update:
-                                update = response.session_resumption_update
-                                if update.resumable and update.new_handle:
-                                    session_id = update.new_handle
-                                    logger.info(f"New SESSION: {session_id}")
-                                    # Keep latest handle per client
-                                    self.session_ids[client_id] = session_id
-
-                                    session_id_msg = json.dumps({
-                                        "type": "session_id", "data": session_id
-                                    })
-                                    try:
-                                        await websocket.send(session_id_msg)
-                                    except Exception as se:
-                                        logger.error(f"Error sending session_id over WS: {se}")
-
-                            if response.go_away is not None:
-                                logger.info(f"Session will terminate in: {response.go_away.time_left}")
-
-                            server_content = response.server_content
-
-                            if (hasattr(server_content, "interrupted") and server_content.interrupted):
-                                logger.info("🤐 INTERRUPTION DETECTED")
-                                try:
-                                    await websocket.send(json.dumps({
-                                        "type": "interrupted",
-                                        "data": "Response interrupted by user input"
-                                    }))
-                                except Exception as se:
-                                    logger.error(f"Error sending interrupted over WS: {se}")
-
-                            if server_content and server_content.model_turn:
-                                for part in server_content.model_turn.parts:
-                                    if part.inline_data:
-                                        b64_audio = base64.b64encode(part.inline_data.data).decode('utf-8')
+                                        uid = self.user_ids.get(client_id)
+                                        if not uid:
+                                            logger.error("No user ID found for client")
+                                            continue
+                                        
+                                        saved_path = await self.summarize_and_store(client_id, uid)
                                         try:
                                             await websocket.send(json.dumps({
-                                                "type": "audio", "data": b64_audio
+                                                "type": "summary_saved",
+                                                "data": saved_path or "ok"
                                             }))
                                         except Exception as se:
-                                            logger.error(f"Error sending audio over WS: {se}")
+                                            logger.error(f"Error sending summary_saved over WS: {se}")
+                                    except Exception as e:
+                                        logger.error(f"Summarization error: {e}")
+                                        try:
+                                            await websocket.send(json.dumps({
+                                                "type": "summary_saved",
+                                                "data": f"error: {e}"
+                                            }))
+                                        except Exception as se:
+                                            logger.error(f"Error sending error over WS: {se}")
+                                elif data.get("type") == "text":
+                                    txt = data.get("data")
+                                    logger.info(f"Received text: {txt}")
+                                    # Record explicit text messages from client as user turns
+                                    if txt:
+                                        self.session_transcripts[client_id].append({
+                                            "role": "user",
+                                            "text": txt,
+                                            "ts": datetime.now(timezone.utc).isoformat()
+                                        })
+                                        # Corrected method to send text content
+                                        await session.send_realtime_input(text=txt)
+                                elif data.get("type") == "user_id":
+                                    # This shouldn't happen if client logic is correct, but log it.
+                                    logger.warning(f"Received subsequent user_id message for client {client_id}.")
+                            except json.JSONDecodeError:
+                                logger.error("Invalid JSON message received")
+                            except Exception as e:
+                                logger.error(f"Error processing message: {e}")
 
-                            if server_content and server_content.turn_complete:
-                                logger.info("✅ Gemini done talking")
-                                try:
-                                    await websocket.send(json.dumps({ "type": "turn_complete" }))
-                                except Exception as se:
-                                    logger.error(f"Error sending turn_complete over WS: {se}")
+                    # Task to process and send audio to Gemini
+                    async def process_and_send_audio():
+                        while True:
+                            data = await audio_queue.get()
+                            await session.send_realtime_input(
+                                media={
+                                    "data": data,
+                                    "mime_type": f"audio/pcm;rate={SEND_SAMPLE_RATE}",
+                                }
+                            )
+                            audio_queue.task_done()
 
-                            output_transcription = getattr(response.server_content, "output_transcription", None)
-                            if output_transcription and output_transcription.text:
-                                text_out = output_transcription.text
-                                output_transcriptions.append(text_out)
+                    # Task to receive and play responses
+                    async def receive_and_play():
+                        while True:
+                            input_transcriptions = []
+                            output_transcriptions = []
 
-                                # Check for and save suggested exercises
-                                try:
-                                    if '"suggested_exercises"' in text_out:
-                                        start = text_out.find("{")
-                                        end = text_out.rfind("}") + 1
-                                        if 0 <= start < end:
-                                            json_str = text_out[start:end]
-                                            data = json.loads(json_str)
-                                            exercise_ids = data.get("suggested_exercises")
-                                            uid = self.user_ids.get(client_id)
-                                            if uid and exercise_ids and isinstance(exercise_ids, list):
-                                                logger.info(f"Found suggested exercises: {exercise_ids} for user {uid}. Sending to db-server...")
-                                                payload = {"uid": uid, "exerciseIds": exercise_ids}
-                                                try:
-                                                    # This is a blocking call, consider using an async library like aiohttp in production
-                                                    response = requests.post("http://localhost:3000/save-exercises", json=payload)
-                                                    logger.info(f"Save exercises response status: {response.status_code}")
-                                                    logger.info(f"Save exercises response body: {response.text}")
-                                                except requests.exceptions.RequestException as req_e:
-                                                    logger.error(f"HTTP Request error when saving exercises: {req_e}")
-                                except Exception as e:
-                                    logger.error(f"Error processing suggested exercises: {e}")
+                            async for response in session.receive():
+                                if response.session_resumption_update:
+                                    update = response.session_resumption_update
+                                    if update.resumable and update.new_handle:
+                                        session_id = update.new_handle
+                                        logger.info(f"New SESSION: {session_id}")
+                                        # Keep latest handle per client
+                                        self.session_ids[client_id] = session_id
 
-                                try:
-                                    await websocket.send(json.dumps({
-                                        "type": "text", "data": text_out
-                                    }))
-                                except Exception as se:
-                                    logger.error(f"Error sending text over WS: {se}")
-                                # Record assistant outputs
-                                self.session_transcripts[client_id].append({
-                                    "role": "assistant",
-                                    "text": text_out,
-                                    "ts": datetime.now(timezone.utc).isoformat()
-                                })
+                                        session_id_msg = json.dumps({
+                                            "type": "session_id", "data": session_id
+                                        })
+                                        try:
+                                            await websocket.send(session_id_msg)
+                                        except Exception as se:
+                                            logger.error(f"Error sending session_id over WS: {se}")
 
-                            input_transcription = getattr(response.server_content, "input_transcription", None)
-                            if input_transcription and input_transcription.text:
-                                text_in = input_transcription.text
-                                input_transcriptions.append(text_in)
-                                # Record user recognized speech
-                                self.session_transcripts[client_id].append({
-                                    "role": "user",
-                                    "text": text_in,
-                                    "ts": datetime.now(timezone.utc).isoformat()
-                                })
+                                if response.go_away is not None:
+                                    logger.info(f"Session will terminate in: {response.go_away.time_left}")
 
-                        logger.info(f"Output transcription: {''.join(output_transcriptions)}")
-                        logger.info(f"Input transcription: {''.join(input_transcriptions)}")
+                                server_content = response.server_content
 
-                # Start all tasks
-                tg.create_task(handle_websocket_messages())
-                tg.create_task(process_and_send_audio())
-                tg.create_task(receive_and_play())
+                                if (hasattr(server_content, "interrupted") and server_content.interrupted):
+                                    logger.info("🤐 INTERRUPTION DETECTED")
+                                    try:
+                                        await websocket.send(json.dumps({
+                                            "type": "interrupted",
+                                            "data": "Response interrupted by user input"
+                                        }))
+                                    except Exception as se:
+                                        logger.error(f"Error sending interrupted over WS: {se}")
+
+                                if server_content and server_content.model_turn:
+                                    for part in server_content.model_turn.parts:
+                                        if part.inline_data:
+                                            b64_audio = base64.b64encode(part.inline_data.data).decode('utf-8')
+                                            try:
+                                                await websocket.send(json.dumps({
+                                                    "type": "audio", "data": b64_audio
+                                                }))
+                                            except Exception as se:
+                                                logger.error(f"Error sending audio over WS: {se}")
+
+                                if server_content and server_content.turn_complete:
+                                    logger.info("✅ Gemini done talking")
+                                    try:
+                                        await websocket.send(json.dumps({ "type": "turn_complete" }))
+                                    except Exception as se:
+                                        logger.error(f"Error sending turn_complete over WS: {se}")
+
+                                output_transcription = getattr(response.server_content, "output_transcription", None)
+                                if output_transcription and output_transcription.text:
+                                    text_out = output_transcription.text
+                                    output_transcriptions.append(text_out)
+
+                                    # Check for and save suggested exercises
+                                    try:
+                                        if '"suggested_exercises"' in text_out:
+                                            start = text_out.find("{")
+                                            end = text_out.rfind("}") + 1
+                                            if 0 <= start < end:
+                                                json_str = text_out[start:end]
+                                                data = json.loads(json_str)
+                                                exercise_ids = data.get("suggested_exercises")
+                                                uid = self.user_ids.get(client_id)
+                                                if uid and exercise_ids and isinstance(exercise_ids, list):
+                                                    logger.info(f"Found suggested exercises: {exercise_ids} for user {uid}. Sending to db-server...")
+                                                    payload = {"uid": uid, "exerciseIds": exercise_ids}
+                                                    try:
+                                                        # This is a blocking call, consider using an async library like aiohttp in production
+                                                        response = requests.post("http://localhost:3000/save-exercises", json=payload)
+                                                        logger.info(f"Save exercises response status: {response.status_code}")
+                                                        logger.info(f"Save exercises response body: {response.text}")
+                                                    except requests.exceptions.RequestException as req_e:
+                                                        logger.error(f"HTTP Request error when saving exercises: {req_e}")
+                                    except Exception as e:
+                                        logger.error(f"Error processing suggested exercises: {e}")
+
+                                    try:
+                                        await websocket.send(json.dumps({
+                                            "type": "text", "data": text_out
+                                        }))
+                                    except Exception as se:
+                                        logger.error(f"Error sending text over WS: {se}")
+                                    # Record assistant outputs
+                                    self.session_transcripts[client_id].append({
+                                        "role": "assistant",
+                                        "text": text_out,
+                                        "ts": datetime.now(timezone.utc).isoformat()
+                                    })
+
+                                input_transcription = getattr(response.server_content, "input_transcription", None)
+                                if input_transcription and input_transcription.text:
+                                    text_in = input_transcription.text
+                                    input_transcriptions.append(text_in)
+                                    # Record user recognized speech
+                                    self.session_transcripts[client_id].append({
+                                        "role": "user",
+                                        "text": text_in,
+                                        "ts": datetime.now(timezone.utc).isoformat()
+                                    })
+
+                            logger.info(f"Output transcription: {''.join(output_transcriptions)}")
+                            logger.info(f"Input transcription: {''.join(input_transcriptions)}")
+
+                    # Start all tasks
+                    tg.create_task(handle_websocket_messages())
+                    tg.create_task(process_and_send_audio())
+                    tg.create_task(receive_and_play())
+        except Exception as gemini_error:
+            logger.error(f"❌ Gemini LiveAPI connection failed: {gemini_error}")
+            logger.error(traceback.format_exc())
+            # Send error to client
+            try:
+                await websocket.send(json.dumps({
+                    "type": "error",
+                    "data": f"Failed to connect to AI service: {str(gemini_error)}"
+                }))
+            except Exception as send_error:
+                logger.error(f"Failed to send error message to client: {send_error}")
+            raise  # Re-raise to trigger cleanup in handle_client
 
     # ---------- Summarize & store function ----------
     async def summarize_and_store(self, client_id: str, uid: str):

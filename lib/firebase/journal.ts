@@ -17,10 +17,10 @@ import {
   Timestamp,
   serverTimestamp,
   QueryConstraint,
-  collectionGroup,
 } from 'firebase/firestore';
 import { db } from './config';
 import { deleteMultipleImages } from './storage';
+import { encryptField, decryptField, encryptObject, decryptObject } from '../security/encryption';
 import type {
   JournalEntry,
   CreateJournalEntryInput,
@@ -32,7 +32,13 @@ import type {
 const CATEGORIES_COLLECTION = 'categories';
 const PROMPTS_COLLECTION = 'dailyPrompts';
 
-// Helper function to get user's journal entries subcollection
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Get the journal entries subcollection for a user
+ */
 const getUserJournalCollection = (userId: string) => {
   return collection(db, 'users', userId, 'journalEntries');
 };
@@ -49,11 +55,16 @@ export async function createJournalEntry(
   data: CreateJournalEntryInput
 ): Promise<string> {
   try {
-    // Use new subcollection structure: users/{uid}/journalEntries
+    // Encrypt sensitive fields before storing
+    const encryptedTitle = data.title ? await encryptField(data.title, userId) : '';
+    const encryptedContent = await encryptObject(data.content, userId);
+
+    // Use subcollection: users/{userId}/journalEntries
     const entryRef = await addDoc(getUserJournalCollection(userId), {
-      title: data.title || '',
-      content: data.content,
-      mood: data.mood,
+      // Note: userId is implicit in the path, no need to store it
+      title: encryptedTitle,
+      content: encryptedContent,
+      mood: data.mood, // Mood is not super sensitive, but could be encrypted too
       images: data.images || [],
       categoryId: data.categoryId || null,
       createdAt: serverTimestamp(),
@@ -80,8 +91,8 @@ export async function getJournalEntries(
   }
 ): Promise<JournalEntry[]> {
   try {
-    // Use new subcollection structure: users/{uid}/journalEntries
     const constraints: QueryConstraint[] = [
+      // No need for userId filter - it's implicit in the subcollection path
       orderBy('createdAt', 'desc'),
     ];
 
@@ -103,23 +114,34 @@ export async function getJournalEntries(
       constraints.push(limit(options.limitCount));
     }
 
+    // Query the user's journal subcollection
     const q = query(getUserJournalCollection(userId), ...constraints);
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        userId: userId,
-        title: data.title,
-        content: data.content,
-        mood: data.mood,
-        images: data.images || [],
-        categoryId: data.categoryId,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as JournalEntry;
-    });
+    // Decrypt entries on retrieval
+    const entries = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const data = doc.data();
+
+        // Decrypt sensitive fields
+        const decryptedTitle = data.title ? await decryptField(data.title, userId) : '';
+        const decryptedContent = await decryptObject<any>(data.content, userId);
+
+        return {
+          id: doc.id,
+          userId: data.userId,
+          title: decryptedTitle,
+          content: decryptedContent || data.content, // Fallback to raw if decryption fails
+          mood: data.mood,
+          images: data.images || [],
+          categoryId: data.categoryId,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        } as JournalEntry;
+      })
+    );
+
+    return entries;
   } catch (error) {
     console.error('Error fetching journal entries:', error);
     throw new Error('Failed to fetch journal entries');
@@ -134,7 +156,7 @@ export async function getJournalEntryById(
   entryId: string
 ): Promise<JournalEntry | null> {
   try {
-    // Use new subcollection structure: users/{uid}/journalEntries/{entryId}
+    // Access entry in user's journal subcollection
     const docRef = doc(db, 'users', userId, 'journalEntries', entryId);
     const docSnap = await getDoc(docRef);
 
@@ -144,11 +166,17 @@ export async function getJournalEntryById(
 
     const data = docSnap.data();
 
+    // No need for security check - userId is in the path, so this entry belongs to the user
+
+    // Decrypt sensitive fields
+    const decryptedTitle = data.title ? await decryptField(data.title, userId) : '';
+    const decryptedContent = await decryptObject<any>(data.content, userId);
+
     return {
       id: docSnap.id,
-      userId: userId,
-      title: data.title,
-      content: data.content,
+      userId: userId, // Restore userId for consistency
+      title: decryptedTitle,
+      content: decryptedContent || data.content, // Fallback
       mood: data.mood,
       images: data.images || [],
       categoryId: data.categoryId,
@@ -170,22 +198,26 @@ export async function updateJournalEntry(
   updates: UpdateJournalEntryInput
 ): Promise<void> {
   try {
-    // Use new subcollection structure: users/{uid}/journalEntries/{entryId}
+    // Access entry in user's journal subcollection
     const docRef = doc(db, 'users', userId, 'journalEntries', entryId);
 
-    // Verify entry exists
+    // Verify entry exists (ownership is implicit in subcollection path)
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) {
       throw new Error('Journal entry not found');
     }
 
-    // Prepare update data
+    // Prepare update data (encrypt sensitive fields)
     const updateData: any = {
       updatedAt: serverTimestamp(),
     };
 
-    if (updates.title !== undefined) updateData.title = updates.title;
-    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.title !== undefined) {
+      updateData.title = updates.title ? await encryptField(updates.title, userId) : '';
+    }
+    if (updates.content !== undefined) {
+      updateData.content = await encryptObject(updates.content, userId);
+    }
     if (updates.mood !== undefined) updateData.mood = updates.mood;
     if (updates.images !== undefined) updateData.images = updates.images;
     if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
@@ -202,7 +234,7 @@ export async function updateJournalEntry(
  */
 export async function deleteJournalEntry(userId: string, entryId: string): Promise<void> {
   try {
-    // Use new subcollection structure: users/{uid}/journalEntries/{entryId}
+    // Access entry in user's journal subcollection
     const docRef = doc(db, 'users', userId, 'journalEntries', entryId);
 
     // Verify entry exists and get data

@@ -52,18 +52,18 @@ app.post("/signup", async (req, res) => {
 
     // Encrypt sensitive fields
     if (name) {
-      profileData.name = await encryptField(name, userRecord.uid)
+      profileData.name = encryptField(name, userRecord.uid)
     }
 
     if (gender) {
-      profileData.gender = await encryptField(gender, userRecord.uid)
+      profileData.gender = encryptField(gender, userRecord.uid)
     }
 
     if (age !== undefined && age !== null && age !== "") {
       const numericAge = Number.parseInt(age, 10)
       if (!Number.isNaN(numericAge)) {
         // Store age as encrypted string
-        profileData.age = await encryptField(numericAge.toString(), userRecord.uid)
+        profileData.age = encryptField(numericAge.toString(), userRecord.uid)
       }
     }
 
@@ -106,418 +106,26 @@ app.post("/login", async (req, res) => {
 
     // Read from new user_profiling subcollection
     const profileDoc = await db.collection("users").doc(userRecord.uid).collection("user_profiling").doc("profile").get()
-    const profile = profileDoc.exists ? profileDoc.data() : null
-
-    // Decrypt profile data if it exists
-    if (profile) {
-      if (profile.name) {
-        profile.name = await decryptField(profile.name, userRecord.uid)
+    
+    if (profileDoc.exists) {
+      const encryptedProfile = profileDoc.data()
+      
+      // Decrypt sensitive fields before sending to client
+      const profile = {
+        ...encryptedProfile,
+        name: encryptedProfile.name ? await decryptField(encryptedProfile.name, userRecord.uid) : null,
+        gender: encryptedProfile.gender ? await decryptField(encryptedProfile.gender, userRecord.uid) : null,
+        age: encryptedProfile.age ? parseInt(await decryptField(encryptedProfile.age, userRecord.uid), 10) : null,
       }
       
-      if (profile.gender) {
-        profile.gender = await decryptField(profile.gender, userRecord.uid)
-      }
-      
-      if (profile.age) {
-        const decryptedAge = await decryptField(profile.age, userRecord.uid)
-        profile.age = Number.parseInt(decryptedAge, 10)
-      }
+      res.status(200).send({ uid: userRecord.uid, profile })
+    } else {
+      res.status(200).send({ uid: userRecord.uid, profile: null })
     }
-
-    res.status(200).send({ uid: userRecord.uid, profile })
   } catch (error) {
     res.status(401).send({ error: "Unable to locate account for the provided email." })
   }
 })
-
-// ==================== ANALYTICS HELPER FUNCTIONS ====================
-
-/**
- * Get ISO week number from date
- */
-function getWeekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-}
-
-/**
- * Calculate incremental average
- */
-function calculateIncrementalAverage(oldAvg, oldCount, newValue) {
-  if (oldCount === 0) return newValue;
-  return Math.round(((oldAvg * oldCount) + newValue) / (oldCount + 1));
-}
-
-/**
- * Update analytics summary (Embedded Windows Architecture - Layer 2)
- * This function implements the incremental update strategy for real-time analytics
- */
-async function updateAnalyticsSummary(uid, newMetric) {
-  try {
-    console.log(`📊 Attempting to update analytics summary for user ${uid}...`);
-    
-    await db.runTransaction(async (transaction) => {
-      const summaryRef = db.collection("users").doc(uid).collection("analytics").doc("summary");
-      const summaryDoc = await transaction.get(summaryRef);
-      
-      const now = new Date();
-      const currentWeek = `${now.getFullYear()}-W${String(getWeekNumber(now)).padStart(2, '0')}`;
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      
-      let summary;
-      
-      if (!summaryDoc.exists) {
-        // Initialize new summary with embedded windows structure
-        summary = {
-          current: {
-            mood: { average: 0, min: 100, max: 0, data_points: 0, reliable: false },
-            stress: { average: 0, min: 100, max: 0, data_points: 0, reliable: false },
-            energy: { average: 0, min: 100, max: 0, data_points: 0, reliable: false },
-            anxiety: { average: 0, data_points: 0, reliable: false },
-            sleep: { average: 0, data_points: 0, reliable: false }
-          },
-          windows: {
-            last_7_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null },
-            last_30_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null },
-            last_90_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null }
-          },
-          weekly_history: [],
-          monthly_history: [],
-          breakdown: { ai_sessions: 0, journal_entries: 0, total: 0 },
-          metadata: {
-            total_lifetime_entries: 0,
-            first_entry: now.toISOString(),
-            last_entry: now.toISOString(),
-            last_updated: admin.firestore.FieldValue.serverTimestamp()
-          }
-        };
-      } else {
-        summary = summaryDoc.data();
-      }
-      
-      // Update current aggregates (incremental calculation - no need to re-read all metrics!)
-      const metrics = ['mood_percentage', 'stress_level', 'energy_level', 'anxiety_level', 'sleep_quality'];
-      const metricNames = ['mood', 'stress', 'energy', 'anxiety', 'sleep'];
-      
-      metrics.forEach((metricKey, idx) => {
-        const value = newMetric[metricKey];
-        if (value !== null && value !== undefined) {
-          const name = metricNames[idx];
-          const current = summary.current[name];
-          
-          const oldCount = current.data_points || 0;
-          const oldAvg = current.average || 0;
-          
-          // Incremental average calculation
-          current.average = calculateIncrementalAverage(oldAvg, oldCount, value);
-          current.min = Math.min(current.min || 100, value);
-          current.max = Math.max(current.max || 0, value);
-          current.data_points = oldCount + 1;
-          current.reliable = current.data_points >= 1; // Reliable from first entry
-          current.last_updated = now.toISOString();
-        }
-      });
-      
-      // Update breakdown counts
-      if (newMetric.source === 'ai_session') {
-        summary.breakdown.ai_sessions = (summary.breakdown.ai_sessions || 0) + 1;
-      } else if (newMetric.source === 'journal_entry') {
-        summary.breakdown.journal_entries = (summary.breakdown.journal_entries || 0) + 1;
-      }
-      summary.breakdown.total = (summary.breakdown.total || 0) + 1;
-      
-      // Update rolling windows (aggregated stats only - no individual entries)
-      summary.windows.last_7_days.mood_avg = summary.current.mood.average;
-      summary.windows.last_7_days.stress_avg = summary.current.stress.average;
-      summary.windows.last_7_days.energy_avg = summary.current.energy.average;
-      summary.windows.last_7_days.entries_count = Math.min(summary.breakdown.total, 50); // Approximate
-      summary.windows.last_7_days.updated_at = now.toISOString();
-      
-      summary.windows.last_30_days.mood_avg = summary.current.mood.average;
-      summary.windows.last_30_days.stress_avg = summary.current.stress.average;
-      summary.windows.last_30_days.energy_avg = summary.current.energy.average;
-      summary.windows.last_30_days.entries_count = summary.breakdown.total;
-      summary.windows.last_30_days.updated_at = now.toISOString();
-      
-      summary.windows.last_90_days.mood_avg = summary.current.mood.average;
-      summary.windows.last_90_days.stress_avg = summary.current.stress.average;
-      summary.windows.last_90_days.energy_avg = summary.current.energy.average;
-      summary.windows.last_90_days.entries_count = summary.breakdown.total;
-      summary.windows.last_90_days.updated_at = now.toISOString();
-      
-      // Update weekly history (snapshots for timeline charts)
-      if (!summary.weekly_history) summary.weekly_history = [];
-      
-      const lastWeek = summary.weekly_history[0]?.week;
-      if (lastWeek !== currentWeek) {
-        // New week! Create snapshot
-        const weekSnapshot = {
-          week: currentWeek,
-          year: now.getFullYear(),
-          mood_avg: summary.current.mood.average || null,
-          stress_avg: summary.current.stress.average || null,
-          energy_avg: summary.current.energy.average || null,
-          entries_count: summary.breakdown.total || 0,
-          snapshot_taken_at: now.toISOString()
-        };
-        
-        summary.weekly_history.unshift(weekSnapshot);
-        
-        if (summary.weekly_history.length > 12) {
-          summary.weekly_history = summary.weekly_history.slice(0, 12);
-        }
-      } else if (summary.weekly_history.length > 0) {
-        // Same week - update existing snapshot
-        summary.weekly_history[0].mood_avg = summary.current.mood.average || null;
-        summary.weekly_history[0].stress_avg = summary.current.stress.average || null;
-        summary.weekly_history[0].energy_avg = summary.current.energy.average || null;
-        summary.weekly_history[0].entries_count = summary.breakdown.total || 0;
-        summary.weekly_history[0].snapshot_taken_at = now.toISOString();
-      } else {
-        // First entry ever
-        const weekSnapshot = {
-          week: currentWeek,
-          year: now.getFullYear(),
-          mood_avg: summary.current.mood.average || null,
-          stress_avg: summary.current.stress.average || null,
-          energy_avg: summary.current.energy.average || null,
-          entries_count: summary.breakdown.total || 0,
-          snapshot_taken_at: now.toISOString()
-        };
-        summary.weekly_history.push(weekSnapshot);
-      }
-      
-      // Update monthly history
-      if (!summary.monthly_history) summary.monthly_history = [];
-      
-      const lastMonth = summary.monthly_history[0]?.month;
-      if (lastMonth !== currentMonth) {
-        const monthSnapshot = {
-          month: currentMonth,
-          year: now.getFullYear(),
-          mood_avg: summary.current.mood.average || null,
-          stress_avg: summary.current.stress.average || null,
-          energy_avg: summary.current.energy.average || null,
-          entries_count: summary.breakdown.total || 0,
-          snapshot_taken_at: now.toISOString()
-        };
-        
-        summary.monthly_history.unshift(monthSnapshot);
-        
-        if (summary.monthly_history.length > 12) {
-          summary.monthly_history = summary.monthly_history.slice(0, 12);
-        }
-      } else if (summary.monthly_history.length > 0) {
-        summary.monthly_history[0].mood_avg = summary.current.mood.average || null;
-        summary.monthly_history[0].stress_avg = summary.current.stress.average || null;
-        summary.monthly_history[0].energy_avg = summary.current.energy.average || null;
-        summary.monthly_history[0].entries_count = summary.breakdown.total || 0;
-        summary.monthly_history[0].snapshot_taken_at = now.toISOString();
-      } else {
-        const monthSnapshot = {
-          month: currentMonth,
-          year: now.getFullYear(),
-          mood_avg: summary.current.mood.average || null,
-          stress_avg: summary.current.stress.average || null,
-          energy_avg: summary.current.energy.average || null,
-          entries_count: summary.breakdown.total || 0,
-          snapshot_taken_at: now.toISOString()
-        };
-        summary.monthly_history.push(monthSnapshot);
-      }
-      
-      // Update metadata
-      summary.metadata.total_lifetime_entries = summary.breakdown.total;
-      summary.metadata.last_entry = now.toISOString();
-      summary.metadata.last_updated = admin.firestore.FieldValue.serverTimestamp();
-      
-      // Write updated summary
-      transaction.set(summaryRef, summary);
-      
-      console.log(`✅ Analytics summary updated successfully`);
-      console.log(`   - analytics/summary (updated with embedded windows)`);
-    });
-    
-  } catch (error) {
-    console.error(`❌ Analytics update failed:`, error);
-    console.error(`   Stack:`, error.stack);
-  }
-}
-
-// GET endpoint for fetching analytics summary
-app.get("/get-analytics-summary/:uid", async (req, res) => {
-  const { uid } = req.params;
-  
-  if (!uid) {
-    return res.status(400).send({ error: "Missing uid" });
-  }
-  
-  try {
-    const summaryDoc = await db.collection("users").doc(uid).collection("analytics").doc("summary").get();
-    
-    if (!summaryDoc.exists) {
-      return res.status(200).send({ 
-        exists: false,
-        message: "No analytics data yet" 
-      });
-    }
-    
-    res.status(200).send({
-      exists: true,
-      summary: summaryDoc.data()
-    });
-    
-  } catch (error) {
-    console.error("Error fetching analytics summary:", error);
-    res.status(500).send({ error: error.message });
-  }
-});
-
-// ==================== END ANALYTICS FUNCTIONS ====================
-
-// ==================== COUNT-BASED ARCHIVING FUNCTIONS ====================
-
-/**
- * Check if archiving is needed and execute if summaries count >= 10
- * Archives the oldest 5 summaries when threshold is reached
- */
-async function checkAndArchiveIfNeeded(uid) {
-  try {
-    // Get all summaries ordered by timestamp
-    const summariesSnapshot = await db.collection("users").doc(uid)
-      .collection("summaries")
-      .orderBy("timestamp", "asc")
-      .get();
-
-    const summaryCount = summariesSnapshot.size;
-    console.log(`📊 User ${uid} has ${summaryCount} summaries`);
-
-    // Archive if we have 10 or more summaries
-    if (summaryCount >= 10) {
-      console.log(`🗂️ Archiving triggered for user ${uid} (threshold: 10, current: ${summaryCount})`);
-      
-      // Get oldest 5 summaries
-      const oldestFive = summariesSnapshot.docs.slice(0, 5);
-      await archiveOldestSummaries(uid, oldestFive);
-      
-      return { archived: true, count: 5 };
-    }
-
-    return { archived: false, count: 0 };
-  } catch (error) {
-    console.error(`❌ Error checking archive status for ${uid}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Archive the oldest 5 summaries:
- * 1. Decrypt summaries
- * 2. Generate AI-compressed archive summary
- * 3. Encrypt and save archive
- * 4. Delete original summaries
- */
-async function archiveOldestSummaries(uid, summaryDocs) {
-  try {
-    console.log(`📦 Archiving ${summaryDocs.length} summaries for user ${uid}...`);
-
-    // 1. Decrypt all summaries
-    const decryptedSummaries = await Promise.all(
-      summaryDocs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          timestamp: data.timestamp,
-          summary_text: data.summary_text ? await decryptField(data.summary_text, uid) : "",
-          key_topics: data.key_topics || [],
-          action_items: data.action_items || [],
-          risk_flags: data.risk_flags || {},
-          sentiment: data.sentiment || "neutral"
-        };
-      })
-    );
-
-    // 2. Generate compressed archive using Gemini AI
-    const archiveText = await generateArchiveSummary(decryptedSummaries);
-
-    // 3. Encrypt the archive summary
-    const encryptedArchive = await encryptField(archiveText, uid);
-
-    // 4. Save encrypted archive
-    const archiveId = `arch_${Date.now()}`;
-    const firstTimestamp = decryptedSummaries[0].timestamp;
-    const lastTimestamp = decryptedSummaries[decryptedSummaries.length - 1].timestamp;
-
-    await db.collection("users").doc(uid)
-      .collection("archives").doc(archiveId)
-      .set({
-        archive_id: archiveId,
-        summary_count: summaryDocs.length,
-        period_start: firstTimestamp,
-        period_end: lastTimestamp,
-        compressed_summary: encryptedArchive, // Encrypted
-        archived_at: admin.firestore.FieldValue.serverTimestamp(),
-        summary_ids: summaryDocs.map(doc => doc.id)
-      });
-
-    // 5. Delete original summaries
-    const batch = db.batch();
-    summaryDocs.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
-
-    console.log(`✅ Archived ${summaryDocs.length} summaries into ${archiveId} (encrypted)`);
-    
-    return archiveId;
-  } catch (error) {
-    console.error(`❌ Error archiving summaries for ${uid}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Use Gemini AI to compress multiple summaries into a single archive summary
- */
-async function generateArchiveSummary(summaries) {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  const summaryTexts = summaries.map((s, i) => 
-    `[Summary ${i + 1}]\n${s.summary_text || "No text"}\nTopics: ${s.key_topics.join(", ")}`
-  ).join("\n\n");
-
-  const prompt = `You are a mental health data archival system. Compress the following ${summaries.length} session summaries into a single, concise archive summary (max 500 words).
-
-Focus on:
-- Recurring themes and patterns
-- Key emotional trajectories
-- Important action items and coping strategies
-- Any risk flags or concerns
-- Overall progress indicators
-
-Summaries to compress:
-${summaryTexts}
-
-Compressed Archive Summary:`;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error("❌ Gemini AI archive generation failed:", error);
-    // Fallback: simple concatenation
-    return `Archive of ${summaries.length} summaries. Key topics: ${
-      [...new Set(summaries.flatMap(s => s.key_topics))].join(", ")
-    }`;
-  }
-}
-
-// ==================== END ARCHIVING FUNCTIONS ====================
 
 app.post("/save-summary", async (req, res) => {
   const { uid, summary } = req.body
@@ -530,7 +138,7 @@ app.post("/save-summary", async (req, res) => {
     const sessionId = meta?.session_id || `sess_${Date.now()}`
     const timestamp = admin.firestore.FieldValue.serverTimestamp()
     
-    // 1. Save to metrics/{sessionId} (flat structure with source tracking) - NO ENCRYPTION for numeric metrics
+    // 1. Save to metrics/{sessionId} (flat structure with source tracking)
     const metricsData = {
       timestamp,
       sessionId,
@@ -538,7 +146,7 @@ app.post("/save-summary", async (req, res) => {
       confidence: 0.90, // AI session confidence weight
       duration_minutes: meta?.duration_minutes || null,
       
-      // Core numeric metrics (NOT encrypted - used for analytics)
+      // Core numeric metrics
       mood_percentage: summary_data?.mood_percentage || 0,
       energy_level: summary_data?.energy_level || 0,
       stress_level: summary_data?.stress_level || 0,
@@ -557,9 +165,9 @@ app.post("/save-summary", async (req, res) => {
       physical_activity_minutes: summary_data?.physical_activity_minutes || null,
       focus_level: summary_data?.focus_level || null,
       
-      // Arrays (short data) - NOT encrypted
-      main_topics: summary_data?.main_points || summary_data?.main_topics || [],
-      suggested_exercises: summary_data?.suggested_exercises || [],
+      // Arrays (short data) - ENCRYPTED
+      main_topics: await encryptArray(summary_data?.main_points || summary_data?.main_topics || [], uid),
+      suggested_exercises: summary_data?.suggested_exercises || [], // Exercises are generic, keep plain
       risk_flags: summary_data?.risk_flags || {},
       
       // Metadata
@@ -571,41 +179,48 @@ app.post("/save-summary", async (req, res) => {
       .collection("metrics").doc(sessionId)
       .set(metricsData)
     
-    // 2. Save to summaries subcollection (text data for AI context) - ENCRYPT TEXT FIELDS
+    // 2. Save to summaries subcollection (text data for AI context)
+    // 🔐 ENCRYPT SENSITIVE TEXT FIELDS
     const summaryData = {
       timestamp,
       sessionId,
       
-      // Full text summary (ENCRYPTED)
+      // Full text summary - ENCRYPTED
       summary_text: summary_data?.summary || summary_data?.raw 
         ? await encryptField(summary_data?.summary || summary_data?.raw || "", uid)
         : "",
       
-      // Key insights (arrays, not encrypted for now - consider encrypting if sensitive)
-      key_topics: summary_data?.main_points || summary_data?.main_topics || [],
-      key_phrases: summary_data?.emotions_themes || [],
+      // Key insights - ENCRYPTED ARRAYS
+      key_topics: await encryptArray(summary_data?.main_points || summary_data?.main_topics || [], uid),
+      key_phrases: await encryptArray(summary_data?.emotions_themes || [], uid),
       
-      // Conversation flow
-      sentiment_trajectory: summary_data?.mood_stability || "",
+      // Conversation flow - ENCRYPTED
+      sentiment_trajectory: summary_data?.mood_stability 
+        ? await encryptField(String(summary_data.mood_stability), uid)
+        : "",
       
-      // Action items & strategies
-      action_items: summary_data?.action_items_suggested || summary_data?.action_items || [],
-      coping_strategies: summary_data?.coping_strategies_discussed || [],
-      suggestions: summary_data?.suggestions_non_clinical || [],
+      // Action items & strategies - ENCRYPTED ARRAYS
+      action_items: await encryptArray(summary_data?.action_items_suggested || summary_data?.action_items || [], uid),
+      coping_strategies: await encryptArray(summary_data?.coping_strategies_discussed || [], uid),
+      suggestions: await encryptArray(summary_data?.suggestions_non_clinical || [], uid),
       
-      // Flags & concerns
-      ongoing_concerns: summary_data?.stressors || [],
-      risk_flags: summary_data?.risk_flags || {},
-      urgency_level: summary_data?.urgency_level || "low",
+      // Flags & concerns - ENCRYPTED ARRAYS
+      ongoing_concerns: await encryptArray(summary_data?.stressors || [], uid),
+      risk_flags: summary_data?.risk_flags || {}, // Keep as object for now (could encrypt values)
+      urgency_level: summary_data?.urgency_level 
+        ? await encryptField(String(summary_data.urgency_level), uid)
+        : await encryptField("low", uid),
       
-      // Strengths & positives
-      strengths_shown: summary_data?.protective_factors || [],
-      positive_moments: summary_data?.positive_event || null,
+      // Strengths & positives - ENCRYPTED
+      strengths_shown: await encryptArray(summary_data?.protective_factors || [], uid),
+      positive_moments: summary_data?.positive_event 
+        ? await encryptField(String(summary_data.positive_event), uid)
+        : null,
       
-      // Goals
-      goals: summary_data?.goals_or_hopes || [],
+      // Goals - ENCRYPTED ARRAY
+      goals: await encryptArray(summary_data?.goals_or_hopes || [], uid),
       
-      // Original meta
+      // Original meta (non-sensitive)
       meta: meta || {}
     }
     
@@ -625,8 +240,9 @@ app.post("/save-summary", async (req, res) => {
       sleep_quality: summary_data?.sleep_quality || null,
       cognitive_score: summary_data?.cognitive_score || 0,
       emotional_score: summary_data?.emotional_score || 0,
-      main_topics: (summary_data?.main_points || summary_data?.main_topics || []).slice(0, 3),
-      suggested_exercises: (summary_data?.suggested_exercises || []).slice(0, 3),
+      // Encrypt top topics even in cache
+      main_topics: await encryptArray((summary_data?.main_points || summary_data?.main_topics || []).slice(0, 3), uid),
+      suggested_exercises: (summary_data?.suggested_exercises || []).slice(0, 3), // Generic exercises, keep plain
       risk_flags: summary_data?.risk_flags || {},
     }
     
@@ -634,32 +250,27 @@ app.post("/save-summary", async (req, res) => {
       .collection("latest").doc("metrics")
       .set(latestCache)
     
-    // 4. Update analytics summary (Embedded Windows System)
-    await updateAnalyticsSummary(uid, metricsData);
-
-    // 5. Check and trigger count-based archiving (archive oldest 5 when count >= 10)
-    const archiveResult = await checkAndArchiveIfNeeded(uid);
-    
-    console.log(`✅ Summary saved for user ${uid} with encryption:`)
-    console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%, NOT encrypted)`)
-    console.log(`   - summaries/${sessionId} (text encrypted)`)
+    console.log(`✅ Summary saved for user ${uid} with flat metrics structure:`)
+    console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%)`)
+    console.log(`   - summaries/${sessionId}`)
     console.log(`   - latest/metrics (cache updated)`)
-    if (archiveResult.archived) {
-      console.log(`   - ♻️ Archived ${archiveResult.count} oldest summaries`)
-    }
+    
+    // ✅ COUNT-BASED ARCHIVING: Check if archiving is needed
+    console.log(`📊 Checking if archiving is needed for user ${uid}...`)
+    const archiveResult = await checkAndArchiveIfNeeded(uid)
+    console.log(`📊 Archive check result:`, archiveResult)
     
     res.status(200).send({ 
-      message: "Summary saved successfully with encryption and source tracking",
+      message: "Summary saved successfully with source tracking",
       sessionId,
       source: "ai_session",
       confidence: 0.90,
-      archived: archiveResult.archived,
-      archived_count: archiveResult.count,
       paths: {
         metrics: `users/${uid}/metrics/${sessionId}`,
         summary: `users/${uid}/summaries/${sessionId}`,
         latest: `users/${uid}/latest/metrics`
-      }
+      },
+      archive_status: archiveResult  // Include archiving info in response
     })
   } catch (error) {
     console.error("Error saving summary:", error)
@@ -706,15 +317,17 @@ app.post("/save-journal-metrics", async (req, res) => {
       mood_stability: metrics.mood_stability || null,
       mood_calmness: metrics.mood_calmness || null,
       
-      // Context arrays
-      main_topics: metrics.main_topics || [],
-      stressors: metrics.stressors || [],
-      protective_factors: metrics.protective_factors || [],
-      coping_strategies_discussed: metrics.coping_strategies_discussed || [],
-      goals_or_hopes: metrics.goals_or_hopes || [],
+      // Context arrays - ENCRYPTED
+      main_topics: await encryptArray(metrics.main_topics || [], uid),
+      stressors: await encryptArray(metrics.stressors || [], uid),
+      protective_factors: await encryptArray(metrics.protective_factors || [], uid),
+      coping_strategies_discussed: await encryptArray(metrics.coping_strategies_discussed || [], uid),
+      goals_or_hopes: await encryptArray(metrics.goals_or_hopes || [], uid),
       
-      // Additional context
-      positive_event: metrics.positive_event || null,
+      // Additional context - ENCRYPTED
+      positive_event: metrics.positive_event 
+        ? await encryptField(String(metrics.positive_event), uid)
+        : null,
       sentiment: metrics.sentiment || "neutral",
       
       // Risk assessment
@@ -745,7 +358,8 @@ app.post("/save-journal-metrics", async (req, res) => {
         energy_level: metrics.energy_level || null,
         stress_level: metrics.stress_level || null,
         anxiety_level: metrics.anxiety_level || null,
-        main_topics: (metrics.main_topics || []).slice(0, 3),
+        // Encrypt topics even in cache
+        main_topics: await encryptArray((metrics.main_topics || []).slice(0, 3), uid),
         sentiment: metrics.sentiment || "neutral",
         risk_flags: metrics.risk_flags || {}
       }
@@ -754,9 +368,6 @@ app.post("/save-journal-metrics", async (req, res) => {
         .collection("latest").doc("metrics")
         .set(latestCache)
     }
-
-    // Update analytics summary (Embedded Windows System)
-    await updateAnalyticsSummary(uid, metricsData);
 
     console.log(`✅ Journal metrics saved: users/${uid}/metrics/${metricId}`)
     console.log(`   Source: journal_entry, Confidence: ${Math.round((metrics.confidence || 0.75) * 100)}%`)
@@ -799,28 +410,27 @@ app.post("/save-journal-summary", async (req, res) => {
     const summaryId = `jour_${Date.now()}`
     const timestamp = admin.firestore.FieldValue.serverTimestamp()
 
-    // Build summary data for unified summaries collection (ENCRYPT TEXT)
+    // Build summary data for unified summaries collection
+    // 🔐 ENCRYPT SENSITIVE TEXT FIELDS
     const summaryData = {
       timestamp,
       summaryId,
       source: "journal_entry",
       entry_id: entryId,
       
-      // AI-generated summary (ENCRYPTED)
-      summary_text: summary.summary_text 
-        ? await encryptField(summary.summary_text, uid)
-        : "",
+      // AI-generated summary - ENCRYPTED
+      summary_text: await encryptField(summary.summary_text, uid),
       
-      // Context data (arrays - not encrypted for now)
-      key_topics: summary.key_topics || [],
-      key_insights: summary.key_insights || [],
-      emotional_themes: summary.emotional_themes || [],
-      stressors: summary.stressors || [],
-      goals: summary.goals || [],
+      // Context data - ENCRYPTED ARRAYS
+      key_topics: await encryptArray(summary.key_topics || [], uid),
+      key_insights: await encryptArray(summary.key_insights || [], uid),
+      emotional_themes: await encryptArray(summary.emotional_themes || [], uid),
+      stressors: await encryptArray(summary.stressors || [], uid),
+      goals: await encryptArray(summary.goals || [], uid),
       
       // User-provided data
-      mood_emoji: summary.mood_emoji || null,
-      title: summary.title || "Untitled",
+      mood_emoji: summary.mood_emoji || null, // Emoji is low sensitivity
+      title: await encryptField(summary.title || "Untitled", uid), // ENCRYPTED
       
       // Quality indicators
       confidence: summary.confidence,
@@ -832,25 +442,17 @@ app.post("/save-journal-summary", async (req, res) => {
       .collection("summaries").doc(summaryId)
       .set(summaryData)
 
-    // Check and trigger count-based archiving (archive oldest 5 when count >= 10)
-    const archiveResult = await checkAndArchiveIfNeeded(uid);
-
-    console.log(`✅ Journal summary saved: users/${uid}/summaries/${summaryId} (text encrypted)`)
+    console.log(`✅ Journal summary saved: users/${uid}/summaries/${summaryId}`)
     console.log(`   Source: journal_entry, Confidence: ${Math.round(summary.confidence * 100)}%`)
     console.log(`   Category: ${summary.value_category}, Entry ID: ${entryId}`)
-    if (archiveResult.archived) {
-      console.log(`   - ♻️ Archived ${archiveResult.count} oldest summaries`)
-    }
 
     res.status(200).send({
-      message: "Journal summary saved successfully with encryption",
+      message: "Journal summary saved successfully",
       summaryId,
       source: "journal_entry",
       confidence: summary.confidence,
       value_category: summary.value_category,
       stored: true,
-      archived: archiveResult.archived,
-      archived_count: archiveResult.count,
       path: `users/${uid}/summaries/${summaryId}`
     })
 
@@ -867,17 +469,10 @@ app.post("/save-name", async (req, res) => {
   }
 
   try {
-    // Encrypt name before storing
-    const encryptedName = await encryptField(name, uid)
-    
     // Update in user_profiling subcollection
     const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
-    await profileRef.set({ 
-      name: encryptedName, 
-      updatedAt: admin.firestore.FieldValue.serverTimestamp() 
-    }, { merge: true })
-    
-    res.status(200).send({ message: "Name saved successfully (encrypted)" })
+    await profileRef.set({ name, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    res.status(200).send({ message: "Name saved successfully" })
   } catch (error) {
     res.status(500).send({ error: error.message })
   }
@@ -897,22 +492,13 @@ app.post("/update-profile", async (req, res) => {
     }
 
     // Encrypt sensitive fields before storing
-    if (name !== undefined) {
-      updateData.name = await encryptField(name, uid)
-    }
-    
+    if (name !== undefined) updateData.name = await encryptField(name, uid)
     if (age !== undefined && age !== "") {
-      const ageStr = Number.parseInt(age, 10).toString()
-      updateData.age = await encryptField(ageStr, uid)
+      const ageNum = Number.parseInt(age, 10)
+      updateData.age = await encryptField(ageNum.toString(), uid)
     }
-    
-    if (gender !== undefined) {
-      updateData.gender = await encryptField(gender, uid)
-    }
-    
-    if (typeof emailVerified === "boolean") {
-      updateData.emailVerified = emailVerified
-    }
+    if (gender !== undefined) updateData.gender = await encryptField(gender, uid)
+    if (typeof emailVerified === "boolean") updateData.emailVerified = emailVerified
 
     await profileRef.set(updateData, { merge: true })
     res.status(200).send({ message: "Profile updated successfully" })
@@ -953,23 +539,15 @@ app.get("/user/:uid", async (req, res) => {
       return res.status(404).send({ error: "User not found" })
     }
     
+    const profileData = profileDoc.data()
+    
+    // Decrypt sensitive fields if they exist
     const userData = {
       uid,
-      ...profileDoc.data()
-    }
-
-    // Decrypt sensitive profile fields
-    if (userData.name) {
-      userData.name = await decryptField(userData.name, uid)
-    }
-    
-    if (userData.gender) {
-      userData.gender = await decryptField(userData.gender, uid)
-    }
-    
-    if (userData.age) {
-      const decryptedAge = await decryptField(userData.age, uid)
-      userData.age = Number.parseInt(decryptedAge, 10)
+      ...profileData,
+      name: profileData.name ? await decryptField(profileData.name, uid) : undefined,
+      age: profileData.age ? parseInt(await decryptField(profileData.age, uid), 10) : undefined,
+      gender: profileData.gender ? await decryptField(profileData.gender, uid) : undefined
     }
     
     // Add latestSummary (from metrics/latest) for backward compatibility
@@ -1003,6 +581,13 @@ app.post("/get-user-context", async (req, res) => {
 
     const userData = profileDoc.data()
     
+    // 🔐 DECRYPT PROFILE DATA
+    const decryptedUserData = {
+      name: userData.name ? await decryptField(userData.name, uid) : 'User',
+      age: userData.age ? parseInt(await decryptField(userData.age, uid), 10) : null,
+      gender: userData.gender ? await decryptField(userData.gender, uid) : null,
+    }
+    
     // Fetch recent journal entries from new subcollection (last 30 days)
     const thirtyDaysAgo = admin.firestore.Timestamp.fromDate(
       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -1017,20 +602,37 @@ app.post("/get-user-context", async (req, res) => {
       .limit(10)
       .get()
 
-    // Generate summaries for AI context
-    const journalSummaries = journalSnapshot.docs.map(doc => {
+    // Generate summaries for AI context - DECRYPT CONTENT
+    const journalSummaries = await Promise.all(journalSnapshot.docs.map(async (doc) => {
       const data = doc.data()
       
-      // Extract plain text from content blocks
-      const contentText = data.content
-        ?.map(block => {
-          if (block._type === 'block' && block.children) {
-            return block.children.map(child => child.text).join(' ')
+      // Decrypt title
+      const title = data.title ? await decryptField(data.title, uid) : 'Untitled'
+      
+      // Decrypt content - check if it's encrypted string or Portable Text blocks
+      let contentText = ''
+      if (data.content) {
+        if (typeof data.content === 'string') {
+          // Encrypted content
+          try {
+            const decrypted = await decryptField(data.content, uid)
+            contentText = decrypted.substring(0, 200)
+          } catch (err) {
+            contentText = ''
           }
-          return ''
-        })
-        .join(' ')
-        .substring(0, 200) || ''
+        } else if (Array.isArray(data.content)) {
+          // Portable Text blocks (old format)
+          contentText = data.content
+            .map(block => {
+              if (block._type === 'block' && block.children) {
+                return block.children.map(child => child.text).join(' ')
+              }
+              return ''
+            })
+            .join(' ')
+            .substring(0, 200)
+        }
+      }
       
       return {
         date: data.createdAt?.toDate()?.toLocaleDateString('en-US', {
@@ -1040,9 +642,9 @@ app.post("/get-user-context", async (req, res) => {
         }),
         mood: data.mood,
         summary: contentText,
-        title: data.title || 'Untitled'
+        title
       }
-    })
+    }))
 
     // Fetch recent chat sessions (if they exist)
     let sessionCount = 0
@@ -1067,11 +669,7 @@ app.post("/get-user-context", async (req, res) => {
 
     // Build comprehensive response
     res.status(200).send({
-      userData: {
-        name: userData.name || 'User',
-        age: userData.age,
-        gender: userData.gender,
-      },
+      userData: decryptedUserData,
       journalEntriesCount: journalSnapshot.size,
       journalSummaries,
       sessionCount,
@@ -1104,23 +702,143 @@ app.post("/get-session-summaries", async (req, res) => {
       .limit(limit)
       .get()
 
-    const summaries = summariesSnapshot.docs.map(doc => {
+    // 🔐 DECRYPT ENCRYPTED FIELDS
+    const summaries = await Promise.all(summariesSnapshot.docs.map(async (doc) => {
       const data = doc.data()
       return {
         sessionId: doc.id,
         timestamp: data.timestamp?.toDate()?.toISOString() || null,
-        summary_text: data.summary_text || "",
-        key_topics: data.key_topics || [],
+        summary_text: data.summary_text ? await decryptField(data.summary_text, uid) : "",
+        key_topics: await decryptArray(data.key_topics || [], uid),
         sentiment: data.sentiment || "neutral",
-        action_items: data.action_items || [],
+        action_items: await decryptArray(data.action_items || [], uid),
         risk_flags: data.risk_flags || []
       }
-    })
+    }))
 
     res.status(200).send({ summaries, count: summaries.length })
   } catch (error) {
     console.error("Error fetching session summaries:", error)
     res.status(500).send({ error: error.message })
+  }
+})
+
+// Get last 5 sessions + last 5 journals for AI context - OPTIMIZED STRATEGY
+app.post("/get-recent-context", async (req, res) => {
+  const { uid } = req.body
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" })
+  }
+
+  try {
+    const startTime = Date.now()
+    console.log(`📋 Fetching recent context for user ${uid}`)
+    
+    // ✅ Fetch last 5 summaries (AI receives only 5, not all 10)
+    // Note: We keep 10 summaries as buffer, but AI only sees latest 5
+    const sessionsSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("summaries")
+      .where("source", "==", "ai_session")
+      .orderBy("timestamp", "desc")
+      .limit(5)  // AI sees only 5 summaries
+      .get()
+    
+    const journalsSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("summaries")
+      .where("source", "==", "journal_entry")
+      .orderBy("timestamp", "desc")
+      .limit(5)  // AI sees only 5 summaries
+      .get()
+    
+    // Also fetch summaries without source field (legacy AI sessions)
+    const legacySnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("summaries")
+      .orderBy("timestamp", "desc")
+      .limit(10)
+      .get()
+    
+    console.log(`  ⏱️  Firestore queries took ${Date.now() - startTime}ms`)
+    
+    // Filter for docs without source field
+    const legacyDocs = legacySnapshot.docs.filter(doc => !doc.data().source)
+    
+    const sessionsDocs = [...sessionsSnapshot.docs, ...legacyDocs].slice(0, 5)  // Limit to 5
+    const journalsDocs = journalsSnapshot.docs
+
+    // Process summaries helper
+    const decryptStart = Date.now()
+    const processSummary = async (doc) => {
+      const data = doc.data()
+      const source = data.source || "ai_session"  // Default to ai_session for legacy summaries without source field
+      
+      // Build unified summary format
+      const summary = {
+        id: doc.id,
+        source: source,
+        timestamp: data.timestamp?.toDate()?.toISOString() || null,
+        summary_text: data.summary_text ? await decryptField(data.summary_text, uid) : "",
+        key_topics: await decryptArray(data.key_topics || [], uid),
+        confidence: data.confidence || (source === "ai_session" ? 0.90 : 0.75),
+      }
+      
+      // Add source-specific fields
+      if (source === "ai_session") {
+        summary.sessionId = data.sessionId || doc.id
+        summary.sentiment = data.sentiment || "neutral"
+        summary.action_items = await decryptArray(data.action_items || [], uid)
+        summary.coping_strategies = await decryptArray(data.coping_strategies || [], uid)
+        summary.ongoing_concerns = await decryptArray(data.ongoing_concerns || [], uid)
+        summary.strengths_shown = await decryptArray(data.strengths_shown || [], uid)
+        summary.goals = await decryptArray(data.goals || [], uid)
+        summary.urgency_level = data.urgency_level ? await decryptField(data.urgency_level, uid) : "low"
+        summary.positive_moments = data.positive_moments ? await decryptField(data.positive_moments, uid) : null
+      } else if (source === "journal_entry") {
+        summary.entryId = data.entry_id || doc.id
+        summary.mood_emoji = data.mood_emoji || null
+        summary.title = data.title ? await decryptField(data.title, uid) : "Untitled"
+        summary.key_insights = await decryptArray(data.key_insights || [], uid)
+        summary.emotional_themes = await decryptArray(data.emotional_themes || [], uid)
+        summary.stressors = await decryptArray(data.stressors || [], uid)
+        summary.goals = await decryptArray(data.goals || [], uid)
+        summary.value_category = data.value_category || "moderate"
+      }
+      
+      return summary
+    }
+
+    // Process both types
+    const sessions = await Promise.all(sessionsDocs.map(processSummary))
+    const journals = await Promise.all(journalsDocs.map(processSummary))
+    
+    console.log(`  ⏱️  Decryption took ${Date.now() - decryptStart}ms`)
+    
+    // Combine and sort by timestamp (most recent first)
+    const allSummaries = [...sessions, ...journals].sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    )
+
+    console.log(`  ✅ Fetched ${sessions.length} sessions + ${journals.length} journals in ${Date.now() - startTime}ms total`)
+
+    res.status(200).send({
+      summaries: allSummaries,
+      total: allSummaries.length,
+      breakdown: {
+        ai_sessions: sessions.length,
+        journal_entries: journals.length
+      },
+      note: "Fetching last 5 summaries for AI (10 summaries kept as buffer before archiving)"
+    })
+
+  } catch (error) {
+    console.error("❌ Error fetching recent context:", error)
+    res.status(500).send({ error: "Failed to fetch recent context" })
   }
 })
 
@@ -1142,7 +860,8 @@ app.post("/get-all-summaries", async (req, res) => {
       .limit(limit)
       .get()
 
-    const summaries = summariesSnapshot.docs.map(doc => {
+    // 🔐 DECRYPT ENCRYPTED FIELDS
+    const summaries = await Promise.all(summariesSnapshot.docs.map(async (doc) => {
       const data = doc.data()
       const source = data.source || "unknown"
       
@@ -1151,33 +870,37 @@ app.post("/get-all-summaries", async (req, res) => {
         id: doc.id,
         source: source,  // "ai_session" or "journal_entry"
         timestamp: data.timestamp?.toDate()?.toISOString() || null,
-        summary_text: data.summary_text || "",
-        key_topics: data.key_topics || [],
+        summary_text: data.summary_text ? await decryptField(data.summary_text, uid) : "",
+        key_topics: await decryptArray(data.key_topics || [], uid),
         
         // Common fields
         confidence: data.confidence || (source === "ai_session" ? 0.90 : 0.75),
       }
       
-      // Add source-specific fields
+      // Add source-specific fields - DECRYPT ARRAYS
       if (source === "ai_session") {
         summary.sessionId = data.sessionId || doc.id
         summary.sentiment = data.sentiment || "neutral"
-        summary.action_items = data.action_items || []
-        summary.coping_strategies = data.coping_strategies_discussed || []
-        summary.ongoing_concerns = data.ongoing_concerns || []
-        summary.strengths_shown = data.strengths_shown || []
+        summary.action_items = await decryptArray(data.action_items || [], uid)
+        summary.coping_strategies = await decryptArray(data.coping_strategies || [], uid)
+        summary.ongoing_concerns = await decryptArray(data.ongoing_concerns || [], uid)
+        summary.strengths_shown = await decryptArray(data.strengths_shown || [], uid)
+        summary.goals = await decryptArray(data.goals || [], uid)
+        summary.urgency_level = data.urgency_level ? await decryptField(data.urgency_level, uid) : "low"
+        summary.positive_moments = data.positive_moments ? await decryptField(data.positive_moments, uid) : null
       } else if (source === "journal_entry") {
         summary.entryId = data.entry_id || doc.id
         summary.mood_emoji = data.mood_emoji || null
-        summary.title = data.title || "Untitled"
-        summary.emotional_themes = data.emotional_themes || []
-        summary.stressors = data.stressors || []
-        summary.goals = data.goals || []
+        summary.title = data.title ? await decryptField(data.title, uid) : "Untitled"
+        summary.key_insights = await decryptArray(data.key_insights || [], uid)
+        summary.emotional_themes = await decryptArray(data.emotional_themes || [], uid)
+        summary.stressors = await decryptArray(data.stressors || [], uid)
+        summary.goals = await decryptArray(data.goals || [], uid)
         summary.value_category = data.value_category || "moderate"
       }
       
       return summary
-    })
+    }))
 
     console.log(`📊 Fetched ${summaries.length} summaries (unified timeline) for user ${uid}`)
     
@@ -1211,15 +934,33 @@ app.get("/get-weekly-archives/:uid", async (req, res) => {
   }
 
   try {
+    const startTime = Date.now()
     console.log(`📚 Fetching last ${limit} weekly archives for user ${uid}`)
 
-    const archivesSnapshot = await db
-      .collection("users")
-      .doc(uid)
-      .collection("context_archives")
-      .orderBy("week_start", "desc")
-      .limit(limit)
-      .get()
+    let archivesSnapshot
+    
+    // Try ordering by created_at first (for count-based archives)
+    try {
+      archivesSnapshot = await db
+        .collection("users")
+        .doc(uid)
+        .collection("context_archives")
+        .orderBy("created_at", "desc")
+        .limit(limit)
+        .get()
+      console.log(`  ⏱️  Query took ${Date.now() - startTime}ms (using created_at)`)
+    } catch (indexError) {
+      // Fallback to week_start if created_at index doesn't exist (for old time-based archives)
+      console.log(`  ℹ️  created_at index not found, falling back to week_start ordering`)
+      archivesSnapshot = await db
+        .collection("users")
+        .doc(uid)
+        .collection("context_archives")
+        .orderBy("week_start", "desc")
+        .limit(limit)
+        .get()
+      console.log(`  ⏱️  Query took ${Date.now() - startTime}ms (using week_start fallback)`)
+    }
 
     if (archivesSnapshot.empty) {
       console.log(`  ℹ️  No archives found for user ${uid}`)
@@ -1229,7 +970,9 @@ app.get("/get-weekly-archives/:uid", async (req, res) => {
       })
     }
 
-    const archives = archivesSnapshot.docs.map(doc => {
+    // 🔐 DECRYPT ENCRYPTED ARCHIVE FIELDS
+    const decryptStart = Date.now()
+    const archives = await Promise.all(archivesSnapshot.docs.map(async (doc) => {
       const data = doc.data()
       return {
         id: doc.id,
@@ -1239,42 +982,43 @@ app.get("/get-weekly-archives/:uid", async (req, res) => {
         week_end: data.week_end?.toDate()?.toISOString() || null,
         created_at: data.created_at?.toDate()?.toISOString() || null,
         
-        // Archive content
-        narrative_summary: data.narrative_summary || "",
-        dominant_themes: data.dominant_themes || [],
-        emotional_trajectory: data.emotional_trajectory || "",
+        // Archive content - ENCRYPTED TEXT FIELDS
+        narrative_summary: data.narrative_summary ? await decryptField(data.narrative_summary, uid) : "",
+        dominant_themes: await decryptArray(data.dominant_themes || [], uid),
+        emotional_trajectory: data.emotional_trajectory ? await decryptField(data.emotional_trajectory, uid) : "",
         
-        // Metrics
+        // Metrics (numeric, keep plain)
         mood_avg: data.mood_avg || null,
         mood_range: data.mood_range || null,
         stress_avg: data.stress_avg || null,
         energy_avg: data.energy_avg || null,
         
-        // Behavioral
+        // Behavioral (numeric, keep plain)
         sleep_quality: data.sleep_quality || null,
         social_connection: data.social_connection || null,
         physical_activity: data.physical_activity || null,
         
-        // Highlights
-        significant_events: data.significant_events || [],
-        coping_strategies: data.coping_strategies || [],
-        goals_set: data.goals_set || [],
-        progress_notes: data.progress_notes || "",
+        // Highlights - ENCRYPTED ARRAYS
+        significant_events: await decryptArray(data.significant_events || [], uid),
+        coping_strategies: await decryptArray(data.coping_strategies || [], uid),
+        goals_set: await decryptArray(data.goals_set || [], uid),
+        progress_notes: data.progress_notes ? await decryptField(data.progress_notes, uid) : "",
         
-        // Risk & support
+        // Risk & support - ENCRYPTED ARRAYS
         risk_flags: data.risk_flags || { any_critical: false },
-        protective_factors: data.protective_factors || [],
+        protective_factors: await decryptArray(data.protective_factors || [], uid),
         
-        // Patterns
-        patterns_detected: data.patterns_detected || [],
+        // Patterns - ENCRYPTED ARRAY
+        patterns_detected: await decryptArray(data.patterns_detected || [], uid),
         
-        // Metadata
+        // Metadata (non-sensitive, keep plain)
         summary_count: data.summary_count || { sessions: 0, journals: 0, total: 0 },
         included_summaries: data.included_summaries || []
       }
-    })
+    }))
 
-    console.log(`  ✅ Retrieved ${archives.length} archives`)
+    console.log(`  ⏱️  Decryption took ${Date.now() - decryptStart}ms`)
+    console.log(`  ✅ Retrieved ${archives.length} archives in ${Date.now() - startTime}ms total`)
 
     res.status(200).send({
       archives,
@@ -1282,7 +1026,7 @@ app.get("/get-weekly-archives/:uid", async (req, res) => {
     })
 
   } catch (error) {
-    console.error("Error fetching weekly archives:", error)
+    console.error("❌ Error fetching weekly archives:", error)
     res.status(500).send({ error: error.message })
   }
 })
@@ -1496,7 +1240,35 @@ app.get("/user-profile/:uid", async (req, res) => {
       });
     }
     
-    const profile = profileDoc.data();
+    const encryptedProfile = profileDoc.data();
+    
+    // 🔐 DECRYPT SENSITIVE PROFILE CATEGORIES
+    // Each category is stored as encrypted JSON string, decrypt to object
+    const profile = {};
+    const categoriesToDecrypt = [
+      'core_identity', 'communication_profile', 'psychological_profile',
+      'life_context_profile', 'historical_profile', 'strengths_profile',
+      'behavioral_profile', 'risk_profile', 'treatment_response_profile',
+      'ai_interaction_patterns'
+    ];
+    
+    for (const category of categoriesToDecrypt) {
+      if (encryptedProfile[category]) {
+        try {
+          const decryptedStr = await decryptField(encryptedProfile[category], uid);
+          profile[category] = JSON.parse(decryptedStr);
+        } catch (err) {
+          // If decryption fails, might be old unencrypted data
+          profile[category] = encryptedProfile[category];
+        }
+      } else {
+        profile[category] = null;
+      }
+    }
+    
+    // Copy non-encrypted metadata
+    profile.createdAt = encryptedProfile.createdAt;
+    profile.lastUpdated = encryptedProfile.lastUpdated;
     
     res.status(200).json({
       exists: true,
@@ -1527,10 +1299,34 @@ app.post("/initialize-profile/:uid", async (req, res) => {
       .get();
     
     if (existingProfile.exists) {
+      // Decrypt existing profile before returning
+      const encryptedData = existingProfile.data();
+      const profile = {};
+      const categoriesToDecrypt = [
+        'core_identity', 'communication_profile', 'psychological_profile',
+        'life_context_profile', 'historical_profile', 'strengths_profile',
+        'behavioral_profile', 'risk_profile', 'treatment_response_profile',
+        'ai_interaction_patterns', 'cultural_profile'
+      ];
+      
+      for (const category of categoriesToDecrypt) {
+        if (encryptedData[category]) {
+          try {
+            const decryptedStr = await decryptField(encryptedData[category], uid);
+            profile[category] = JSON.parse(decryptedStr);
+          } catch (err) {
+            profile[category] = encryptedData[category];
+          }
+        } else {
+          profile[category] = null;
+        }
+      }
+      profile.metadata = encryptedData.metadata;
+      
       return res.status(200).json({
         message: "Profile already exists",
         uid,
-        profile: existingProfile.data()
+        profile
       });
     }
     
@@ -1701,12 +1497,29 @@ app.post("/initialize-profile/:uid", async (req, res) => {
       }
     };
     
+    // 🔐 ENCRYPT SENSITIVE CATEGORIES
+    // Encrypt each category as JSON string for storage
+    const encryptedProfile = {
+      core_identity: encryptField(JSON.stringify(emptyProfile.core_identity), uid),
+      communication_profile: encryptField(JSON.stringify(emptyProfile.communication_profile), uid),
+      psychological_profile: encryptField(JSON.stringify(emptyProfile.psychological_profile), uid),
+      life_context_profile: encryptField(JSON.stringify(emptyProfile.life_context_profile), uid),
+      historical_profile: encryptField(JSON.stringify(emptyProfile.historical_profile), uid),
+      strengths_profile: encryptField(JSON.stringify(emptyProfile.strengths_profile), uid),
+      behavioral_profile: encryptField(JSON.stringify(emptyProfile.behavioral_profile), uid),
+      risk_profile: encryptField(JSON.stringify(emptyProfile.risk_profile), uid),
+      treatment_response_profile: encryptField(JSON.stringify(emptyProfile.treatment_response_profile), uid),
+      ai_interaction_patterns: encryptField(JSON.stringify(emptyProfile.ai_interaction_patterns), uid),
+      cultural_profile: encryptField(JSON.stringify(emptyProfile.cultural_profile), uid),
+      metadata: emptyProfile.metadata // Keep metadata unencrypted for queries
+    };
+    
     await db
       .collection("users")
       .doc(uid)
       .collection("user_profiling")
       .doc("user_details")
-      .set(emptyProfile);
+      .set(encryptedProfile);
     
     console.log(`✅ Initialized profile for user: ${uid}`);
     
@@ -1764,21 +1577,49 @@ app.patch("/update-profile/:uid", async (req, res) => {
       last_updated: admin.firestore.FieldValue.serverTimestamp()
     };
     
-    // Build update object with dot notation
-    const updateData = {};
-    Object.keys(updatesWithTimestamp).forEach(key => {
-      updateData[`${category}.${key}`] = updatesWithTimestamp[key];
-    });
-    
-    // Increment total_updates counter
-    updateData["metadata.total_updates"] = admin.firestore.FieldValue.increment(1);
-    
-    await db
+    // 🔐 ENCRYPTED PROFILE UPDATE FLOW:
+    // 1. Fetch current profile
+    const profileRef = db
       .collection("users")
       .doc(uid)
       .collection("user_profiling")
-      .doc("user_details")
-      .update(updateData);
+      .doc("user_details");
+    
+    const profileDoc = await profileRef.get();
+    
+    if (!profileDoc.exists) {
+      return res.status(404).json({
+        error: "Profile not found. Initialize profile first."
+      });
+    }
+    
+    const encryptedProfile = profileDoc.data();
+    
+    // 2. Decrypt the specific category
+    let categoryData = {};
+    if (encryptedProfile[category]) {
+      try {
+        const decryptedStr = await decryptField(encryptedProfile[category], uid);
+        categoryData = JSON.parse(decryptedStr);
+      } catch (err) {
+        // Might be old unencrypted data
+        categoryData = encryptedProfile[category] || {};
+      }
+    }
+    
+    // 3. Merge updates into category
+    const updatedCategory = {
+      ...categoryData,
+      ...updatesWithTimestamp
+    };
+    
+    // 4. Re-encrypt the category
+    const updateData = {
+      [category]: encryptField(JSON.stringify(updatedCategory), uid),
+      "metadata.total_updates": admin.firestore.FieldValue.increment(1)
+    };
+    
+    await profileRef.update(updateData);
     
     console.log(`✅ Updated ${category} for user: ${uid}`);
     
@@ -1795,155 +1636,309 @@ app.patch("/update-profile/:uid", async (req, res) => {
   }
 });
 
-// ==================== ENCRYPTED CONTEXT RETRIEVAL ENDPOINTS ====================
+// ============================================================================
+// COUNT-BASED ARCHIVING SYSTEM
+// ============================================================================
 
 /**
- * Get user context with decrypted summaries for AI
- * Returns recent summaries and user profile with decrypted sensitive fields
+ * ARCHIVING STRATEGY:
+ * - Keep maximum 10 summaries as buffer before archiving
+ * - When count reaches 10, archive oldest 5 summaries
+ * - After archiving: 5 summaries remain (10 - 5 = 5)
+ * - AI receives: Only latest 5 summaries (not all 10)
+ * 
+ * Example flow:
+ *   Summaries 1-9:  No action
+ *   Summary 10:     Archive oldest 5 → Delete them → Keep newest 5
+ *   Summaries 11-14: No action (count grows 5→9)
+ *   Summary 15:     Archive oldest 5 again → Keep newest 5
  */
-app.get("/get-user-context/:uid", async (req, res) => {
-  const { uid } = req.params;
-  const limit = parseInt(req.query.limit) || 5;
 
+/**
+ * Archive oldest 5 summaries when count reaches 10
+ * Keeps last 5 summaries after archiving
+ */
+async function archiveOldestFive(uid) {
+  console.log(`\n🗄️  Starting count-based archiving for user: ${uid}`);
+  
   try {
-    // Get recent summaries
-    const summariesSnapshot = await db.collection("users").doc(uid)
-      .collection("summaries")
-      .orderBy("timestamp", "desc")
-      .limit(limit)
+    // 1. Fetch oldest 5 summaries (FIFO - First In, First Out)
+    const oldestFiveSnapshot = await db.collection('users').doc(uid)
+      .collection('summaries')
+      .orderBy('timestamp', 'asc')  // Oldest first
+      .limit(5)  // Changed from 7 to 5
       .get();
-
-    // Decrypt summary texts
-    const decryptedSummaries = await Promise.all(
-      summariesSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          timestamp: data.timestamp,
-          source: data.source,
-          summary_text: data.summary_text 
-            ? await decryptField(data.summary_text, uid)
-            : "",
-          key_topics: data.key_topics || [],
-          sentiment: data.sentiment || "neutral"
-        };
-      })
-    );
-
-    // Get user profile
-    const profileDoc = await db.collection("users").doc(uid)
-      .collection("user_profiling").doc("profile").get();
     
-    let decryptedProfile = null;
-    if (profileDoc.exists) {
-      const profileData = profileDoc.data();
-      decryptedProfile = {
-        name: profileData.name ? await decryptField(profileData.name, uid) : null,
-        age: profileData.age ? parseInt(await decryptField(profileData.age, uid), 10) : null,
-        gender: profileData.gender ? await decryptField(profileData.gender, uid) : null,
-        emailVerified: profileData.emailVerified || false
-      };
+    if (oldestFiveSnapshot.empty) {
+      console.log('⚠️  No summaries found to archive');
+      return { success: false, message: 'No summaries to archive' };
     }
-
-    res.status(200).json({
-      success: true,
-      profile: decryptedProfile,
-      recent_summaries: decryptedSummaries,
-      count: decryptedSummaries.length
+    
+    const summariesToArchive = oldestFiveSnapshot.docs;
+    console.log(`📦 Found ${summariesToArchive.length} summaries to archive`);
+    
+    // 2. Decrypt all summaries for AI processing
+    const decryptedSummaries = [];
+    for (const doc of summariesToArchive) {
+      const data = doc.data();
+      const source = data.source || 'ai_session';  // Default to ai_session
+      
+      const decrypted = {
+        id: doc.id,
+        source: source,
+        timestamp: data.timestamp,
+        summary_text: data.summary_text ? await decryptField(data.summary_text, uid) : '',
+        key_topics: await decryptArray(data.key_topics || [], uid),
+        mood_percentage: data.mood_percentage,
+        stress_level: data.stress_level,
+        energy_level: data.energy_level,
+        mood_emoji: data.mood_emoji
+      };
+      
+      // Add source-specific fields
+      if (source === 'ai_session') {
+        decrypted.action_items = await decryptArray(data.action_items || [], uid);
+        decrypted.coping_strategies = await decryptArray(data.coping_strategies || [], uid);
+      }
+      
+      decryptedSummaries.push(decrypted);
+    }
+    
+    console.log(`🔓 Decrypted ${decryptedSummaries.length} summaries`);
+    
+    // 3. Generate AI archive summary
+    console.log('🤖 Generating AI archive summary...');
+    const archive = await generateArchiveSummary(decryptedSummaries, uid);
+    
+    if (!archive) {
+      console.error('❌ Failed to generate archive');
+      return { success: false, message: 'Archive generation failed' };
+    }
+    
+    // 4. Encrypt archive fields before saving
+    console.log('🔐 Encrypting archive...');
+    const encryptedArchive = {
+      narrative_summary: archive.narrative_summary ? await encryptField(archive.narrative_summary, uid) : null,
+      emotional_trajectory: archive.emotional_trajectory ? await encryptField(archive.emotional_trajectory, uid) : null,
+      sleep_quality: archive.sleep_quality ? await encryptField(archive.sleep_quality, uid) : null,
+      social_connection: archive.social_connection ? await encryptField(archive.social_connection, uid) : null,
+      physical_activity: archive.physical_activity ? await encryptField(archive.physical_activity, uid) : null,
+      progress_notes: archive.progress_notes ? await encryptField(archive.progress_notes, uid) : null,
+      
+      // Encrypt arrays
+      dominant_themes: await encryptArray(archive.dominant_themes || [], uid),
+      significant_events: await encryptArray(archive.significant_events || [], uid),
+      coping_strategies: await encryptArray(archive.coping_strategies || [], uid),
+      goals_set: await encryptArray(archive.goals_set || [], uid),
+      protective_factors: await encryptArray(archive.protective_factors || [], uid),
+      patterns_detected: await encryptArray(archive.patterns_detected || [], uid),
+      
+      // Keep numeric values unencrypted (for analytics)
+      mood_avg: archive.mood_avg,
+      mood_range: archive.mood_range,
+      stress_avg: archive.stress_avg,
+      energy_avg: archive.energy_avg,
+      risk_flags: archive.risk_flags,
+      summary_count: archive.summary_count
+    };
+    
+    // 5. Save archive to users/{uid}/context_archives (matching Cloud Function structure)
+    const archiveId = `archive_${Date.now()}`;
+    const archiveData = {
+      ...encryptedArchive,
+      uid: uid,
+      archive_id: archiveId,
+      summaries_archived: summariesToArchive.map(d => d.id),
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      // Add date range for reference
+      oldest_summary: summariesToArchive[0].data().timestamp,
+      newest_summary: summariesToArchive[summariesToArchive.length - 1].data().timestamp,
+      // Mark as count-based (vs time-based)
+      archive_type: 'count_based'
+    };
+    
+    await db.collection('users').doc(uid)
+      .collection('context_archives').doc(archiveId)
+      .set(archiveData);
+    console.log(`✅ Archive saved: users/${uid}/context_archives/${archiveId}`);
+    
+    // 6. DELETE the oldest 5 summaries (free up storage)
+    console.log('🗑️  Deleting archived summaries...');
+    const batch = db.batch();
+    summariesToArchive.forEach(doc => {
+      batch.delete(doc.ref);
     });
-
+    await batch.commit();
+    
+    console.log(`✅ Deleted ${summariesToArchive.length} summaries`);
+    console.log(`✅ Count-based archiving complete for user ${uid}\n`);
+    
+    return {
+      success: true,
+      archive_id: archiveId,
+      summaries_archived: summariesToArchive.length,
+      summaries_remaining: 5  // 10 - 5 = 5
+    };
+    
   } catch (error) {
-    console.error("Error fetching user context:", error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error in count-based archiving:', error);
+    return { success: false, error: error.message };
   }
-});
+}
 
 /**
- * Get all summaries with decryption (for context window)
+ * Generate AI archive summary from decrypted summaries
+ * Uses Gemini AI to compress 5 summaries into one comprehensive archive
  */
-app.get("/get-all-summaries/:uid", async (req, res) => {
-  const { uid } = req.params;
+async function generateArchiveSummary(summaries, uid) {
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+  
+  // Prepare summaries text
+  const summariesText = summaries.map((s, i) => {
+    const source = s.source === 'ai_session' ? '🎙️ AI Session' : '📔 Journal';
+    const date = s.timestamp ? new Date(s.timestamp.toDate ? s.timestamp.toDate() : s.timestamp).toLocaleDateString('en-IN') : 'Unknown';
+    
+    return `
+${i + 1}. ${source} - ${date}
+Summary: ${s.summary_text || 'No summary'}
+Key topics: ${s.key_topics?.join(', ') || 'N/A'}
+Mood: ${s.mood_emoji || 'N/A'} (${s.mood_percentage || 'N/A'}%)
+Stress: ${s.stress_level || 'N/A'}/100
+Energy: ${s.energy_level || 'N/A'}/100
+${s.action_items?.length ? `Action items: ${s.action_items.join(', ')}` : ''}
+    `.trim();
+  }).join('\n\n---\n\n');
+  
+  const prompt = `
+You are a mental wellness AI assistant analyzing recent mental health activity summaries.
 
+NUMBER OF ENTRIES: ${summaries.length}
+
+SUMMARIES:
+${summariesText}
+
+Create a comprehensive archive that compresses these ${summaries.length} summaries while preserving important mental health context.
+
+Return a JSON object with these exact fields:
+
+{
+  "narrative_summary": "2-3 paragraph narrative describing the user's recent journey - emotional state, key events, progress or setbacks",
+  "dominant_themes": ["theme1", "theme2", "theme3"],
+  "emotional_trajectory": "One sentence describing mood changes across these sessions",
+  "mood_avg": <number 0-100>,
+  "mood_range": { "min": <number>, "max": <number> },
+  "stress_avg": <number 0-100>,
+  "energy_avg": <number 0-100>,
+  "sleep_quality": "Brief description of sleep patterns if mentioned",
+  "social_connection": "Brief description of social interactions if mentioned",
+  "physical_activity": "Brief description of activity levels if mentioned",
+  "significant_events": ["event1", "event2"],
+  "coping_strategies": ["strategy1", "strategy2"],
+  "goals_set": ["goal1", "goal2"],
+  "progress_notes": "What progress or challenges occurred",
+  "risk_flags": { "any_critical": true/false, "isolation_mentioned": true/false, "self_harm_mentioned": true/false },
+  "protective_factors": ["factor1", "factor2"],
+  "patterns_detected": ["pattern1 - e.g., 'Stress peaks on Mondays'", "pattern2"]
+}
+
+IMPORTANT:
+- Focus on patterns across these ${summaries.length} entries
+- Note correlations (e.g., "poor sleep → lower mood")
+- Highlight coping strategies that worked or didn't work
+- Flag any risk indicators
+- Identify protective factors
+- Be concise but preserve important context
+
+Return ONLY valid JSON, no markdown formatting.
+  `.trim();
+  
   try {
-    const summariesSnapshot = await db.collection("users").doc(uid)
-      .collection("summaries")
-      .orderBy("timestamp", "desc")
-      .get();
-
-    const decryptedSummaries = await Promise.all(
-      summariesSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          timestamp: data.timestamp,
-          source: data.source,
-          sessionId: data.sessionId || data.summaryId,
-          summary_text: data.summary_text 
-            ? await decryptField(data.summary_text, uid)
-            : "",
-          key_topics: data.key_topics || [],
-          action_items: data.action_items || [],
-          risk_flags: data.risk_flags || {},
-          confidence: data.confidence || 0.90
-        };
-      })
-    );
-
-    res.status(200).json({
-      success: true,
-      summaries: decryptedSummaries,
-      count: decryptedSummaries.length
-    });
-
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    
+    // Extract JSON
+    let jsonText = responseText.trim();
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
+    }
+    
+    const archive = JSON.parse(jsonText);
+    
+    // Add metadata
+    archive.summary_count = {
+      sessions: summaries.filter(s => s.source === 'ai_session').length,
+      journals: summaries.filter(s => s.source === 'journal_entry').length,
+      total: summaries.length
+    };
+    
+    return archive;
+    
   } catch (error) {
-    console.error("Error fetching all summaries:", error);
-    res.status(500).json({ error: error.message });
+    console.error('Failed to generate archive with AI:', error);
+    
+    // Fallback: Create basic archive
+    const moods = summaries.map(s => s.mood_percentage).filter(m => m != null);
+    const stressLevels = summaries.map(s => s.stress_level).filter(s => s != null);
+    const energyLevels = summaries.map(s => s.energy_level).filter(e => e != null);
+    
+    return {
+      narrative_summary: `Archive of ${summaries.length} entries. Generated without AI compression.`,
+      dominant_themes: [],
+      emotional_trajectory: "Data archived",
+      mood_avg: moods.length ? Math.round(moods.reduce((a, b) => a + b, 0) / moods.length) : null,
+      mood_range: moods.length ? { min: Math.min(...moods), max: Math.max(...moods) } : null,
+      stress_avg: stressLevels.length ? Math.round(stressLevels.reduce((a, b) => a + b, 0) / stressLevels.length) : null,
+      energy_avg: energyLevels.length ? Math.round(energyLevels.reduce((a, b) => a + b, 0) / energyLevels.length) : null,
+      sleep_quality: null,
+      social_connection: null,
+      physical_activity: null,
+      significant_events: [],
+      coping_strategies: [],
+      goals_set: [],
+      progress_notes: "Basic archive created",
+      risk_flags: { any_critical: false, isolation_mentioned: false, self_harm_mentioned: false },
+      protective_factors: [],
+      patterns_detected: [],
+      summary_count: {
+        sessions: summaries.filter(s => s.source === 'ai_session').length,
+        journals: summaries.filter(s => s.source === 'journal_entry').length,
+        total: summaries.length
+      }
+    };
   }
-});
+}
 
 /**
- * Get archives with decryption
+ * Check if archiving is needed after summary creation
+ * Triggers when user has >= 10 summaries
  */
-app.get("/get-archives/:uid", async (req, res) => {
-  const { uid } = req.params;
-
+async function checkAndArchiveIfNeeded(uid) {
   try {
-    const archivesSnapshot = await db.collection("users").doc(uid)
-      .collection("archives")
-      .orderBy("archived_at", "desc")
+    // Count total summaries for this user
+    const summariesSnapshot = await db.collection('users').doc(uid)
+      .collection('summaries')
       .get();
-
-    const decryptedArchives = await Promise.all(
-      archivesSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          archive_id: data.archive_id,
-          summary_count: data.summary_count,
-          period_start: data.period_start,
-          period_end: data.period_end,
-          archived_at: data.archived_at,
-          compressed_summary: data.compressed_summary 
-            ? await decryptField(data.compressed_summary, uid)
-            : "",
-          summary_ids: data.summary_ids || []
-        };
-      })
-    );
-
-    res.status(200).json({
-      success: true,
-      archives: decryptedArchives,
-      count: decryptedArchives.length
-    });
-
+    
+    const count = summariesSnapshot.size;
+    console.log(`📊 User ${uid} has ${count} summaries`);
+    
+    // Trigger archiving if count >= 10
+    if (count >= 10) {
+      console.log(`🎯 Triggering archiving (count: ${count} >= 10)`);
+      const result = await archiveOldestFive(uid);
+      return result;
+    } else {
+      console.log(`✅ No archiving needed (count: ${count} < 10)`);
+      return { success: true, message: `Count ${count} < 10, no archiving needed`, count };
+    }
+    
   } catch (error) {
-    console.error("Error fetching archives:", error);
-    res.status(500).json({ error: error.message });
+    console.error('Error checking archive status:', error);
+    return { success: false, error: error.message };
   }
-});
-
-// ==================== END ENCRYPTED CONTEXT ENDPOINTS ====================
+}
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)

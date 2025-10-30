@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Context Debugger - CureZ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+    .input-section {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    input {
+      flex: 1;
+      padding: 15px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      transition: border 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      padding: 15px 40px;
+      font-size: 16px;
+      font-weight: bold;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .results {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      display: none;
+    }
+    .results.show {
+      display: block;
+    }
+    .summary-box {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border-left: 4px solid #667eea;
+    }
+    .summary-box h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.3em;
+    }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .stat:last-child {
+      border-bottom: none;
+    }
+    .stat .label {
+      color: #666;
+      font-weight: 500;
+    }
+    .stat .value {
+      color: #333;
+      font-weight: bold;
+    }
+    .stat .value.good {
+      color: #10b981;
+    }
+    .stat .value.warning {
+      color: #f59e0b;
+    }
+    .stat .value.error {
+      color: #ef4444;
+    }
+    .data-source {
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+    }
+    .data-source h4 {
+      color: #764ba2;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      background: #667eea;
+      color: white;
+    }
+    .sample {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .encrypted {
+      color: #999;
+      font-family: monospace;
+      font-size: 12px;
+      background: #fff3cd;
+      padding: 5px 10px;
+      border-radius: 4px;
+      display: inline-block;
+      margin: 5px 0;
+    }
+    .decrypted {
+      color: #333;
+      padding: 5px 10px;
+      background: #d1fae5;
+      border-radius: 4px;
+      margin: 5px 0;
+      display: block;
+    }
+    .ai-context {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      margin-top: 20px;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #667eea;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .error-box {
+      background: #fee2e2;
+      border: 2px solid #ef4444;
+      color: #991b1b;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s;
+    }
+    .tab:hover {
+      color: #667eea;
+      transform: none;
+      box-shadow: none;
+    }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .comparison-view {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .format-column {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      border: 2px solid #e0e0e0;
+    }
+    .format-column h4 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .format-column.exact {
+      border-color: #10b981;
+    }
+    .format-column.exact h4 {
+      color: #10b981;
+    }
+    @media (max-width: 768px) {
+      .comparison-view {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 AI Context Debugger</h1>
+      <p>See exactly what data is sent to the AI agent</p>
+    </div>
+
+    <div class="input-section">
+      <h2 style="margin-bottom: 20px; color: #333;">Enter User ID</h2>
+      <div class="input-group">
+        <input 
+          type="text" 
+          id="uidInput" 
+          placeholder="Enter Firebase User ID (e.g., abc123xyz...)"
+          value=""
+        >
+        <button id="debugBtn" onclick="debugContext()">🔍 Debug Context</button>
+      </div>
+      <p style="color: #666; font-size: 14px; margin-top: 10px;">
+        💡 Tip: You can find the User ID in Firebase Console or from the login response
+      </p>
+    </div>
+
+    <div class="results" id="results">
+      <!-- Results will be inserted here -->
+    </div>
+  </div>
+
+  <script>
+    async function debugContext() {
+      const uid = document.getElementById('uidInput').value.trim();
+      const resultsDiv = document.getElementById('results');
+      const debugBtn = document.getElementById('debugBtn');
+
+      if (!uid) {
+        alert('Please enter a User ID');
+        return;
+      }
+
+      // Show loading
+      debugBtn.disabled = true;
+      debugBtn.textContent = '⏳ Loading...';
+      resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Fetching AI context data...</p></div>';
+      resultsDiv.classList.add('show');
+
+      try {
+        const response = await fetch(`http://localhost:3002/debug-ai-context/${uid}`);
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch context');
+        }
+
+        // Build results HTML
+        let html = `
+          <div class="summary-box">
+            <h3>📊 Context Summary</h3>
+            <div class="stat">
+              <span class="label">User ID:</span>
+              <span class="value">${data.uid}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Timestamp:</span>
+              <span class="value">${new Date(data.timestamp).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Total Data Sources:</span>
+              <span class="value">${data.summary.total_sources}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Profile Found:</span>
+              <span class="value ${data.summary.profile_found ? 'good' : 'error'}">
+                ${data.summary.profile_found ? '✅ Yes' : '❌ No'}
+              </span>
+            </div>
+            <div class="stat">
+              <span class="label">Recent Summaries:</span>
+              <span class="value">${data.summary.recent_summaries} items</span>
+            </div>
+            <div class="stat">
+              <span class="label">Weekly Archives:</span>
+              <span class="value">${data.summary.weekly_archives} items</span>
+            </div>
+            <div class="stat">
+              <span class="label">Journal Entries:</span>
+              <span class="value">${data.summary.journal_entries} items</span>
+            </div>
+            <div class="stat">
+              <span class="label">Total Characters to AI:</span>
+              <span class="value">${data.summary.total_chars.toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Encryption Working:</span>
+              <span class="value ${data.summary.encryption_working ? 'good' : 'warning'}">
+                ${data.summary.encryption_working ? '✅ Yes' : '⚠️  Check'}
+              </span>
+            </div>
+          </div>
+
+          <h3 style="margin: 30px 0 15px; color: #333;">🗂️ Data Sources</h3>
+        `;
+
+        // Add each data source
+        data.data_sources.forEach(source => {
+          html += `
+            <div class="data-source">
+              <h4>
+                ${getSourceIcon(source.source)} ${formatSourceName(source.source)}
+                <span class="badge">${source.count || (source.source === 'user_profile' ? 1 : 0)} items</span>
+              </h4>
+          `;
+
+          if (source.source === 'user_profile' && source.decrypted_data) {
+            html += `
+              <div class="sample">
+                <strong>Encrypted Sample:</strong><br>
+                <span class="encrypted">${source.encrypted_sample}</span><br><br>
+                <strong>Decrypted Data:</strong><br>
+                <span class="decrypted">Name: ${source.decrypted_data.name || 'N/A'}</span>
+                <span class="decrypted">Age: ${source.decrypted_data.age || 'N/A'}</span>
+                <span class="decrypted">Gender: ${source.decrypted_data.gender || 'N/A'}</span>
+              </div>
+            `;
+          } else if (source.samples) {
+            source.samples.slice(0, 3).forEach((sample, i) => {
+              html += `
+                <div class="sample">
+                  <strong>Sample ${i + 1}:</strong><br>
+                  ${sample.source ? `<em>[${sample.source}]</em><br>` : ''}
+                  ${sample.week ? `<em>${sample.week}</em><br>` : ''}
+                  ${sample.date ? `<em>${sample.date}</em><br>` : ''}
+                  <strong>Encrypted:</strong><br>
+                  <span class="encrypted">${sample.encrypted_preview || sample.title_encrypted}</span><br>
+                  <strong>Decrypted:</strong><br>
+                  <span class="decrypted">${sample.decrypted_preview || sample.title_decrypted || sample.content_preview}</span>
+                  ${sample.topics ? `<br><strong>Topics:</strong> ${sample.topics.join(', ')}` : ''}
+                  ${sample.themes ? `<br><strong>Themes:</strong> ${sample.themes.join(', ')}` : ''}
+                  ${sample.metrics ? `<br><strong>Metrics:</strong> Mood: ${sample.metrics.mood}, Stress: ${sample.metrics.stress}` : ''}
+                </div>
+              `;
+            });
+          }
+
+          html += `</div>`;
+        });
+
+        // Add formatted AI context with tabs
+        html += `
+          <h3 style="margin: 30px 0 15px; color: #333;">🤖 AI Context Formats</h3>
+          <p style="color: #666; margin-bottom: 15px;">Compare the simplified debug view vs the exact AI prompt:</p>
+          
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('simplified')">📄 Simplified Format</button>
+            <button class="tab" onclick="switchTab('exact')">🤖 Exact AI Prompt</button>
+            <button class="tab" onclick="switchTab('comparison')">🔄 Side-by-Side</button>
+          </div>
+
+          <div id="simplified-tab" class="tab-content active">
+            <div class="format-column">
+              <h4>📄 Simplified Debug Format</h4>
+              <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                Quick, readable overview for debugging
+              </p>
+              <div class="ai-context">${escapeHtml(data.formatted_context || 'Not available')}</div>
+            </div>
+          </div>
+
+          <div id="exact-tab" class="tab-content">
+            <div class="format-column exact">
+              <h4>🤖 Exact AI Prompt (Production)</h4>
+              <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                Exactly what server.py sends to the AI model (includes system instruction & guidance)
+              </p>
+              <div class="ai-context">${escapeHtml(data.exact_ai_prompt || 'Not available')}</div>
+            </div>
+          </div>
+
+          <div id="comparison-tab" class="tab-content">
+            <div class="comparison-view">
+              <div class="format-column">
+                <h4>📄 Simplified Format</h4>
+                <div class="ai-context" style="max-height: 600px; overflow-y: auto;">
+                  ${escapeHtml(data.formatted_context || 'Not available')}
+                </div>
+              </div>
+              <div class="format-column exact">
+                <h4>🤖 Exact AI Prompt</h4>
+                <div class="ai-context" style="max-height: 600px; overflow-y: auto;">
+                  ${escapeHtml(data.exact_ai_prompt || 'Not available')}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        resultsDiv.innerHTML = html;
+
+      } catch (error) {
+        resultsDiv.innerHTML = `
+          <div class="error-box">
+            <h3 style="margin-bottom: 10px;">❌ Error</h3>
+            <p><strong>Message:</strong> ${error.message}</p>
+            <p style="margin-top: 10px; font-size: 14px;">
+              Make sure the debug server is running: <code>node scripts/debug-ai-context.js</code>
+            </p>
+          </div>
+        `;
+      } finally {
+        debugBtn.disabled = false;
+        debugBtn.textContent = '🔍 Debug Context';
+      }
+    }
+
+    function getSourceIcon(source) {
+      const icons = {
+        'user_profile': '👤',
+        'recent_summaries': '📊',
+        'weekly_archives': '📚',
+        'journal_entries': '📝'
+      };
+      return icons[source] || '📄';
+    }
+
+    function formatSourceName(source) {
+      return source.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function switchTab(tabName) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected tab content
+      const selectedTab = document.getElementById(`${tabName}-tab`);
+      if (selectedTab) {
+        selectedTab.classList.add('active');
+      }
+      
+      // Add active class to clicked tab
+      event.target.classList.add('active');
+    }
+
+    // Allow Enter key to submit
+    document.getElementById('uidInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        debugContext();
+      }
+    });
+  </script>
+</body>
+</html>
