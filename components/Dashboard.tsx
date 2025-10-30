@@ -36,6 +36,7 @@ import { HomeSection } from "./sections/HomeSection";
 import { SessionsSection } from "./sections/SessionsSection";
 import { ResourcesSection } from "./sections/ResourcesSection";
 import { ProfileSection } from "./sections/ProfileSection";
+import { AnalyticsSection } from "./sections/AnalyticsSection";
 import {
   BarChart,
   Bar,
@@ -331,6 +332,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             setSelectedExercise={setSelectedExercise}
             setCurrentView={setCurrentView}
           />
+        )}
+
+        {dashboardPage === "analytics" && (
+          <AnalyticsSection currentUser={currentUser} />
         )}
 
         {dashboardPage === "profile" && (

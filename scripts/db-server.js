@@ -106,6 +106,254 @@ app.post("/login", async (req, res) => {
   }
 })
 
+// ==================== ANALYTICS HELPER FUNCTIONS ====================
+
+/**
+ * Get ISO week number from date
+ */
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+
+/**
+ * Calculate incremental average
+ */
+function calculateIncrementalAverage(oldAvg, oldCount, newValue) {
+  if (oldCount === 0) return newValue;
+  return Math.round(((oldAvg * oldCount) + newValue) / (oldCount + 1));
+}
+
+/**
+ * Update analytics summary (Embedded Windows Architecture - Layer 2)
+ * This function implements the incremental update strategy for real-time analytics
+ */
+async function updateAnalyticsSummary(uid, newMetric) {
+  try {
+    console.log(`📊 Attempting to update analytics summary for user ${uid}...`);
+    
+    await db.runTransaction(async (transaction) => {
+      const summaryRef = db.collection("users").doc(uid).collection("analytics").doc("summary");
+      const summaryDoc = await transaction.get(summaryRef);
+      
+      const now = new Date();
+      const currentWeek = `${now.getFullYear()}-W${String(getWeekNumber(now)).padStart(2, '0')}`;
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      let summary;
+      
+      if (!summaryDoc.exists) {
+        // Initialize new summary with embedded windows structure
+        summary = {
+          current: {
+            mood: { average: 0, min: 100, max: 0, data_points: 0, reliable: false },
+            stress: { average: 0, min: 100, max: 0, data_points: 0, reliable: false },
+            energy: { average: 0, min: 100, max: 0, data_points: 0, reliable: false },
+            anxiety: { average: 0, data_points: 0, reliable: false },
+            sleep: { average: 0, data_points: 0, reliable: false }
+          },
+          windows: {
+            last_7_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null },
+            last_30_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null },
+            last_90_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null }
+          },
+          weekly_history: [],
+          monthly_history: [],
+          breakdown: { ai_sessions: 0, journal_entries: 0, total: 0 },
+          metadata: {
+            total_lifetime_entries: 0,
+            first_entry: now.toISOString(),
+            last_entry: now.toISOString(),
+            last_updated: admin.firestore.FieldValue.serverTimestamp()
+          }
+        };
+      } else {
+        summary = summaryDoc.data();
+      }
+      
+      // Update current aggregates (incremental calculation - no need to re-read all metrics!)
+      const metrics = ['mood_percentage', 'stress_level', 'energy_level', 'anxiety_level', 'sleep_quality'];
+      const metricNames = ['mood', 'stress', 'energy', 'anxiety', 'sleep'];
+      
+      metrics.forEach((metricKey, idx) => {
+        const value = newMetric[metricKey];
+        if (value !== null && value !== undefined) {
+          const name = metricNames[idx];
+          const current = summary.current[name];
+          
+          const oldCount = current.data_points || 0;
+          const oldAvg = current.average || 0;
+          
+          // Incremental average calculation
+          current.average = calculateIncrementalAverage(oldAvg, oldCount, value);
+          current.min = Math.min(current.min || 100, value);
+          current.max = Math.max(current.max || 0, value);
+          current.data_points = oldCount + 1;
+          current.reliable = current.data_points >= 1; // Reliable from first entry
+          current.last_updated = now.toISOString();
+        }
+      });
+      
+      // Update breakdown counts
+      if (newMetric.source === 'ai_session') {
+        summary.breakdown.ai_sessions = (summary.breakdown.ai_sessions || 0) + 1;
+      } else if (newMetric.source === 'journal_entry') {
+        summary.breakdown.journal_entries = (summary.breakdown.journal_entries || 0) + 1;
+      }
+      summary.breakdown.total = (summary.breakdown.total || 0) + 1;
+      
+      // Update rolling windows (aggregated stats only - no individual entries)
+      summary.windows.last_7_days.mood_avg = summary.current.mood.average;
+      summary.windows.last_7_days.stress_avg = summary.current.stress.average;
+      summary.windows.last_7_days.energy_avg = summary.current.energy.average;
+      summary.windows.last_7_days.entries_count = Math.min(summary.breakdown.total, 50); // Approximate
+      summary.windows.last_7_days.updated_at = now.toISOString();
+      
+      summary.windows.last_30_days.mood_avg = summary.current.mood.average;
+      summary.windows.last_30_days.stress_avg = summary.current.stress.average;
+      summary.windows.last_30_days.energy_avg = summary.current.energy.average;
+      summary.windows.last_30_days.entries_count = summary.breakdown.total;
+      summary.windows.last_30_days.updated_at = now.toISOString();
+      
+      summary.windows.last_90_days.mood_avg = summary.current.mood.average;
+      summary.windows.last_90_days.stress_avg = summary.current.stress.average;
+      summary.windows.last_90_days.energy_avg = summary.current.energy.average;
+      summary.windows.last_90_days.entries_count = summary.breakdown.total;
+      summary.windows.last_90_days.updated_at = now.toISOString();
+      
+      // Update weekly history (snapshots for timeline charts)
+      if (!summary.weekly_history) summary.weekly_history = [];
+      
+      const lastWeek = summary.weekly_history[0]?.week;
+      if (lastWeek !== currentWeek) {
+        // New week! Create snapshot
+        const weekSnapshot = {
+          week: currentWeek,
+          year: now.getFullYear(),
+          mood_avg: summary.current.mood.average || null,
+          stress_avg: summary.current.stress.average || null,
+          energy_avg: summary.current.energy.average || null,
+          entries_count: summary.breakdown.total || 0,
+          snapshot_taken_at: now.toISOString()
+        };
+        
+        summary.weekly_history.unshift(weekSnapshot);
+        
+        if (summary.weekly_history.length > 12) {
+          summary.weekly_history = summary.weekly_history.slice(0, 12);
+        }
+      } else if (summary.weekly_history.length > 0) {
+        // Same week - update existing snapshot
+        summary.weekly_history[0].mood_avg = summary.current.mood.average || null;
+        summary.weekly_history[0].stress_avg = summary.current.stress.average || null;
+        summary.weekly_history[0].energy_avg = summary.current.energy.average || null;
+        summary.weekly_history[0].entries_count = summary.breakdown.total || 0;
+        summary.weekly_history[0].snapshot_taken_at = now.toISOString();
+      } else {
+        // First entry ever
+        const weekSnapshot = {
+          week: currentWeek,
+          year: now.getFullYear(),
+          mood_avg: summary.current.mood.average || null,
+          stress_avg: summary.current.stress.average || null,
+          energy_avg: summary.current.energy.average || null,
+          entries_count: summary.breakdown.total || 0,
+          snapshot_taken_at: now.toISOString()
+        };
+        summary.weekly_history.push(weekSnapshot);
+      }
+      
+      // Update monthly history
+      if (!summary.monthly_history) summary.monthly_history = [];
+      
+      const lastMonth = summary.monthly_history[0]?.month;
+      if (lastMonth !== currentMonth) {
+        const monthSnapshot = {
+          month: currentMonth,
+          year: now.getFullYear(),
+          mood_avg: summary.current.mood.average || null,
+          stress_avg: summary.current.stress.average || null,
+          energy_avg: summary.current.energy.average || null,
+          entries_count: summary.breakdown.total || 0,
+          snapshot_taken_at: now.toISOString()
+        };
+        
+        summary.monthly_history.unshift(monthSnapshot);
+        
+        if (summary.monthly_history.length > 12) {
+          summary.monthly_history = summary.monthly_history.slice(0, 12);
+        }
+      } else if (summary.monthly_history.length > 0) {
+        summary.monthly_history[0].mood_avg = summary.current.mood.average || null;
+        summary.monthly_history[0].stress_avg = summary.current.stress.average || null;
+        summary.monthly_history[0].energy_avg = summary.current.energy.average || null;
+        summary.monthly_history[0].entries_count = summary.breakdown.total || 0;
+        summary.monthly_history[0].snapshot_taken_at = now.toISOString();
+      } else {
+        const monthSnapshot = {
+          month: currentMonth,
+          year: now.getFullYear(),
+          mood_avg: summary.current.mood.average || null,
+          stress_avg: summary.current.stress.average || null,
+          energy_avg: summary.current.energy.average || null,
+          entries_count: summary.breakdown.total || 0,
+          snapshot_taken_at: now.toISOString()
+        };
+        summary.monthly_history.push(monthSnapshot);
+      }
+      
+      // Update metadata
+      summary.metadata.total_lifetime_entries = summary.breakdown.total;
+      summary.metadata.last_entry = now.toISOString();
+      summary.metadata.last_updated = admin.firestore.FieldValue.serverTimestamp();
+      
+      // Write updated summary
+      transaction.set(summaryRef, summary);
+      
+      console.log(`✅ Analytics summary updated successfully`);
+      console.log(`   - analytics/summary (updated with embedded windows)`);
+    });
+    
+  } catch (error) {
+    console.error(`❌ Analytics update failed:`, error);
+    console.error(`   Stack:`, error.stack);
+  }
+}
+
+// GET endpoint for fetching analytics summary
+app.get("/get-analytics-summary/:uid", async (req, res) => {
+  const { uid } = req.params;
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" });
+  }
+  
+  try {
+    const summaryDoc = await db.collection("users").doc(uid).collection("analytics").doc("summary").get();
+    
+    if (!summaryDoc.exists) {
+      return res.status(200).send({ 
+        exists: false,
+        message: "No analytics data yet" 
+      });
+    }
+    
+    res.status(200).send({
+      exists: true,
+      summary: summaryDoc.data()
+    });
+    
+  } catch (error) {
+    console.error("Error fetching analytics summary:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// ==================== END ANALYTICS FUNCTIONS ====================
+
 app.post("/save-summary", async (req, res) => {
   const { uid, summary } = req.body
   if (!uid || !summary) {
@@ -219,6 +467,9 @@ app.post("/save-summary", async (req, res) => {
       .collection("latest").doc("metrics")
       .set(latestCache)
     
+    // 4. Update analytics summary (Embedded Windows System)
+    await updateAnalyticsSummary(uid, metricsData);
+    
     console.log(`✅ Summary saved for user ${uid} with flat metrics structure:`)
     console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%)`)
     console.log(`   - summaries/${sessionId}`)
@@ -328,6 +579,9 @@ app.post("/save-journal-metrics", async (req, res) => {
         .collection("latest").doc("metrics")
         .set(latestCache)
     }
+
+    // Update analytics summary (Embedded Windows System)
+    await updateAnalyticsSummary(uid, metricsData);
 
     console.log(`✅ Journal metrics saved: users/${uid}/metrics/${metricId}`)
     console.log(`   Source: journal_entry, Confidence: ${Math.round((metrics.confidence || 0.75) * 100)}%`)

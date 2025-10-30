@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from 'lucide-react';
 import { useUser } from '@/lib/contexts/UserContext';
 import type { DashboardPage } from '@/lib/types';
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     
     if (pathname?.startsWith('/journal')) return 'journal';
     if (pathname?.startsWith('/dashboard/sessions')) return 'sessions';
+    if (pathname?.startsWith('/dashboard/analytics')) return 'analytics';
     if (pathname?.startsWith('/dashboard/resources')) return 'resources';
     if (pathname?.startsWith('/dashboard/profile')) return 'profile';
     if (pathname?.startsWith('/dashboard')) return 'home';
@@ -57,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'home', label: 'Home', icon: Home, path: '/dashboard' },
     { id: 'sessions', label: 'AI Session', icon: MessageCircle, path: '/dashboard/sessions' },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/dashboard/analytics' },
     { id: 'resources', label: 'Resources', icon: BookOpen, path: '/dashboard/resources' },
     { id: 'journal', label: 'Journal', icon: BookText, path: '/journal' },
     { id: 'profile', label: 'Profile', icon: UserIcon, path: '/dashboard/profile' },
