@@ -102,13 +102,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileSidebar}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-card rounded-lg shadow-lg"
         aria-label="Toggle menu"
       >
         {isMobileOpen ? (
-          <X className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+          <X className="w-6 h-6 text-foreground" />
         ) : (
-          <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+          <Menu className="w-6 h-6 text-foreground" />
         )}
       </button>
 
@@ -124,8 +124,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className={`
           fixed lg:sticky top-0 left-0 h-screen z-40
-          bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl
-          border-r border-gray-200 dark:border-gray-700
+          bg-sidebar/80 backdrop-blur-xl
+          border-r border-sidebar-border
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
@@ -148,11 +148,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
               prefetch={true}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                <MessageCircle className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-primary-foreground" />
               </div>
               {!isDesktopCollapsed && (
-                <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                   CureZ
                 </span>
               )}
@@ -161,13 +161,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Desktop Collapse Button */}
             <button
               onClick={toggleDesktopCollapse}
-              className="hidden lg:block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="hidden lg:block p-2 hover:bg-sidebar-accent rounded-lg transition-colors"
               aria-label={isDesktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isDesktopCollapsed ? (
-                <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <ChevronRight className="w-5 h-5 text-sidebar-foreground/60" />
               ) : (
-                <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <ChevronLeft className="w-5 h-5 text-sidebar-foreground/60" />
               )}
             </button>
           </div>
@@ -188,8 +188,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     transition-all duration-200
                     ${
                       isActive
-                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent'
                     }
                     ${isDesktopCollapsed ? 'lg:justify-center' : ''}
                   `}
@@ -210,8 +210,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             disabled={isLoggingOut}
             className={`
               w-full flex items-center gap-3 px-4 py-3 rounded-xl
-              text-red-600 dark:text-red-400
-              hover:bg-red-50 dark:hover:bg-red-900/20
+              text-destructive
+              hover:bg-destructive/10
               transition-all duration-200
               disabled:opacity-50 disabled:cursor-not-allowed
               ${isDesktopCollapsed ? 'lg:justify-center' : ''}

@@ -21,14 +21,14 @@ interface Category {
 }
 
 const PRESET_COLORS = [
-  '#9333ea', // purple
-  '#ec4899', // pink
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#06b6d4', // cyan
+  'var(--primary)',     // purple
+  'var(--accent)',      // pink
+  'var(--secondary)',   // blue
+  'var(--mood-happy)',  // green
+  'var(--mood-sad)',    // orange/amber
+  'var(--destructive)', // red
+  'var(--chart-4)',     // cyan
+  'var(--chart-5)',     // green
 ];
 
 export function CategoriesSection() {
@@ -103,16 +103,16 @@ export function CategoriesSection() {
   const customCategories = categories.filter(c => !c.isDefault);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-card-foreground flex items-center gap-2">
           <Tag className="w-5 h-5" />
           Categories
         </h2>
         <Button
           onClick={() => setIsCreateModalOpen(true)}
           size="sm"
-          className="bg-purple-600 hover:bg-purple-700"
+          className="bg-primary hover:bg-primary-dark text-primary-foreground"
         >
           <Plus className="w-4 h-4 mr-1" />
           New Category
@@ -120,18 +120,18 @@ export function CategoriesSection() {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading categories...</div>
+        <div className="text-center py-8 text-muted-foreground">Loading categories...</div>
       ) : (
         <>
           {/* Default Categories */}
           {defaultCategories.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">Default Categories</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Default Categories</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {defaultCategories.map((category) => (
                   <div
                     key={category.id}
-                    className="p-3 rounded-lg border-2 hover:shadow-sm transition-shadow"
+                    className="p-3 rounded-lg border-2 hover:shadow-sm transition-shadow bg-card"
                     // eslint-disable-next-line react/forbid-dom-props
                     style={{ borderColor: category.color } as React.CSSProperties}
                   >
@@ -141,12 +141,12 @@ export function CategoriesSection() {
                         // eslint-disable-next-line react/forbid-dom-props
                         style={{ backgroundColor: category.color } as React.CSSProperties}
                       />
-                      <span className="font-medium text-sm text-gray-900">
+                      <span className="font-medium text-sm text-card-foreground">
                         {category.title}
                       </span>
                     </div>
                     {category.description && (
-                      <p className="text-xs text-gray-600 line-clamp-2">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
                         {category.description}
                       </p>
                     )}
@@ -159,12 +159,12 @@ export function CategoriesSection() {
           {/* Custom Categories */}
           {customCategories.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-600 mb-3">My Custom Categories</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">My Custom Categories</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {customCategories.map((category) => (
                   <div
                     key={category.id}
-                    className="p-3 rounded-lg border-2 hover:shadow-sm transition-shadow group relative"
+                    className="p-3 rounded-lg border-2 hover:shadow-sm transition-shadow group relative bg-card"
                     // eslint-disable-next-line react/forbid-dom-props
                     style={{ borderColor: category.color } as React.CSSProperties}
                   >
@@ -174,12 +174,12 @@ export function CategoriesSection() {
                         // eslint-disable-next-line react/forbid-dom-props
                         style={{ backgroundColor: category.color } as React.CSSProperties}
                       />
-                      <span className="font-medium text-sm text-gray-900">
+                      <span className="font-medium text-sm text-card-foreground">
                         {category.title}
                       </span>
                     </div>
                     {category.description && (
-                      <p className="text-xs text-gray-600 line-clamp-2">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
                         {category.description}
                       </p>
                     )}
@@ -190,7 +190,7 @@ export function CategoriesSection() {
           )}
 
           {categories.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No categories yet. Create your first custom category!
             </div>
           )}
@@ -234,20 +234,20 @@ export function CategoriesSection() {
             <div className="space-y-2">
               <Label>Category Color</Label>
               <div className="flex gap-2 flex-wrap">
-                {PRESET_COLORS.map((color) => (
+                {PRESET_COLORS.map((color, index) => (
                   <button
-                    key={color}
+                    key={index}
                     type="button"
                     onClick={() => setFormData({ ...formData, color })}
                     className={`w-8 h-8 rounded-full transition-all ${
                       formData.color === color
-                        ? 'ring-2 ring-offset-2 ring-gray-900 scale-110'
+                        ? 'ring-2 ring-offset-2 ring-primary scale-110'
                         : 'hover:scale-105'
                     }`}
                     // eslint-disable-next-line react/forbid-dom-props
-                    style={{ backgroundColor: color } as React.CSSProperties}
-                    aria-label={`Select ${color} color`}
-                    title={`Select ${color} color`}
+                    style={{ backgroundColor: color.startsWith('var') ? `rgb(from ${color} r g b)` : color } as React.CSSProperties}
+                    aria-label={`Select color ${index + 1}`}
+                    title={`Select color ${index + 1}`}
                   />
                 ))}
               </div>
@@ -255,9 +255,9 @@ export function CategoriesSection() {
 
             {/* Preview */}
             <div className="pt-2">
-              <Label className="text-xs text-gray-500 mb-2 block">Preview</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
               <div
-                className="p-3 rounded-lg border-2"
+                className="p-3 rounded-lg border-2 bg-card"
                 // eslint-disable-next-line react/forbid-dom-props
                 style={{ borderColor: formData.color } as React.CSSProperties}
               >
@@ -267,12 +267,12 @@ export function CategoriesSection() {
                     // eslint-disable-next-line react/forbid-dom-props
                     style={{ backgroundColor: formData.color } as React.CSSProperties}
                   />
-                  <span className="font-medium text-sm text-gray-900">
+                  <span className="font-medium text-sm text-card-foreground">
                     {formData.title || 'Category Name'}
                   </span>
                 </div>
                 {formData.description && (
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-muted-foreground">
                     {formData.description}
                   </p>
                 )}
@@ -291,7 +291,7 @@ export function CategoriesSection() {
             <Button
               onClick={handleCreateCategory}
               disabled={!formData.title.trim() || submitting}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-primary hover:bg-primary-dark text-primary-foreground"
             >
               {submitting ? 'Creating...' : 'Create Category'}
             </Button>
