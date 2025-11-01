@@ -68,57 +68,14 @@ export function RichTextEditor({
         Your Journal Entry
       </label>
       
-      {/* Simple toolbar for future enhancements */}
-      <div className="flex gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-t-lg border border-b-0 border-gray-200 dark:border-gray-700">
-        <button
-          type="button"
-          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          title="Bold (coming soon)"
-          disabled
-        >
-          <Bold size={18} />
-        </button>
-        <button
-          type="button"
-          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          title="Italic (coming soon)"
-          disabled
-        >
-          <Italic size={18} />
-        </button>
-        <button
-          type="button"
-          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          title="Heading (coming soon)"
-          disabled
-        >
-          <Heading2 size={18} />
-        </button>
-        <button
-          type="button"
-          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          title="List (coming soon)"
-          disabled
-        >
-          <List size={18} />
-        </button>
-        <button
-          type="button"
-          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          title="Quote (coming soon)"
-          disabled
-        >
-          <Quote size={18} />
-        </button>
-      </div>
-
       <textarea
         value={text}
         onChange={handleTextChange}
         placeholder={placeholder}
         disabled={disabled}
-        rows={12}
-        className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-b-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+        rows={6}
+        className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ minHeight: '120px' }}
       />
       
       <p className="text-xs text-gray-500 dark:text-gray-400">

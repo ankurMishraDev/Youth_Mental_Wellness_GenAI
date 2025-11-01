@@ -51,13 +51,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const title = propTitle || headerDetails.title;
   const description = propDescription !== undefined ? propDescription : headerDetails.description;
   return (
-    <header className="flex justify-between items-center mb-8 md:mt-0 mt-12">
+    <header className="flex justify-between items-center mb-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">
+        <h1 className="text-2xl font-bold text-foreground">
           {title}
         </h1>
         {description && (
-          <p className="text-lg text-muted-foreground">
+          <p className="text-md text-muted-foreground">
             {description}
           </p>
         )}

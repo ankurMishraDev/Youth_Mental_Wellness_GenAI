@@ -3,9 +3,12 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { MessageCircle, Home } from "lucide-react"
 import { AuthMode } from "../lib/types"
 import Link from "next/link"
+import { useState } from "react"
 
 interface AuthProps {
   authMode: AuthMode
@@ -62,8 +65,117 @@ export const Auth: React.FC<AuthProps> = ({
   signupVerificationEmail,
   unverifiedLoginEmail,
 }) => {
+  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false)
+  const [hasAgreedToConsent, setHasAgreedToConsent] = useState(false)
+  const [isConsentChecked, setIsConsentChecked] = useState(false)
+
+  const handleConfirmConsent = () => {
+    if (isConsentChecked) {
+      setHasAgreedToConsent(true)
+      setIsConsentModalOpen(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background flex items-center justify-center p-4">
+      {/* Consent Modal */}
+      <Dialog open={isConsentModalOpen} onOpenChange={setIsConsentModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Terms and Conditions</DialogTitle>
+            <DialogDescription>
+              Please read and agree to the terms and conditions before creating an account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="prose dark:prose-invert max-h-96 overflow-y-auto p-4">
+            <h4>1. Acceptance of Terms</h4>
+            <p>
+              By agreeing to these terms and conditions, you acknowledge that you have read, understood, and accepted
+              all the provisions outlined herein. These terms govern your use of our services and outline your rights
+              and responsibilities as a user. Please ensure that you fully comprehend the implications of these terms
+              before proceeding with account creation.
+            </p>
+            <br />
+            <h4>2. Not a Medical Substitute</h4>
+            <p>
+              Curie, our AI companion, is designed to provide mental wellness support in your daily life and to act as a
+              first level of mental health assistant. It is not a substitute for professional medical advice, diagnosis,
+              or treatment. In such cases, you can directly contact our professional mental health consultants. Always
+              seek the advice of your physician or other qualified health provider with any questions you may have
+              regarding a medical condition.
+            </p>
+            <br />
+            <h4>3. Data and Privacy</h4>
+            <p>
+              Curie does not store your personal conversations and is committed to protecting your privacy and
+              confidentiality. However, Curie does track your responses and feedback to improve the services and provide
+              personalized recommendations.
+            </p>
+            <br />
+            <h4>4. Information Collection</h4>
+            <p>
+              In every interaction, Curie captures your emotional state and well-being based on your inputs, except for
+              personal conversations. Apart from emotional state (mood, energy levels, stress levels, etc.), Curie also
+              collects some of your personal information over time to provide better mental health and wellness
+              services. This information may include:
+            </p>
+            <ul className="list-disc pl-6">
+              <li>Demographic information (age, gender, name, email)</li>
+              <li>Behavioural Profile (interests, habits, etc.)</li>
+              <li>Communication Profile (comfort level, preferred communication channels, etc.)</li>
+              <li>Cultural Profile (Cultural background, values, beliefs, etc.)</li>
+              <li>Historical Profile (past experiences, significant life events, etc.)</li>
+              <li>Academic Profile (educational background, skills, etc.)</li>
+              <li>Strength Profile (personal strengths, coping mechanisms, etc.)</li>
+            </ul>
+            <p>
+              Curie never asks for any of the above information directly. It is inferred over time based on your
+              interactions and conversations with Curie. This information is used to tailor the AI responses and
+              recommendations to your unique needs and preferences.
+            </p>
+            <br />
+            <h4>5. Security</h4>
+            <p>
+              We take your privacy seriously and implement robust security measures to protect your data. We provide
+              end-to-end encryption for all of your collected data and do not share your information with third persons
+              without your explicit consent. You can delete your account and all associated data at any time in profile
+              settings.
+            </p>
+            <br />
+            <h4>6. Prototype Notice</h4>
+            <p className="font-semibold text-amber-600">
+              This is a prototype application. By using this service, you acknowledge that:
+            </p>
+            <ul className="list-disc pl-6">
+              <li>Account deletion is immediate and cannot be reversed</li>
+              <li>We recommend exporting your data before account deletion</li>
+              <li>No backup retention or recovery services are available</li>
+              <li>The application may contain bugs or incomplete features</li>
+            </ul>
+            <br />
+            <h4>7. Agreement</h4>
+            <p>
+              By using Curie, you agree to the collection and use of your information as described in our Privacy
+              Policy.
+            </p>
+          </div>
+          <div className="flex items-center space-x-2 mt-4">
+            <Checkbox id="consent" checked={isConsentChecked} onCheckedChange={(checked) => setIsConsentChecked(checked as boolean)} />
+            <label
+              htmlFor="consent"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              I agree to the terms and conditions
+            </label>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleConfirmConsent} disabled={!isConsentChecked}>
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Home Button */}
       <Link
         href="/"
@@ -217,12 +329,15 @@ export const Auth: React.FC<AuthProps> = ({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                We will send a verification link to your email via Firebase Authentication. Please verify before logging in.
+                We will send a verification link to your email via Firebase Authentication. Please verify before logging in. Check your spam folder if you don't see it in your inbox.
               </p>
+              <Button variant="outline" onClick={() => setIsConsentModalOpen(true)} className="w-full">
+                {hasAgreedToConsent ? "✔ Terms Agreed" : "View Terms and Conditions"}
+              </Button>
               <Button
                 onClick={handleSignup}
                 className="w-full h-12 text-lg font-semibold"
-                disabled={isSigningUp}
+                disabled={isSigningUp || !hasAgreedToConsent}
               >
                 {isSigningUp ? "Creating account..." : "Create Account"}
               </Button>

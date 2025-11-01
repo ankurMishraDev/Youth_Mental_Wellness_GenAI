@@ -170,10 +170,10 @@ export default function ViewJournalEntryPage() {
                   >
                     <span>Feeling {moodConfig.label}</span>
                   </div>
-                  {entry.categoryId && (
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                  {entry.category && (
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full" style={{ backgroundColor: entry.category.color + '20', color: entry.category.color }}>
                       <Tag size={14} />
-                      <span>Categorized</span>
+                      <span>{entry.category.title}</span>
                     </div>
                   )}
                 </div>

@@ -56,6 +56,7 @@ export interface JournalEntry {
   mood: MoodType;
   images: JournalImage[];
   categoryId?: string; // Reference to category
+  category?: Category; // Embedded category data
   createdAt: Date;
   updatedAt: Date;
 }

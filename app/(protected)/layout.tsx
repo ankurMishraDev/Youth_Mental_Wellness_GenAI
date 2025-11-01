@@ -10,6 +10,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/contexts/UserContext';
 import { useEffect } from 'react';
+import "../globals.css"
 
 export default function ProtectedLayout({
   children,

@@ -102,10 +102,10 @@ export function JournalEntryCard({ entry, onDelete }: JournalEntryCardProps) {
         >
           {mood.label}
         </div>
-        {entry.categoryId && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        {entry.category && (
+          <div className="flex items-center gap-1 text-xs" style={{ color: entry.category.color }}>
             <Tag size={12} />
-            <span>Categorized</span>
+            <span>{entry.category.title}</span>
           </div>
         )}
       </div>

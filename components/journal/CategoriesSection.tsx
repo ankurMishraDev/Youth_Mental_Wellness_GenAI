@@ -32,7 +32,8 @@ const PRESET_COLORS = [
 ];
 
 export function CategoriesSection() {
-  const { userId } = useUser();
+  const { user } = useUser();
+  const userId = user?.uid;
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -62,6 +63,7 @@ export function CategoriesSection() {
       });
 
       const data = await response.json();
+      console.log('API Response:', data);
       if (data.success) {
         setCategories(data.categories);
       }
@@ -114,7 +116,7 @@ export function CategoriesSection() {
           size="sm"
           className="bg-primary hover:bg-primary-dark text-primary-foreground"
         >
-          <Plus className="w-4 h-4 mr-1" />
+          <Plus className="w-4 h-4 mr-1"/>
           New Category
         </Button>
       </div>
@@ -122,12 +124,12 @@ export function CategoriesSection() {
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">Loading categories...</div>
       ) : (
-        <>
+        <div className="max-h-[300px] overflow-y-auto pr-2">
           {/* Default Categories */}
           {defaultCategories.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Default Categories</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {defaultCategories.map((category) => (
                   <div
                     key={category.id}
@@ -160,7 +162,7 @@ export function CategoriesSection() {
           {customCategories.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">My Custom Categories</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {customCategories.map((category) => (
                   <div
                     key={category.id}
@@ -194,7 +196,7 @@ export function CategoriesSection() {
               No categories yet. Create your first custom category!
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Create Category Modal */}

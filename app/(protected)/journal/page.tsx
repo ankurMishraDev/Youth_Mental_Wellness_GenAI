@@ -47,6 +47,7 @@ export default function JournalPage() {
       }
 
       const data = await response.json();
+      console.log('Fetched Entries:', data.entries);
       setEntries(data.entries || []);
     } catch (error) {
       console.error('Failed to fetch entries:', error);
@@ -114,8 +115,8 @@ export default function JournalPage() {
   const mostCommonMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 px-4 lg:px-8">
+      <div className="container mx-auto py-8">
         {/* Header with gradient */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -133,13 +134,13 @@ export default function JournalPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button
+              {/* <button
                 onClick={() => router.push('/journal/chat')}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
               >
                 <MessageCircle size={20} />
                 <span className="font-medium">Chat with AI</span>
-              </button>
+              </button> */}
               <button
                 onClick={() => router.push('/journal/new')}
                 className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
@@ -192,46 +193,51 @@ export default function JournalPage() {
           </div>
 
           {/* Categories Section */}
-          <div className="mb-8">
-            <CategoriesSection />
-          </div>
+          
         </div>
 
         {/* Content */}
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 size={48} className="animate-spin text-purple-600" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div className="lg:col-span-1 flex flex-col">
+            <CategoriesSection />
           </div>
-        ) : entries.length === 0 ? (
-          <div className="text-center py-20 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
-            <div className="mb-6">
-              <BookOpen size={80} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-            </div>
-            <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
-              No journal entries yet
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-              Start your wellness journey by documenting your thoughts, feelings, and experiences
-            </p>
-            <button
-              onClick={() => router.push('/journal/new')}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-            >
-              <PlusCircle size={20} />
-              Create your first entry
-            </button>
+          <div className="lg:col-span-2 h-[calc(100vh-280px)] overflow-y-auto pr-2">
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 size={48} className="animate-spin text-purple-600" />
+              </div>
+            ) : entries.length === 0 ? (
+              <div className="text-center py-20 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
+                <div className="mb-6">
+                  <BookOpen size={80} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                </div>
+                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+                  No journal entries yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                  Start your wellness journey by documenting your thoughts, feelings, and experiences
+                </p>
+                <button
+                  onClick={() => router.push('/journal/new')}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  <PlusCircle size={20} />
+                  Create your first entry
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {entries.map((entry) => (
+                  <JournalEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    onDelete={() => handleDelete(entry.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {entries.map((entry) => (
-              <JournalEntryCard
-                key={entry.id}
-                entry={entry}
-                onDelete={() => handleDelete(entry.id)}
-              />
-            ))}
-          </div>
-        )}
+        </div>
 
         {/* Floating Action Button for Mobile */}
         <button

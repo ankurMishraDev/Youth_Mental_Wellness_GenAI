@@ -1945,6 +1945,407 @@ app.get("/get-archives/:uid", async (req, res) => {
 
 // ==================== END ENCRYPTED CONTEXT ENDPOINTS ====================
 
+// ==================== USER DATA EXPORT & DELETION ====================
+
+// Helper function to filter out null/undefined values recursively
+function removeEmptyFields(obj) {
+  if (Array.isArray(obj)) {
+    return obj
+      .map(item => removeEmptyFields(item))
+      .filter(item => item !== null && item !== undefined && item !== '');
+  }
+  
+  if (obj !== null && typeof obj === 'object') {
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip null, undefined, empty strings, and empty arrays
+      if (value === null || value === undefined || value === '' || 
+          (Array.isArray(value) && value.length === 0)) {
+        continue;
+      }
+      
+      // Recursively clean nested objects
+      if (typeof value === 'object' && !value._seconds) {
+        const cleanedValue = removeEmptyFields(value);
+        if (Object.keys(cleanedValue).length > 0 || Array.isArray(cleanedValue)) {
+          cleaned[key] = cleanedValue;
+        }
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
+// Helper to format objects recursively
+function formatObject(obj, indent = 0) {
+  let text = '';
+  const indentation = '  '.repeat(indent);
+  
+  for (const [key, value] of Object.entries(obj)) {
+    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    if (value && typeof value === 'object' && !Array.isArray(value) && !value._seconds) {
+      text += `${indentation}${formattedKey}:\n`;
+      text += formatObject(value, indent + 1);
+    } else if (Array.isArray(value)) {
+      text += `${indentation}${formattedKey}:\n`;
+      value.forEach((item, i) => {
+        if (typeof item === 'object') {
+          text += `${indentation}  [${i + 1}]\n`;
+          text += formatObject(item, indent + 2);
+        } else {
+          text += `${indentation}  - ${item}\n`;
+        }
+      });
+    } else if (value && value._seconds) {
+      // Firestore timestamp
+      text += `${indentation}${formattedKey}: ${new Date(value._seconds * 1000).toLocaleString()}\n`;
+    } else {
+      text += `${indentation}${formattedKey}: ${value}\n`;
+    }
+  }
+  
+  return text;
+}
+
+// Helper function to format data as readable text
+function formatDataAsText(data) {
+  let text = '='.repeat(80) + '\n';
+  text += 'CureZ - Youth Mental Wellness - User Data Export\n';
+  text += '='.repeat(80) + '\n\n';
+  text += `Export Date: ${new Date().toLocaleString()}\n`;
+  text += `User ID: ${data.uid || 'N/A'}\n\n`;
+
+  // Profile Information
+  if (data.profile && Object.keys(data.profile).length > 0) {
+    text += '\n' + '='.repeat(80) + '\n';
+    text += 'PROFILE INFORMATION\n';
+    text += '='.repeat(80) + '\n\n';
+    
+    if (data.profile.name) text += `Name: ${data.profile.name}\n`;
+    if (data.profile.email) text += `Email: ${data.profile.email}\n`;
+    if (data.profile.age) text += `Age: ${data.profile.age}\n`;
+    if (data.profile.gender) text += `Gender: ${data.profile.gender}\n`;
+    if (data.profile.photoURL) text += `Profile Photo: Available\n`;
+    if (data.profile.createdAt && data.profile.createdAt._seconds) {
+      text += `Account Created: ${new Date(data.profile.createdAt._seconds * 1000).toLocaleString()}\n`;
+    }
+  }
+
+  // User Profiling Details
+  if (data.user_profiling && Object.keys(data.user_profiling).length > 0) {
+    text += '\n' + '='.repeat(80) + '\n';
+    text += 'PSYCHOLOGICAL PROFILING\n';
+    text += '='.repeat(80) + '\n\n';
+
+    const profiling = data.user_profiling;
+
+    // Core Identity
+    if (profiling.core_identity && Object.keys(profiling.core_identity).length > 0) {
+      text += '\n--- Core Identity ---\n';
+      text += formatObject(profiling.core_identity, 1);
+    }
+
+    // Communication Profile
+    if (profiling.communication_profile && Object.keys(profiling.communication_profile).length > 0) {
+      text += '\n--- Communication Patterns ---\n';
+      text += formatObject(profiling.communication_profile, 1);
+    }
+
+    // Psychological Profile
+    if (profiling.psychological_profile && Object.keys(profiling.psychological_profile).length > 0) {
+      text += '\n--- Psychological Patterns ---\n';
+      text += formatObject(profiling.psychological_profile, 1);
+    }
+
+    // Life Context
+    if (profiling.life_context_profile && Object.keys(profiling.life_context_profile).length > 0) {
+      text += '\n--- Life Context ---\n';
+      text += formatObject(profiling.life_context_profile, 1);
+    }
+
+    // Historical Profile
+    if (profiling.historical_profile && Object.keys(profiling.historical_profile).length > 0) {
+      text += '\n--- Historical Factors ---\n';
+      text += formatObject(profiling.historical_profile, 1);
+    }
+
+    // Strengths Profile
+    if (profiling.strengths_profile && Object.keys(profiling.strengths_profile).length > 0) {
+      text += '\n--- Strengths & Protective Factors ---\n';
+      text += formatObject(profiling.strengths_profile, 1);
+    }
+
+    // Behavioral Profile
+    if (profiling.behavioral_profile && Object.keys(profiling.behavioral_profile).length > 0) {
+      text += '\n--- Behavioral Patterns ---\n';
+      text += formatObject(profiling.behavioral_profile, 1);
+    }
+
+    // Risk Profile
+    if (profiling.risk_profile && Object.keys(profiling.risk_profile).length > 0) {
+      text += '\n--- Risk Factors ---\n';
+      text += formatObject(profiling.risk_profile, 1);
+    }
+
+    // Treatment Response
+    if (profiling.treatment_response_profile && Object.keys(profiling.treatment_response_profile).length > 0) {
+      text += '\n--- Treatment Response ---\n';
+      text += formatObject(profiling.treatment_response_profile, 1);
+    }
+  }
+
+  text += '\n' + '='.repeat(80) + '\n';
+  text += 'END OF EXPORT\n';
+  text += '='.repeat(80) + '\n';
+  text += '\nNote: Only fields with actual data are included in this export.\n';
+  text += 'Wellness analytics and activity summaries are available in the app dashboard.\n';
+
+  return text;
+}
+
+/**
+ * Export user data (for backup before account deletion)
+ * GET /export-user-data/:uid?format=text|json
+ */
+app.get("/export-user-data/:uid", async (req, res) => {
+  const { uid } = req.params;
+  const format = req.query.format || 'text'; // 'text' or 'json'
+
+  if (!uid) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
+
+  try {
+    console.log(`[EXPORT] Starting data export for user: ${uid}, format: ${format}`);
+
+    // 1. Get profile data
+    const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile");
+    const profileDoc = await profileRef.get();
+    
+    let profileData = null;
+    if (profileDoc.exists) {
+      const rawProfile = profileDoc.data();
+      profileData = {
+        name: rawProfile.name ? decryptField(rawProfile.name, uid) : null,
+        email: rawProfile.email ? decryptField(rawProfile.email, uid) : null,
+        age: rawProfile.age ? decryptField(rawProfile.age, uid) : null,
+        gender: rawProfile.gender ? decryptField(rawProfile.gender, uid) : null,
+        photoURL: rawProfile.photoURL || null,
+        createdAt: rawProfile.createdAt || null,
+      };
+    }
+
+    // 2. Get user profiling details
+    const userDetailsRef = db.collection("users").doc(uid).collection("user_profiling").doc("user_details");
+    const userDetailsDoc = await userDetailsRef.get();
+    let userDetailsData = {};
+    
+    if (userDetailsDoc.exists) {
+      const rawDetails = userDetailsDoc.data();
+      // Decrypt each profiling section
+      const sections = [
+        'core_identity',
+        'communication_profile',
+        'psychological_profile',
+        'life_context_profile',
+        'historical_profile',
+        'strengths_profile',
+        'behavioral_profile',
+        'risk_profile',
+        'treatment_response_profile',
+      ];
+
+      sections.forEach(section => {
+        if (rawDetails[section]) {
+          try {
+            userDetailsData[section] = decryptFields(rawDetails[section], uid);
+          } catch (error) {
+            console.error(`Error decrypting ${section}:`, error);
+            userDetailsData[section] = rawDetails[section];
+          }
+        }
+      });
+    }
+
+    // 5. Prepare export data (only profile and profiling data)
+    const exportData = {
+      uid,
+      export_date: new Date().toISOString(),
+      profile: profileData,
+      user_profiling: userDetailsData,
+    };
+
+    // Remove null/empty fields
+    const cleanedData = removeEmptyFields(exportData);
+
+    console.log(`[EXPORT] Data export completed for user: ${uid}`);
+    console.log(`[EXPORT] Format: ${format}`);
+    console.log(`[EXPORT] Cleaned data keys:`, Object.keys(cleanedData));
+
+    // Return in requested format
+    if (format === 'json') {
+      console.log('[EXPORT] Returning JSON format');
+      res.status(200).json({ success: true, data: cleanedData });
+    } else {
+      // Return as formatted text
+      console.log('[EXPORT] Formatting data as text...');
+      const textData = formatDataAsText(cleanedData);
+      console.log('[EXPORT] Text data type:', typeof textData);
+      console.log('[EXPORT] Text data length:', textData.length);
+      console.log('[EXPORT] Text data preview:', textData.substring(0, 200));
+      res.status(200).json({ success: true, data: textData, format: 'text' });
+    }
+  } catch (error) {
+    console.error("[EXPORT] Error exporting user data:", error);
+    res.status(500).json({ error: "Failed to export user data", details: error.message });
+  }
+});
+
+/**
+ * Delete user account and all associated data (HARD DELETE)
+ * DELETE /delete-user-account/:uid
+ */
+app.delete("/delete-user-account/:uid", async (req, res) => {
+  const { uid } = req.params;
+
+  if (!uid) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
+
+  try {
+    console.log(`Starting account deletion for user: ${uid}`);
+
+    // Helper function to delete a collection
+    async function deleteCollection(collectionRef, batchSize = 100) {
+      const query = collectionRef.limit(batchSize);
+      return new Promise((resolve, reject) => {
+        deleteQueryBatch(query, resolve, reject);
+      });
+    }
+
+    async function deleteQueryBatch(query, resolve, reject) {
+      query.get()
+        .then((snapshot) => {
+          if (snapshot.size === 0) {
+            return 0;
+          }
+
+          const batch = db.batch();
+          snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+          });
+
+          return batch.commit().then(() => {
+            return snapshot.size;
+          });
+        })
+        .then((numDeleted) => {
+          if (numDeleted === 0) {
+            resolve();
+            return;
+          }
+          process.nextTick(() => {
+            deleteQueryBatch(query, resolve, reject);
+          });
+        })
+        .catch(reject);
+    }
+
+    // Delete in order: subcollections first, then parent documents
+
+    // 1. Delete journal entries
+    console.log(`Deleting journal entries for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("journalEntries")
+    );
+
+    // 2. Delete metrics
+    console.log(`Deleting metrics for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("metrics")
+    );
+
+    // 3. Delete summaries
+    console.log(`Deleting summaries for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("summaries")
+    );
+
+    // 4. Delete archives
+    console.log(`Deleting archives for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("archives")
+    );
+
+    // 5. Delete context archives
+    console.log(`Deleting context archives for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("context_archives")
+    );
+
+    // 6. Delete analytics
+    console.log(`Deleting analytics for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("analytics")
+    );
+
+    // 7. Delete latest metrics
+    console.log(`Deleting latest metrics for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("latest")
+    );
+
+    // 8. Delete user profiling
+    console.log(`Deleting user profiling for ${uid}...`);
+    await deleteCollection(
+      db.collection("users").doc(uid).collection("user_profiling")
+    );
+
+    // 9. Delete user-specific categories (if any)
+    console.log(`Deleting user categories for ${uid}...`);
+    const categoriesSnapshot = await db
+      .collection("categories")
+      .where("userId", "==", uid)
+      .get();
+    
+    if (!categoriesSnapshot.empty) {
+      const batch = db.batch();
+      categoriesSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+    }
+
+    // 10. Delete user root document
+    console.log(`Deleting user root document for ${uid}...`);
+    await db.collection("users").doc(uid).delete();
+
+    // 11. Delete Firebase Auth user
+    console.log(`Deleting Firebase Auth user ${uid}...`);
+    await admin.auth().deleteUser(uid);
+
+    console.log(`Account deletion completed for user: ${uid}`);
+
+    res.status(200).json({
+      success: true,
+      message: "Account and all associated data have been permanently deleted.",
+    });
+  } catch (error) {
+    console.error("Error deleting user account:", error);
+    res.status(500).json({
+      error: "Failed to delete account. Please contact support.",
+      details: error.message,
+    });
+  }
+});
+
+// ==================== END USER DATA EXPORT & DELETION ====================
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)
 })

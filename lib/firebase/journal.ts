@@ -127,6 +127,11 @@ export async function getJournalEntries(
         const decryptedTitle = data.title ? await decryptField(data.title, userId) : '';
         const decryptedContent = await decryptObject<any>(data.content, userId);
 
+        let category = null;
+        if (data.categoryId) {
+          category = await getCategoryById(data.categoryId);
+        }
+
         return {
           id: doc.id,
           userId: data.userId,
@@ -135,6 +140,7 @@ export async function getJournalEntries(
           mood: data.mood,
           images: data.images || [],
           categoryId: data.categoryId,
+          category: category,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         } as JournalEntry;
@@ -172,6 +178,11 @@ export async function getJournalEntryById(
     const decryptedTitle = data.title ? await decryptField(data.title, userId) : '';
     const decryptedContent = await decryptObject<any>(data.content, userId);
 
+    let category = null;
+    if (data.categoryId) {
+      category = await getCategoryById(data.categoryId);
+    }
+
     return {
       id: docSnap.id,
       userId: userId, // Restore userId for consistency
@@ -180,6 +191,7 @@ export async function getJournalEntryById(
       mood: data.mood,
       images: data.images || [],
       categoryId: data.categoryId,
+      category: category,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     } as JournalEntry;

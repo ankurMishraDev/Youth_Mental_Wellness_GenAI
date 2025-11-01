@@ -7,6 +7,7 @@
 
 import React, { useState } from 'react';
 import { MoodSelector } from './MoodSelector';
+import { CategorySelector } from './CategorySelector';
 import { RichTextEditor } from './RichTextEditor';
 import { ImageUploader } from './ImageUploader';
 import { ReflectionQuestions } from './ReflectionQuestions';
@@ -26,6 +27,7 @@ interface JournalEntryFormProps {
     content: PortableTextBlock[];
     mood: MoodType;
     images: JournalImage[];
+    categoryId?: string;
   };
   onSubmit: (data: CreateJournalEntryInput) => Promise<void>;
   onCancel?: () => void;
@@ -47,6 +49,7 @@ export function JournalEntryForm({
   );
   const [mood, setMood] = useState<MoodType | null>(initialData?.mood || null);
   const [images, setImages] = useState<JournalImage[]>(initialData?.images || []);
+  const [categoryId, setCategoryId] = useState<string | null>(initialData?.categoryId || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReflection, setShowReflection] = useState(false);
@@ -56,6 +59,11 @@ export function JournalEntryForm({
     
     if (!mood) {
       setError('Please select your mood');
+      return;
+    }
+
+    if (!categoryId) {
+      setError('Please select a category');
       return;
     }
 
@@ -73,6 +81,7 @@ export function JournalEntryForm({
         content,
         mood,
         images,
+        categoryId,
       });
     } catch (err: any) {
       console.error('Form submission error:', err);
@@ -100,123 +109,134 @@ export function JournalEntryForm({
     setContent([...content, newBlock]);
   };
 
-  const isValid = mood !== null && content.length > 0;
+  const isValid = mood !== null && content.length > 0 && categoryId !== null;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Title (Optional) */}
-      <div className="space-y-2">
-        <label
-          htmlFor="title"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Title (Optional)
-        </label>
-        <input
-          id="title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Give your entry a title..."
-          className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          disabled={isSubmitting}
-          maxLength={100}
-        />
-      </div>
-
-      {/* Mood Selector */}
-      <MoodSelector value={mood} onChange={setMood} disabled={isSubmitting} />
-
-      {/* Content Editor */}
-      <RichTextEditor
-        value={content}
-        onChange={setContent}
-        disabled={isSubmitting}
-      />
-
-      {/* Image Uploader */}
-      <ImageUploader
-        userId={userId}
-        images={images}
-        onChange={setImages}
-        disabled={isSubmitting}
-      />
-
-      {/* AI Reflection Questions */}
-      {!isEditing && mood && content.length > 0 && (
-        <div className="space-y-3">
-          {!showReflection ? (
-            <button
-              type="button"
-              onClick={() => setShowReflection(true)}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-colors"
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left Column */}
+        <div className="space-y-4">
+          {/* Title (Optional) */}
+          <div className="space-y-1">
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              <Sparkles size={20} />
-              <span>Get AI Reflection Questions</span>
-            </button>
-          ) : (
-            <ReflectionQuestions
-              userId={userId}
-              entryData={{
-                title: title,
-                content: portableTextToPlainText(content),
-                mood: mood,
-              }}
-              onAnswerQuestion={handleAnswerQuestion}
+              Title (Optional)
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Give your entry a title..."
+              className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              disabled={isSubmitting}
+              maxLength={100}
             />
-          )}
-        </div>
-      )}
-
-      {/* Submit Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
-          type="submit"
-          disabled={!isValid || isSubmitting}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 size={20} className="animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : (
-            <>
-              <Save size={20} />
-              <span>{submitLabel}</span>
-            </>
-          )}
-        </button>
-
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="px-6 py-3 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-        )}
-      </div>
-
-      {!isEditing && (
-        <div className="flex items-start gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <Sparkles size={20} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-blue-700 dark:text-blue-300">
-            <p className="font-medium mb-1">AI Auto-Categorization</p>
-            <p className="text-blue-600 dark:text-blue-400">
-              Your entry will be automatically categorized using AI to help you track themes and patterns.
-            </p>
           </div>
+
+          {/* Mood Selector */}
+          <MoodSelector value={mood} onChange={setMood} disabled={isSubmitting} />
+
+          {/* Category Selector */}
+          <CategorySelector value={categoryId} onChange={setCategoryId} disabled={isSubmitting} />
+
+          {/* Content Editor */}
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            disabled={isSubmitting}
+          />
         </div>
-      )}
+
+        {/* Right Column */}
+        <div className="space-y-4">
+          {/* Image Uploader */}
+          <ImageUploader
+            userId={userId}
+            images={images}
+            onChange={setImages}
+            disabled={isSubmitting}
+          />
+
+          {/* AI Reflection Questions */}
+          {!isEditing && mood && content.length > 0 && (
+            <div className="space-y-3">
+              {!showReflection ? (
+                <button
+                  type="button"
+                  onClick={() => setShowReflection(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  <Sparkles size={20} />
+                  <span>Get AI Reflection Questions</span>
+                </button>
+              ) : (
+                <ReflectionQuestions
+                  userId={userId}
+                  entryData={{
+                    title: title,
+                    content: portableTextToPlainText(content),
+                    mood: mood,
+                  }}
+                  onAnswerQuestion={handleAnswerQuestion}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Submit Buttons */}
+          <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="submit"
+              disabled={!isValid || isSubmitting}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={20} />
+                  <span>{submitLabel}</span>
+                </>
+              )}
+            </button>
+
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
+          {!isEditing && (
+            <div className="flex items-start gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <Sparkles size={20} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="font-medium mb-1">AI Auto-Categorization</p>
+                <p className="text-blue-600 dark:text-blue-400">
+                  Your entry will be automatically categorized using AI to help you track themes and patterns.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </form>
   );
 }

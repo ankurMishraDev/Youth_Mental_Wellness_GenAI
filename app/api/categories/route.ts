@@ -18,11 +18,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch default categories (userId: null) and user's custom categories separately
-    // Firestore doesn't handle null well in 'in' queries
-    const categoriesRef = collection(db, 'categories');
+    const defaultCategoriesRef = collection(db, 'categories');
+    const customCategoriesRef = collection(db, `users/${userId}/categories`);
+
     const [defaultSnapshot, customSnapshot] = await Promise.all([
-      getDocs(query(categoriesRef, where('userId', '==', null))),
-      getDocs(query(categoriesRef, where('userId', '==', userId)))
+      getDocs(query(defaultCategoriesRef, where('userId', '==', null))),
+      getDocs(customCategoriesRef)
     ]);
 
     const defaultCategories = defaultSnapshot.docs.map(doc => ({
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    const categoriesRef = collection(db, 'categories');
+    const categoriesRef = collection(db, `users/${userId}/categories`);
     const docRef = await addDoc(categoriesRef, categoryData);
 
     return NextResponse.json({

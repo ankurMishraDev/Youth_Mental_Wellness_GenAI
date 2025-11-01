@@ -76,67 +76,45 @@ export default function NewJournalEntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 p-4 sm:p-6 lg:p-8">
+      <div className="container mx-auto h-full flex flex-col">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-4">
           <button
             onClick={() => router.push('/journal')}
-            className="group inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 transition-colors"
+            className="group inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-2 transition-colors"
           >
             <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span>Back to Journal</span>
           </button>
           
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-              <Sparkles size={28} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                New Journal Entry
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Express your thoughts and feelings
-              </p>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+                <Sparkles size={28} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  New Journal Entry
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Express your thoughts and feelings
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Form Container with beautiful styling */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
-          <JournalEntryForm
-            userId={user!.uid}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            submitLabel="Save Entry"
-          />
-        </div>
-
-        {/* Tips Section */}
-        <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <Sparkles size={18} className="text-blue-600 dark:text-blue-400" />
-            Journaling Tips
-          </h3>
-          <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 dark:text-blue-400">•</span>
-              <span>Be honest with yourself - this is your private space</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-600 dark:text-purple-400">•</span>
-              <span>Include details about how you're feeling and why</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 dark:text-blue-400">•</span>
-              <span>AI will automatically categorize your entry to help you spot patterns</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-600 dark:text-purple-400">•</span>
-              <span>Add images to capture moments and memories</span>
-            </li>
-          </ul>
+        {/* Form Container */}
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 overflow-y-auto">
+            <JournalEntryForm
+              userId={user!.uid}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              submitLabel="Save Entry"
+            />
+          </div>
         </div>
       </div>
     </div>
