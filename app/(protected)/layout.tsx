@@ -10,7 +10,6 @@ import { Sidebar } from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/contexts/UserContext';
 import { useEffect } from 'react';
-import "../globals.css"
 
 export default function ProtectedLayout({
   children,
@@ -46,9 +45,9 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 overflow-hidden">
       <Sidebar onNavigateToLanding={() => router.push('/')} />
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex-1 overflow-y-auto">
         {children}
       </main>
     </div>

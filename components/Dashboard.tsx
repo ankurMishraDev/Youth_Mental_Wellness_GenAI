@@ -33,6 +33,7 @@ import { Sidebar } from "./Sidebar";
 import { DashboardHeader } from "./DashboardHeader";
 import { ExerciseTemplate } from "./ExerciseTemplate";
 import { HomeSection } from "./sections/HomeSection";
+import { ModernHomeSection } from "./sections/ModernHomeSection";
 import { SessionsSection } from "./sections/SessionsSection";
 import { ResourcesSection } from "./sections/ResourcesSection";
 import { ProfileSection } from "./sections/ProfileSection";
@@ -308,12 +309,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Dashboard Content */}
         {dashboardPage === "home" && (
-          <HomeSection
+          <ModernHomeSection
             setCurrentView={setCurrentView}
-            isLoadingMood={isLoadingMood}
-            moodData={moodData}
-            currentTip={currentTip}
-            positiveTip={positiveTip}
+            currentUser={currentUser}
           />
         )}
 

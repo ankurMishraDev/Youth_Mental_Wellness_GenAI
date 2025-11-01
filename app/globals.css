@@ -328,10 +328,16 @@
     @apply border-border outline-ring/50;
   }
   
+  html {
+    @apply overflow-x-hidden;
+    max-width: 100vw;
+  }
+  
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
     font-size: var(--text-base);
     line-height: var(--leading-normal);
+    max-width: 100vw;
   }
   
   h1, h2, h3, h4, h5, h6 {
