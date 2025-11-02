@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Suspense } from "react"
 import { UserProvider } from "@/lib/contexts/UserContext"
+import CustomCursor from "@/components/CustomCursor"
 
 export const metadata: Metadata = {
   title: "CureZ - Your AI Mentor",
@@ -30,6 +31,7 @@ export default function RootLayout({
         <link rel="prefetch" href="/auth" />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased doodle-background`}>
+        <CustomCursor />
         <UserProvider>
           <Suspense fallback={
             <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">

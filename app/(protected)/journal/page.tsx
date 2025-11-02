@@ -84,7 +84,7 @@ export default function JournalPage() {
   // Show loading state while checking user
   if (userLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+      <div className="flex items-center justify-center min-h-screen bg-gray-200 dark:bg-gray-900">
         <div className="text-center">
           <Loader2 size={48} className="animate-spin text-purple-600 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">Loading...</p>
@@ -115,7 +115,7 @@ export default function JournalPage() {
   const mostCommonMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 px-4 lg:px-8">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 px-4 lg:px-8">
       <div className="container mx-auto py-8">
         {/* Header with gradient */}
         <div className="mb-8">

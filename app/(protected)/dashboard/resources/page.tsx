@@ -70,15 +70,8 @@ export default function ResourcesPage() {
     fetchSuggestedExercises();
   }, [auth.currentUser?.uid]);
 
-  useEffect(() => {
-    if (selectedExercise) {
-      const exerciseQuery = encodeURIComponent(JSON.stringify(selectedExercise));
-      router.push(`/session?exercise=${exerciseQuery}`);
-    }
-  }, [selectedExercise, router]);
-
   return (
-    <div className="p-4 md:p-8">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 p-2 md:p-4">
       <DashboardHeader 
         title="Wellness Resources"
         description="Explore exercises and tips to support your mental well-being."

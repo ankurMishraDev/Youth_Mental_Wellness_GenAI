@@ -138,40 +138,41 @@ const WindowComparisonCard = ({
   
   return (
     <Card 
-      className={`cursor-pointer transition-all ${
-        isActive ? 'ring-2 ring-blue-500 shadow-lg' : 'hover:shadow-md'
+      className={`cursor-pointer transition-all hover:scale-[1.02] ${
+        isActive 
+          ? 'ring-2 ring-purple-500 shadow-xl bg-gradient-to-br from-purple-50 to-white' 
+          : 'hover:shadow-lg bg-white'
       }`}
       onClick={onClick}
     >
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium flex items-center justify-between">
+        <CardTitle className="text-base font-bold flex items-center justify-between text-gray-800">
           <span>{period}</span>
-          <Calendar className="h-4 w-4 text-gray-400" />
+          <div className={`p-2 rounded-lg ${isActive ? 'bg-purple-100' : 'bg-gray-50'}`}>
+            <Calendar className={`h-4 w-4 ${isActive ? 'text-purple-600' : 'text-gray-400'}`} />
+          </div>
         </CardTitle>
-        <CardDescription className="text-xs">
-          {data.entries_count} entries
+        <CardDescription className="text-xs font-medium text-gray-500">
+          {data.entries_count} entries tracked
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-600">Mood</span>
+      <CardContent className="space-y-3">
+        <div className="flex items-center justify-between p-2 rounded-lg bg-green-50/50">
+          <span className="text-xs font-semibold text-gray-700">Mood</span>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-green-600">{data.mood_avg || 0}</span>
-            {getTrendIcon(data.mood_avg || 0, 70)}
+            <span className="font-bold text-lg text-green-600">{data.mood_avg || 0}</span>
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-600">Stress</span>
+        <div className="flex items-center justify-between p-2 rounded-lg bg-red-50/50">
+          <span className="text-xs font-semibold text-gray-700">Stress</span>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-red-600">{data.stress_avg || 0}</span>
-            {getTrendIcon(data.stress_avg || 0, 30)}
+            <span className="font-bold text-lg text-red-600">{data.stress_avg || 0}</span>
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-600">Energy</span>
+        <div className="flex items-center justify-between p-2 rounded-lg bg-orange-50/50">
+          <span className="text-xs font-semibold text-gray-700">Energy</span>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-yellow-600">{data.energy_avg || 0}</span>
-            {getTrendIcon(data.energy_avg || 0, 65)}
+            <span className="font-bold text-lg text-orange-600">{data.energy_avg || 0}</span>
           </div>
         </div>
       </CardContent>
@@ -495,67 +496,76 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header with Filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Header with Filters - Refined */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2">
         <div>
-          <h2 className="text-2xl font-bold">Wellness Analytics</h2>
-          <p className="text-gray-500">
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            Wellness Analytics
+          </h2>
+          <p className="text-gray-600 mt-1">
             Track your mental wellness journey over time
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Time Period Filter */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <Button
-              variant={timePeriod === 7 ? "default" : "outline"}
+              variant={timePeriod === 7 ? "default" : "ghost"}
               size="sm"
               onClick={() => setTimePeriod(7)}
+              className={timePeriod === 7 ? "shadow-md" : ""}
             >
               7 Days
             </Button>
             <Button
-              variant={timePeriod === 30 ? "default" : "outline"}
+              variant={timePeriod === 30 ? "default" : "ghost"}
               size="sm"
               onClick={() => setTimePeriod(30)}
+              className={timePeriod === 30 ? "shadow-md" : ""}
             >
               30 Days
             </Button>
             <Button
-              variant={timePeriod === 90 ? "default" : "outline"}
+              variant={timePeriod === 90 ? "default" : "ghost"}
               size="sm"
               onClick={() => setTimePeriod(90)}
+              className={timePeriod === 90 ? "shadow-md" : ""}
             >
               90 Days
             </Button>
             <Button
-              variant={timePeriod === 365 ? "default" : "outline"}
+              variant={timePeriod === 365 ? "default" : "ghost"}
               size="sm"
               onClick={() => setTimePeriod(365)}
+              className={timePeriod === 365 ? "shadow-md" : ""}
             >
               All Time
             </Button>
           </div>
           
           {/* Source Filter */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <Button
-              variant={filter === "all" ? "default" : "outline"}
+              variant={filter === "all" ? "default" : "ghost"}
               size="sm"
               onClick={() => setFilter("all")}
+              className={filter === "all" ? "shadow-md" : ""}
             >
               All
             </Button>
             <Button
-              variant={filter === "ai_session" ? "default" : "outline"}
+              variant={filter === "ai_session" ? "default" : "ghost"}
               size="sm"
               onClick={() => setFilter("ai_session")}
+              className={filter === "ai_session" ? "shadow-md" : ""}
             >
               🎙️ Sessions
             </Button>
             <Button
-              variant={filter === "journal_entry" ? "default" : "outline"}
+              variant={filter === "journal_entry" ? "default" : "ghost"}
               size="sm"
               onClick={() => setFilter("journal_entry")}
+              className={filter === "journal_entry" ? "shadow-md" : ""}
             >
               📔 Journals
             </Button>
@@ -563,32 +573,37 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Summary Cards - Refined Design */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Mood Card */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
-              <div>
-                <CardDescription>Average Mood</CardDescription>
-                <CardTitle className="text-3xl">
+              <div className="flex-1">
+                <CardDescription className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Average Mood
+                </CardDescription>
+                <CardTitle className="text-4xl font-bold mt-2 bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
                   {Math.round(currentPeriodData?.mood?.average || 0)}
-                  <span className="text-sm font-normal text-gray-500">/100</span>
                 </CardTitle>
               </div>
-              <Heart className="h-8 w-8 text-green-500" />
+              <div className="bg-green-50 p-3 rounded-xl">
+                <Heart className="h-7 w-7 text-green-600" />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                {currentPeriodData?.mood?.data_points || 0} data points
+              <span className="text-xs text-gray-600 font-medium">
+                {currentPeriodData?.mood?.data_points || 0} entries tracked
               </span>
               {moodTrend.direction !== 'stable' && (
-                <div className={`flex items-center gap-1 text-xs ${
-                  moodTrend.direction === 'up' ? 'text-green-600' : 'text-red-600'
+                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  moodTrend.direction === 'up' 
+                    ? 'bg-green-50 text-green-700' 
+                    : 'bg-red-50 text-red-700'
                 }`}>
-                  {moodTrend.direction === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {moodTrend.direction === 'up' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                   <span>{moodTrend.percentage}%</span>
                 </div>
               )}
@@ -597,29 +612,34 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         </Card>
 
         {/* Stress Card */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-l-4 border-l-red-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
-              <div>
-                <CardDescription>Average Stress</CardDescription>
-                <CardTitle className="text-3xl">
+              <div className="flex-1">
+                <CardDescription className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Average Stress
+                </CardDescription>
+                <CardTitle className="text-4xl font-bold mt-2 bg-gradient-to-r from-red-600 to-rose-500 bg-clip-text text-transparent">
                   {Math.round(currentPeriodData?.stress?.average || 0)}
-                  <span className="text-sm font-normal text-gray-500">/100</span>
                 </CardTitle>
               </div>
-              <AlertCircle className="h-8 w-8 text-red-500" />
+              <div className="bg-red-50 p-3 rounded-xl">
+                <AlertCircle className="h-7 w-7 text-red-600" />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                {currentPeriodData?.stress?.data_points || 0} data points
+              <span className="text-xs text-gray-600 font-medium">
+                {currentPeriodData?.stress?.data_points || 0} entries tracked
               </span>
               {stressTrend.direction !== 'stable' && (
-                <div className={`flex items-center gap-1 text-xs ${
-                  stressTrend.direction === 'down' ? 'text-green-600' : 'text-red-600'
+                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  stressTrend.direction === 'down' 
+                    ? 'bg-green-50 text-green-700' 
+                    : 'bg-red-50 text-red-700'
                 }`}>
-                  {stressTrend.direction === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {stressTrend.direction === 'up' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                   <span>{stressTrend.percentage}%</span>
                 </div>
               )}
@@ -628,29 +648,34 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         </Card>
 
         {/* Energy Card */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
-              <div>
-                <CardDescription>Average Energy</CardDescription>
-                <CardTitle className="text-3xl">
+              <div className="flex-1">
+                <CardDescription className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Average Energy
+                </CardDescription>
+                <CardTitle className="text-4xl font-bold mt-2 bg-gradient-to-r from-orange-600 to-amber-500 bg-clip-text text-transparent">
                   {Math.round(currentPeriodData?.energy?.average || 0)}
-                  <span className="text-sm font-normal text-gray-500">/100</span>
                 </CardTitle>
               </div>
-              <Zap className="h-8 w-8 text-orange-500" />
+              <div className="bg-orange-50 p-3 rounded-xl">
+                <Zap className="h-7 w-7 text-orange-600" />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                {currentPeriodData?.energy?.data_points || 0} data points
+              <span className="text-xs text-gray-600 font-medium">
+                {currentPeriodData?.energy?.data_points || 0} entries tracked
               </span>
               {energyTrend.direction !== 'stable' && (
-                <div className={`flex items-center gap-1 text-xs ${
-                  energyTrend.direction === 'up' ? 'text-green-600' : 'text-red-600'
+                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  energyTrend.direction === 'up' 
+                    ? 'bg-green-50 text-green-700' 
+                    : 'bg-red-50 text-red-700'
                 }`}>
-                  {energyTrend.direction === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {energyTrend.direction === 'up' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                   <span>{energyTrend.percentage}%</span>
                 </div>
               )}
@@ -659,104 +684,169 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         </Card>
 
         {/* Total Entries Card */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
-              <div>
-                <CardDescription>Total Entries</CardDescription>
-                <CardTitle className="text-3xl">
+              <div className="flex-1">
+                <CardDescription className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Total Entries
+                </CardDescription>
+                <CardTitle className="text-4xl font-bold mt-2 bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                   {aggregates?.total_entries || 0}
                 </CardTitle>
               </div>
-              <Activity className="h-8 w-8 text-blue-500" />
+              <div className="bg-blue-50 p-3 rounded-xl">
+                <Activity className="h-7 w-7 text-blue-600" />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-xs text-gray-500">
-              {breakdown.ai_sessions} sessions, {breakdown.journal_entries} journals
+          <CardContent className="pt-4">
+            <div className="flex gap-3">
+              <div className="flex items-center gap-1.5 text-xs">
+                <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                <span className="text-gray-600 font-medium">{breakdown.ai_sessions} sessions</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                <span className="text-gray-600 font-medium">{breakdown.journal_entries} journals</span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Mood, Stress, Energy Timeline (Line Chart) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Wellness Timeline</CardTitle>
-          <CardDescription>
-            Track your mood, stress, and energy levels over time (Last {timePeriod} days)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={filteredTimelineData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis domain={[0, 100]} />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="mood"
-                stroke={COLORS.mood}
-                strokeWidth={2}
-                name="Mood"
-                dot={{ r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="stress"
-                stroke={COLORS.stress}
-                strokeWidth={2}
-                name="Stress"
-                dot={{ r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="energy"
-                stroke={COLORS.energy}
-                strokeWidth={2}
-                name="Energy"
-                dot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Wellness Radar Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Wellness Profile</CardTitle>
-            <CardDescription>Overall wellness across key metrics</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Mood, Stress, Energy Timeline (Line Chart) - Refined */}
+        <Card className="lg:col-span-2 border-t-4 border-t-purple-500 shadow-lg hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold text-gray-800">Wellness Timeline</CardTitle>
+                <CardDescription className="text-sm mt-1">
+                  Track your mood, stress, and energy levels over time ({timePeriod === 365 ? "All time" : `Last ${timePeriod} days`})
+                </CardDescription>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-xl">
+                <Activity className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="metric" />
-                <PolarRadiusAxis domain={[0, 100]} />
-                <Radar
-                  name="Your Wellness"
-                  dataKey="value"
-                  stroke="#8b5cf6"
-                  fill="#8b5cf6"
-                  fillOpacity={0.6}
+          <CardContent className="pt-2">
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={filteredTimelineData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                  stroke="#6b7280"
                 />
-                <Tooltip />
-              </RadarChart>
+                <YAxis 
+                  domain={[0, 100]} 
+                  tick={{ fontSize: 12 }}
+                  stroke="#6b7280"
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  iconType="circle"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="mood"
+                  stroke={COLORS.mood}
+                  strokeWidth={3}
+                  name="Mood"
+                  dot={{ r: 5, fill: COLORS.mood }}
+                  activeDot={{ r: 7 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="stress"
+                  stroke={COLORS.stress}
+                  strokeWidth={3}
+                  name="Stress"
+                  dot={{ r: 5, fill: COLORS.stress }}
+                  activeDot={{ r: 7 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="energy"
+                  stroke={COLORS.energy}
+                  strokeWidth={3}
+                  name="Energy"
+                  dot={{ r: 5, fill: COLORS.energy }}
+                  activeDot={{ r: 7 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Data Source Breakdown (Pie Chart) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Sources</CardTitle>
-            <CardDescription>Distribution of AI sessions vs journal entries</CardDescription>
+        <div className="lg:col-span-1 space-y-6">
+          {/* Wellness Radar Chart - Refined */}
+          <Card className="border-t-4 border-t-blue-500 shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold text-gray-800">Wellness Profile</CardTitle>
+                  <CardDescription className="text-sm mt-1">Overall wellness across key metrics</CardDescription>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-xl">
+                  <Brain className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <ResponsiveContainer width="100%" height={250}>
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                  <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                  <Radar
+                    name="Your Wellness"
+                    dataKey="value"
+                    stroke="#8b5cf6"
+                    fill="#8b5cf6"
+                    fillOpacity={0.5}
+                    strokeWidth={2}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Data Source Breakdown (Pie Chart) - Refined */}
+        <Card className="border-t-4 border-t-cyan-500 shadow-lg hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold text-gray-800">Data Sources</CardTitle>
+                <CardDescription className="text-sm mt-1">Distribution of AI sessions vs journal entries</CardDescription>
+              </div>
+              <div className="bg-cyan-50 p-3 rounded-xl">
+                <Users className="h-6 w-6 text-cyan-600" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-2">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -768,28 +858,49 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
+                  strokeWidth={2}
                 >
                   {sourceData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
-            <div className="mt-4 text-sm text-gray-600">
-              <p>🎙️ AI Sessions: {breakdown.ai_sessions} (High confidence: 90%)</p>
-              <p>📔 Journal Entries: {breakdown.journal_entries} (Confidence: 65-85%)</p>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-2 p-2 bg-cyan-50 rounded-lg">
+                <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                <p className="text-sm font-medium text-gray-700">🎙️ AI Sessions: {breakdown.ai_sessions} <span className="text-xs text-gray-500">(High confidence: 90%)</span></p>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-pink-50 rounded-lg">
+                <div className="w-3 h-3 rounded-full bg-pink-500"></div>
+                <p className="text-sm font-medium text-gray-700">📔 Journal Entries: {breakdown.journal_entries} <span className="text-xs text-gray-500">(Confidence: 65-85%)</span></p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Confidence Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Confidence</CardTitle>
-            <CardDescription>Reliability of extracted metrics</CardDescription>
+        {/* Confidence Distribution - Refined */}
+        <Card className="border-t-4 border-t-emerald-500 shadow-lg hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold text-gray-800">Data Confidence</CardTitle>
+                <CardDescription className="text-sm mt-1">Reliability of extracted metrics</CardDescription>
+              </div>
+              <div className="bg-emerald-50 p-3 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-2">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -801,34 +912,72 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
+                  strokeWidth={2}
                 >
                   {confidenceData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
-            <div className="mt-4 text-xs text-gray-500">
-              Average confidence: {((aggregates?.confidence?.average ?? 0) * 100).toFixed(0)}%
+            <div className="mt-4 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-50 to-green-50 rounded-full">
+                <span className="text-xs font-semibold text-gray-600">Average confidence:</span>
+                <span className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                  {((aggregates?.confidence?.average ?? 0) * 100).toFixed(0)}%
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Mood & Stress Combined (Area Chart) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mood vs Stress</CardTitle>
-            <CardDescription>Relationship between mood and stress levels</CardDescription>
+        {/* Mood & Stress Combined (Area Chart) - Refined */}
+        <Card className="border-t-4 border-t-rose-500 shadow-lg hover:shadow-xl transition-shadow">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold text-gray-800">Mood vs Stress</CardTitle>
+                <CardDescription className="text-sm mt-1">Relationship between mood and stress levels</CardDescription>
+              </div>
+              <div className="bg-rose-50 p-3 rounded-xl">
+                <Heart className="h-6 w-6 text-rose-600" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-2">
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={filteredTimelineData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                  stroke="#6b7280"
+                />
+                <YAxis 
+                  domain={[0, 100]} 
+                  tick={{ fontSize: 12 }}
+                  stroke="#6b7280"
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  iconType="circle"
+                />
                 <Area
                   type="monotone"
                   dataKey="mood"
@@ -837,6 +986,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
                   fill={COLORS.mood}
                   fillOpacity={0.6}
                   name="Mood"
+                  strokeWidth={2}
                 />
                 <Area
                   type="monotone"
@@ -846,6 +996,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
                   fill={COLORS.stress}
                   fillOpacity={0.6}
                   name="Stress"
+                  strokeWidth={2}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -853,13 +1004,20 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         </Card>
       </div>
 
-      {/* Metric Range Bars */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Metric Ranges</CardTitle>
-          <CardDescription>Your min, average, and max values</CardDescription>
+      {/* Metric Range Bars - Refined */}
+      <Card className="border-t-4 border-t-indigo-500 shadow-lg hover:shadow-xl transition-shadow">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold text-gray-800">Metric Ranges</CardTitle>
+              <CardDescription className="text-sm mt-1">Your min, average, and max values</CardDescription>
+            </div>
+            <div className="bg-indigo-50 p-3 rounded-xl">
+              <TrendingUp className="h-6 w-6 text-indigo-600" />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           <ResponsiveContainer width="100%" height={250}>
             <BarChart
               data={[
@@ -883,31 +1041,72 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
                 },
               ]}
             >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis domain={[0, 100]} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="min" fill="#cbd5e1" name="Min" />
-              <Bar dataKey="avg" fill="#8b5cf6" name="Average" />
-              <Bar dataKey="max" fill="#06b6d4" name="Max" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="name" 
+                tick={{ fontSize: 12, fontWeight: 600 }}
+                stroke="#6b7280"
+              />
+              <YAxis 
+                domain={[0, 100]} 
+                tick={{ fontSize: 12 }}
+                stroke="#6b7280"
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="circle"
+              />
+              <Bar dataKey="min" fill="#cbd5e1" name="Min" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="avg" fill="#8b5cf6" name="Average" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="max" fill="#06b6d4" name="Max" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Date Range Info */}
+      {/* Date Range Info - Refined */}
       {aggregates?.date_range && (
-        <Card>
+        <Card className="bg-gradient-to-r from-gray-50 to-slate-50 border-l-4 border-l-gray-400 shadow-md">
           <CardContent className="pt-6">
-            <div className="flex justify-between items-center text-sm text-gray-500">
-              <div>
-                <span className="font-medium">Data Range:</span> {" "}
-                {new Date(aggregates.date_range.earliest!).toLocaleDateString()} - {" "}
-                {new Date(aggregates.date_range.latest!).toLocaleDateString()}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-gray-100 p-2 rounded-lg">
+                  <Calendar className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Data Range</span>
+                  <p className="text-sm font-medium text-gray-700 mt-0.5">
+                    {new Date(aggregates.date_range.earliest!).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })} - {" "}
+                    {new Date(aggregates.date_range.latest!).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </p>
+                </div>
               </div>
-              <div>
-                Showing {metrics.length} of {aggregates.total_entries} total entries
+              <div className="flex items-center gap-3">
+                <div className="bg-gray-100 p-2 rounded-lg">
+                  <Activity className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Showing</span>
+                  <p className="text-sm font-medium text-gray-700 mt-0.5">
+                    {metrics.length} of {aggregates.total_entries} total entries
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>

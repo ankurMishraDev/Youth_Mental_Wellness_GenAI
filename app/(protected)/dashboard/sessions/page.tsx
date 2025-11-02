@@ -38,7 +38,7 @@ export default function SessionsPage() {
   }, [auth.currentUser?.uid]);
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 p-2 md:p-4">
       <DashboardHeader 
         title="AI Guide Session"
         description="Connect with your AI mentor for personalized support and guidance."

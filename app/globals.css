@@ -338,6 +338,7 @@
     font-size: var(--text-base);
     line-height: var(--leading-normal);
     max-width: 100vw;
+    cursor: none;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -471,5 +472,117 @@
     font-family: var(--font-display);
     font-weight: 400;
     font-style: normal;
+  }
+  
+  /* ========================================
+     🖱️ CUSTOM CURSOR
+     ======================================== 
+     💡 EASY COLOR CUSTOMIZATION:
+     Change --cursor-color to update the entire cursor theme
+     Examples: 
+     - Orange: oklch(0.65 0.20 40)
+     - Red: oklch(0.60 0.22 25)
+     - Green: oklch(0.65 0.18 140)
+     - Blue: oklch(0.60 0.20 250)
+     ======================================== */
+  
+  :root {
+    --cursor-color: oklch(0.55 0.22 290); /* Purple - change this for different cursor color */
+  }
+  
+  .dark {
+    --cursor-color: oklch(0.65 0.20 290); /* Lighter purple for dark mode */
+  }
+  
+  /* Custom Cursor Main Circle */
+  .custom-cursor {
+    position: fixed;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--cursor-color);
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.2s ease-out, width 0.25s ease, height 0.25s ease, opacity 0.2s ease, background 0.2s ease;
+    box-shadow: 
+      0 0 20px color-mix(in oklch, var(--cursor-color), transparent 20%),
+      0 0 40px color-mix(in oklch, var(--cursor-color), transparent 50%),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+    opacity: 1;
+  }
+  
+  /* Pulsing ring around cursor */
+  .custom-cursor::before {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    border: 2px solid color-mix(in oklch, var(--cursor-color), transparent 40%);
+    animation: pulse-ring 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Inner white dot for contrast */
+  .custom-cursor::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Hovering state - expands */
+  .custom-cursor.hovering {
+    transform: scale(1.8);
+    background: color-mix(in oklch, var(--cursor-color), black 15%);
+    box-shadow: 
+      0 0 30px color-mix(in oklch, var(--cursor-color), transparent 10%),
+      0 0 60px color-mix(in oklch, var(--cursor-color), transparent 40%),
+      0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Clicking state - shrinks slightly */
+  .custom-cursor.clicking {
+    transform: scale(0.8);
+  }
+  
+  /* Center dot for precision */
+  .custom-cursor-dot {
+    position: fixed;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--foreground);
+    pointer-events: none;
+    z-index: 10000;
+    transition: transform 0.15s ease-out, opacity 0.2s ease;
+    box-shadow: 0 0 0 1px var(--background);
+    opacity: 0.6;
+  }
+  
+  /* Pulse ring animation */
+  @keyframes pulse-ring {
+    0%, 100% {
+      opacity: 0.5;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 0.2;
+      transform: scale(1.3);
+    }
+  }
+  
+  /* Hide default cursor on all interactive elements */
+  button, a, input, textarea, select, 
+  [role="button"], [role="link"], 
+  .cursor-pointer, label, 
+  [type="checkbox"], [type="radio"],
+  .clickable {
+    cursor: none !important;
+  }
+  
+  /* Also hide cursor on the entire body */
+  * {
+    cursor: none !important;
   }
 }

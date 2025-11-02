@@ -33,6 +33,12 @@ const getHeaderDetails = (dashboardPage: DashboardPage | undefined, name: string
       description: "Reflect on your thoughts and feelings.",
     };
   }
+  if (dashboardPage === 'analytics') {
+    return {
+      title: "",
+      description: "",
+    };
+  }
   // Default to home
   return {
     title: `Welcome back, ${name}`,
@@ -51,7 +57,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const title = propTitle || headerDetails.title;
   const description = propDescription !== undefined ? propDescription : headerDetails.description;
   return (
-    <header className="flex justify-between items-center mb-6">
+    <header className="flex justify-between items-center mb-2">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
           {title}
