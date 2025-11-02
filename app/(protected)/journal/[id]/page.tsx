@@ -83,10 +83,10 @@ export default function ViewJournalEntryPage() {
 
   if (userLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 dark:from-gray-900 dark:via-orange-900/20 dark:to-rose-900/20">
         <div className="text-center">
-          <Loader2 size={48} className="animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading entry...</p>
+          <Loader2 size={48} className="animate-spin text-orange-600 mx-auto mb-4" />
+          <p className="text-orange-600 dark:text-orange-400">Loading entry...</p>
         </div>
       </div>
     );
@@ -101,13 +101,13 @@ export default function ViewJournalEntryPage() {
   const date = new Date(entry.createdAt);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 dark:from-gray-900 dark:via-orange-900/20 dark:to-rose-900/20">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <button
             onClick={() => router.push('/journal')}
-            className="group inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className="group inline-flex items-center gap-2 text-orange-600 dark:text-orange-400 hover:text-orange-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span>Back to Journal</span>
@@ -115,7 +115,7 @@ export default function ViewJournalEntryPage() {
           <div className="flex gap-2">
             <button
               onClick={() => router.push(`/journal/${entryId}/edit`)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
             >
               <Edit2 size={16} />
               <span>Edit</span>
@@ -131,9 +131,9 @@ export default function ViewJournalEntryPage() {
         </div>
 
         {/* Entry Content */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-orange-200 dark:border-orange-700 overflow-hidden">
           {/* Header with mood */}
-          <div className="p-8 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-8 bg-gradient-to-r from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border-b border-orange-200 dark:border-orange-700">
             <div className="flex items-start gap-4 mb-4">
               <div
                 className="p-4 rounded-2xl shadow-lg"

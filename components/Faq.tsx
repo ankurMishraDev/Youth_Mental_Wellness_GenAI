@@ -44,7 +44,7 @@ export default function FAQ() {
     }
   };
     return (
-        <section id="faq-section" className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-50/30">
+        <section id="faq-section" className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-100">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-3xl bg-card border border-border p-12 shadow-lg">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">

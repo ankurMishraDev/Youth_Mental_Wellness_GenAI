@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import {
   Home,
   MessageCircle,
@@ -127,8 +128,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className={`
           fixed lg:sticky top-0 left-0 h-screen z-40
-          bg-sidebar/80 backdrop-blur-xl
-          border-r border-sidebar-border
+          bg-gradient-to-b from-orange-50 via-white to-orange-100/80 backdrop-blur-xl
+          border-r border-orange-200/30
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
@@ -151,11 +152,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
               prefetch={true}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
-                <MessageCircle className="w-6 h-6 text-primary-foreground" />
-              </div>
+              <Image src="/logo.png" alt="CureZ Logo" width={40} height={40} />
               {!isDesktopCollapsed && (
-                <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                <span className="text-2xl font-bold text-orange-600">
                   CureZ
                 </span>
               )}
@@ -164,13 +163,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Desktop Collapse Button */}
             <button
               onClick={toggleDesktopCollapse}
-              className="hidden lg:block p-2 hover:bg-sidebar-accent rounded-lg transition-colors"
+              className="hidden lg:block p-2 hover:bg-orange-200/50 rounded-lg transition-colors"
               aria-label={isDesktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isDesktopCollapsed ? (
-                <ChevronRight className="w-5 h-5 text-sidebar-foreground/60" />
+                <ChevronRight className="w-5 h-5 text-orange-900/60" />
               ) : (
-                <ChevronLeft className="w-5 h-5 text-sidebar-foreground/60" />
+                <ChevronLeft className="w-5 h-5 text-orange-900/60" />
               )}
             </button>
           </div>
@@ -191,8 +190,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     transition-all duration-200
                     ${
                       isActive
-                        ? 'bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg'
-                        : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                        ? 'bg-orange-500 text-white shadow-lg'
+                        : 'text-orange-800 hover:bg-orange-200/50'
                     }
                     ${isDesktopCollapsed ? 'lg:justify-center' : ''}
                   `}
@@ -213,8 +212,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             disabled={isLoggingOut}
             className={`
               w-full flex items-center gap-3 px-4 py-3 rounded-xl
-              text-destructive
-              hover:bg-destructive/10
+              text-red-600
+              hover:bg-red-100/50
               transition-all duration-200
               disabled:opacity-50 disabled:cursor-not-allowed
               ${isDesktopCollapsed ? 'lg:justify-center' : ''}

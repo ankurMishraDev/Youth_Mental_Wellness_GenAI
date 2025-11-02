@@ -117,16 +117,16 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
           </Card>
 
           {/* Card 2 - This Week */}
-          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 backdrop-blur-sm border border-blue-200/60 dark:border-blue-700/40 shadow-md hover:shadow-lg transition-all py-2 relative overflow-hidden">
+          <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm border border-orange-200/60 dark:border-orange-700/40 shadow-md hover:shadow-lg transition-all py-2 relative overflow-hidden">
             <CardContent className="pt-3 pb-2 relative z-10">
               <div className="flex flex-col">
                 <div className="flex items-start justify-between mb-1">
                   <h3 className="text-xs font-medium text-muted-foreground">This Week</h3>
-                  <div className="p-1 bg-blue-100/60 dark:bg-blue-900/40 backdrop-blur-sm rounded-lg">
-                    <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <div className="p-1 bg-orange-100/60 dark:bg-orange-900/40 backdrop-blur-sm rounded-lg">
+                    <Calendar className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
                   </div>
                 </div>
-                <p className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-0.5 leading-none">
+                <p className="text-4xl font-bold text-orange-600 dark:text-orange-400 mb-0.5 leading-none">
                   {sessionStats.thisWeek}
                 </p>
                 <p className="text-[10px] text-muted-foreground">Sessions</p>
@@ -135,16 +135,16 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
           </Card>
 
           {/* Card 3 - Avg Duration */}
-          <Card className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 backdrop-blur-sm border border-cyan-200/60 dark:border-cyan-700/40 shadow-md hover:shadow-lg transition-all py-2 relative overflow-hidden">
+          <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm border border-orange-200/60 dark:border-orange-700/40 shadow-md hover:shadow-lg transition-all py-2 relative overflow-hidden">
             <CardContent className="pt-3 pb-2 relative z-10">
               <div className="flex flex-col">
                 <div className="flex items-start justify-between mb-1">
                   <h3 className="text-xs font-medium text-muted-foreground">Avg Duration</h3>
-                  <div className="p-1 bg-cyan-100/60 dark:bg-cyan-900/40 backdrop-blur-sm rounded-lg">
-                    <Clock className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <div className="p-1 bg-orange-100/60 dark:bg-orange-900/40 backdrop-blur-sm rounded-lg">
+                    <Clock className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
                   </div>
                 </div>
-                <p className="text-4xl font-bold text-cyan-600 dark:text-cyan-400 mb-0.5 leading-none">
+                <p className="text-4xl font-bold text-orange-600 dark:text-orange-400 mb-0.5 leading-none">
                   {sessionStats.avgDuration}
                 </p>
                 <p className="text-[10px] text-muted-foreground">Minutes</p>
@@ -153,16 +153,16 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
           </Card>
 
           {/* Card 4 - Active Streak */}
-          <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 backdrop-blur-sm border border-purple-200/60 dark:border-purple-700/40 shadow-md hover:shadow-lg transition-all py-2 relative overflow-hidden">
+          <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm border border-orange-200/60 dark:border-orange-700/40 shadow-md hover:shadow-lg transition-all py-2 relative overflow-hidden">
             <CardContent className="pt-3 pb-2 relative z-10">
               <div className="flex flex-col">
                 <div className="flex items-start justify-between mb-1">
                   <h3 className="text-xs font-medium text-muted-foreground">Active Streak</h3>
-                  <div className="p-1 bg-purple-100/60 dark:bg-purple-900/40 backdrop-blur-sm rounded-lg">
-                    <BarChart3 className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                  <div className="p-1 bg-orange-100/60 dark:bg-orange-900/40 backdrop-blur-sm rounded-lg">
+                    <BarChart3 className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
                   </div>
                 </div>
-                <p className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-0.5 leading-none">
+                <p className="text-4xl font-bold text-orange-600 dark:text-orange-400 mb-0.5 leading-none">
                   {sessionStats.streak}%
                 </p>
                 <p className="text-[10px] text-muted-foreground">Daily Engagement</p>
@@ -188,18 +188,18 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
                 WebkitBackfaceVisibility: 'hidden',
               }}
             >
-              <Card className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-sm border border-blue-200/60 dark:border-blue-700/40 shadow-md hover:shadow-lg transition-all py-3 flex flex-col relative overflow-hidden">
+              <Card className="w-full h-full bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 backdrop-blur-sm border border-orange-200/60 dark:border-orange-700/40 shadow-md hover:shadow-lg transition-all py-3 flex flex-col relative overflow-hidden">
                 {/* Decorative gradient overlay */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/10 to-transparent rounded-full blur-2xl"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-indigo-400/10 to-transparent rounded-full blur-2xl"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-transparent rounded-full blur-2xl"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-rose-400/10 to-transparent rounded-full blur-2xl"></div>
                 
             <CardHeader className="pb-2 px-3 py-1.5 flex-shrink-0 relative z-10">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-100/80 dark:bg-blue-900/50 backdrop-blur-sm rounded-lg shadow-sm">
-                  <MessageCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-orange-100/80 dark:bg-orange-900/50 backdrop-blur-sm rounded-lg shadow-sm">
+                  <MessageCircle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CardTitle className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent leading-tight">Last Session Summary</CardTitle>
+                  <CardTitle className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-orange-600 to-rose-600 bg-clip-text text-transparent leading-tight">Last Session Summary</CardTitle>
                   <CardDescription className="text-sm lg:text-base mt-0.5">Review your recent insights</CardDescription>
                 </div>
               </div>
@@ -267,18 +267,18 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
                 transform: 'rotateY(180deg)',
               }}
             >
-              <Card className="w-full h-full bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 backdrop-blur-sm border border-green-200/60 dark:border-green-700/40 shadow-md transition-all py-3 flex flex-col relative overflow-hidden">
+              <Card className="w-full h-full bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 backdrop-blur-sm border border-orange-200/60 dark:border-orange-700/40 shadow-md transition-all py-3 flex flex-col relative overflow-hidden">
                 {/* Decorative gradient overlay */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/10 to-transparent rounded-full blur-2xl"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-emerald-400/10 to-transparent rounded-full blur-2xl"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-transparent rounded-full blur-2xl"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-rose-400/10 to-transparent rounded-full blur-2xl"></div>
                 
             <CardHeader className="pb-2 px-3 py-1.5 flex-shrink-0 relative z-10">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-green-100/80 dark:bg-green-900/50 backdrop-blur-sm rounded-lg shadow-sm">
-                  <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="p-2 bg-orange-100/80 dark:bg-orange-900/50 backdrop-blur-sm rounded-lg shadow-sm">
+                  <TrendingUp className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CardTitle className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent leading-tight">Session in Progress</CardTitle>
+                  <CardTitle className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-orange-600 to-rose-600 bg-clip-text text-transparent leading-tight">Session in Progress</CardTitle>
                   <CardDescription className="text-sm lg:text-base mt-0.5">Real-time metrics</CardDescription>
                 </div>
               </div>
@@ -365,18 +365,18 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
               WebkitBackfaceVisibility: 'hidden',
             }}
           >
-            <Card className="w-full h-full bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 backdrop-blur-sm border border-purple-200/60 dark:border-purple-700/40 shadow-lg hover:shadow-xl transition-all py-4 flex flex-col relative overflow-hidden">
+            <Card className="w-full h-full bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 backdrop-blur-sm border border-orange-200/60 dark:border-orange-700/40 shadow-lg hover:shadow-xl transition-all py-4 flex flex-col relative overflow-hidden">
               {/* Decorative gradient overlay */}
-              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-400/10 to-transparent rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-blue-400/10 to-transparent rounded-full blur-2xl"></div>
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-orange-400/10 to-transparent rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-rose-400/10 to-transparent rounded-full blur-2xl"></div>
               
               <CardHeader className="pb-4 px-6 py-3 flex-shrink-0 relative z-10">
                 <div className="flex items-start gap-4">
-                  <div className="p-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-2xl shadow-lg flex-shrink-0">
+                  <div className="p-4 bg-gradient-to-br from-orange-500 to-pink-500 rounded-2xl shadow-lg flex-shrink-0">
                     <Sparkles className="h-8 w-8 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-3xl font-bold mb-1 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Curie, your AI guide</CardTitle>
+                    <CardTitle className="text-3xl font-bold mb-1 bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">Curie, your AI guide</CardTitle>
                     <CardDescription className="text-base">
                       Connect with Curie for personalized support and guidance
                     </CardDescription>
@@ -423,18 +423,18 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
               transform: 'rotateY(180deg)',
             }}
           >
-            <Card className="w-full h-full bg-gradient-to-br from-purple-50/80 via-blue-50/80 to-indigo-50/80 dark:from-purple-950/40 dark:to-blue-950/40 backdrop-blur-lg border border-purple-200/50 dark:border-purple-700/30 shadow-2xl flex flex-col overflow-hidden relative">
+            <Card className="w-full h-full bg-gradient-to-br from-orange-50/80 via-rose-50/80 to-red-50/80 dark:from-orange-950/40 dark:to-rose-950/40 backdrop-blur-lg border border-orange-200/50 dark:border-orange-700/30 shadow-2xl flex flex-col overflow-hidden relative">
               {/* Decorative gradient overlays */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-400/10 via-blue-400/10 to-transparent rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-indigo-400/10 to-transparent rounded-full blur-2xl"></div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-blue-400/5 to-purple-400/5 rounded-full blur-3xl"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-orange-400/10 via-rose-400/10 to-transparent rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-red-400/10 to-transparent rounded-full blur-2xl"></div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-rose-400/5 to-orange-400/5 rounded-full blur-3xl"></div>
               
               {/* Header */}
-              <div className="flex-shrink-0 px-6 py-4 flex justify-between items-center border-b border-purple-200/40 dark:border-purple-700/30 backdrop-blur-sm relative z-10">
+              <div className="flex-shrink-0 px-6 py-4 flex justify-between items-center border-b border-orange-200/40 dark:border-orange-700/30 backdrop-blur-sm relative z-10">
                 <div className="flex items-center space-x-4">
                   {/* Avatar with status indicator */}
                   <div className="relative">
-                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 relative overflow-hidden">
+                    <div className="w-14 h-14 bg-gradient-to-br from-orange-500 via-pink-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 relative overflow-hidden">
                       <Sparkles className="h-7 w-7 text-white relative z-10" />
                       <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
                     </div>

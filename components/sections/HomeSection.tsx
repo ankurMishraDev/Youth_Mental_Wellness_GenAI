@@ -75,10 +75,10 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
-          <Card className="h-full">
+          <Card className="h-full bg-white/80 dark:bg-gray-950/70 border border-gray-200/60 dark:border-gray-800/50 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 text-xl">
-                <Brain className="h-6 w-6 text-secondary" />
+                <Brain className="h-6 w-6 text-orange-500" />
                 <span>Mood Analytics</span>
               </CardTitle>
               <CardDescription className="text-base">
@@ -341,7 +341,7 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
           </Card>
         </div>
         <div className="flex flex-col gap-6">
-          <Card>
+          <Card className="bg-white/80 dark:bg-gray-950/70 border border-gray-200/60 dark:border-gray-800/50 shadow-sm">
             <CardHeader>
               <CardTitle>Quick Tip</CardTitle>
             </CardHeader>
@@ -351,10 +351,10 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border-blue-200 dark:border-blue-800">
+          <Card className="bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-950/30 dark:to-rose-950/30 border-orange-200 dark:border-orange-800">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <BookOpen className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 <span>My Journal</span>
               </CardTitle>
               <CardDescription>
@@ -364,21 +364,20 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
             <CardContent>
               <Button
                 onClick={() => window.location.href = '/journal'}
-                className="w-full"
-                variant="outline"
+                className="w-full bg-orange-500 text-white hover:bg-orange-600"
               >
                 <BookOpen className="h-4 w-4 mr-2" />
                 Open Journal
               </Button>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
+          <Card className="bg-gradient-to-br from-orange-500 to-pink-500 border-orange-600">
             <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center space-x-2 text-xl">
-                <Heart className="h-7 w-7 text-primary" />
+              <CardTitle className="flex items-center justify-center space-x-2 text-xl text-white">
+                <Heart className="h-7 w-7 text-white" />
                 <span>How are you feeling today?</span>
               </CardTitle>
-              <CardDescription className="text-base">
+              <CardDescription className="text-base text-white/80">
                 Start a conversation with Curie, your AI guide, anytime you need
                 support.
               </CardDescription>
@@ -386,7 +385,7 @@ export const HomeSection: React.FC<HomeSectionProps> = ({
             <CardContent className="text-center">
               <Button
                 onClick={() => setCurrentView("session")}
-                className="w-full h-16 text-xl font-semibold"
+                className="w-full h-16 text-xl font-semibold bg-white text-orange-600 hover:bg-orange-50"
               >
                 <MessageCircle className="h-6 w-6 mr-3" />
                 Start AI Session

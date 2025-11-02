@@ -120,7 +120,7 @@ export default function CustomCursor() {
     <>
       <div
         ref={cursorRef}
-        className="custom-cursor"
+        className="custom-cursor bg-orange-500"
         style={{
           opacity: isVisible ? 0.95 : 0,
           transition: 'opacity 0.3s ease'
@@ -128,7 +128,7 @@ export default function CustomCursor() {
       />
       <div
         ref={dotRef}
-        className="custom-cursor-dot"
+        className="custom-cursor-dot bg-orange-500"
         style={{
           opacity: isVisible ? 0.9 : 0,
           transition: 'opacity 0.3s ease'

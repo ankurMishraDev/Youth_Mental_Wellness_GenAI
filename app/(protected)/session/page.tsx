@@ -62,9 +62,9 @@ export default function SessionPage() {
   // Show loading while validating or preparing
   if (auth.isValidatingSession || !isReady || !auth.currentUser) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-        <p className="text-gray-600">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-gradient-to-br from-orange-50 via-white to-orange-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        <p className="text-orange-600">
           {auth.isValidatingSession ? "Validating session..." : "Preparing your session..."}
         </p>
       </div>

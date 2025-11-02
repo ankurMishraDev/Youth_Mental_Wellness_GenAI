@@ -104,7 +104,7 @@ export function ImageUploader({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || uploading}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-orange-300 dark:border-orange-600 rounded-lg hover:border-orange-500 dark:hover:border-orange-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Upload size={20} />
           <span>{uploading ? 'Uploading...' : 'Add Images'}</span>
@@ -160,7 +160,7 @@ export function ImageUploader({
                   value={image.caption || ''}
                   onChange={(e) => handleUpdateCaption(index, e.target.value)}
                   placeholder="Add a caption..."
-                  className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2 py-1 text-sm border border-orange-200 dark:border-orange-700 rounded bg-white dark:bg-orange-950/70 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   disabled={disabled}
                 />
               </div>
@@ -171,9 +171,9 @@ export function ImageUploader({
 
       {/* Empty State */}
       {images.length === 0 && !uploading && (
-        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-          <ImageIcon size={48} className="text-gray-400 dark:text-gray-600 mb-3" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-orange-200 dark:border-orange-700 rounded-lg">
+          <ImageIcon size={48} className="text-orange-400 dark:text-orange-600 mb-3" />
+          <p className="text-sm text-orange-500 dark:text-orange-400">
             No images added yet
           </p>
         </div>

@@ -34,8 +34,8 @@ export function MoodSelector({ value, onChange, disabled = false }: MoodSelector
                 min-w-[90px] hover:scale-105
                 ${
                   isSelected
-                    ? 'border-primary shadow-lg scale-105 bg-primary/5'
-                    : 'border-border hover:border-primary/50 bg-card'
+                    ? 'border-orange-500 shadow-lg scale-105 bg-orange-500/5'
+                    : 'border-border hover:border-orange-500/50 bg-card'
                 }
                 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
@@ -43,7 +43,7 @@ export function MoodSelector({ value, onChange, disabled = false }: MoodSelector
               data-selected={isSelected}
             >
               <span className="text-3xl mb-1">{mood.emoji}</span>
-              <span className={`text-xs font-medium ${isSelected ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>
+              <span className={`text-xs font-medium ${isSelected ? 'font-semibold text-orange-500' : 'text-muted-foreground'}`}>
                 {mood.label}
               </span>
             </button>

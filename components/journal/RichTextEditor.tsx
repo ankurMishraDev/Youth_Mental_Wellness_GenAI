@@ -74,7 +74,7 @@ export function RichTextEditor({
         placeholder={placeholder}
         disabled={disabled}
         rows={6}
-        className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-4 py-3 border border-orange-200 dark:border-orange-700 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-orange-950/70 text-gray-900 dark:text-gray-100 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ minHeight: '120px' }}
       />
       

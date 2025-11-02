@@ -9,7 +9,7 @@ interface LandingProps {
 
 export default function Landing({ onBeginJourney }: LandingProps) {
     return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-orange-50 via-white to-orange-100">
         <HeroSection onBeginJourney={onBeginJourney} />
         <Content />
         <Faq />

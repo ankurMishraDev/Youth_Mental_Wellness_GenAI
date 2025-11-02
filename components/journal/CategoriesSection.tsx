@@ -105,16 +105,16 @@ export function CategoriesSection() {
   const customCategories = categories.filter(c => !c.isDefault);
 
   return (
-    <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
+    <div className="bg-white/80 dark:bg-gray-950/70 rounded-lg shadow-sm p-6 border border-gray-200/60 dark:border-gray-800/50">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-card-foreground flex items-center gap-2">
-          <Tag className="w-5 h-5" />
+          <Tag className="w-5 h-5 text-orange-500" />
           Categories
         </h2>
         <Button
           onClick={() => setIsCreateModalOpen(true)}
           size="sm"
-          className="bg-primary hover:bg-primary-dark text-primary-foreground"
+          className="bg-orange-500 hover:bg-orange-600 text-white"
         >
           <Plus className="w-4 h-4 mr-1"/>
           New Category
@@ -293,7 +293,7 @@ export function CategoriesSection() {
             <Button
               onClick={handleCreateCategory}
               disabled={!formData.title.trim() || submitting}
-              className="bg-primary hover:bg-primary-dark text-primary-foreground"
+              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {submitting ? 'Creating...' : 'Create Category'}
             </Button>

@@ -59,11 +59,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   return (
     <header className="flex justify-between items-center mb-2">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-2xl font-bold text-orange-800 dark:text-orange-200">
           {title}
         </h1>
         {description && (
-          <p className="text-md text-muted-foreground">
+          <p className="text-md text-orange-700/80 dark:text-orange-300/80">
             {description}
           </p>
         )}

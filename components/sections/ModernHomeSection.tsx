@@ -230,7 +230,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
         {/* Left Column - Profile (4 cols) */}
         <div className="col-span-12 lg:col-span-3 flex flex-col space-y-4">
           {/* Profile Card - Enhanced with bigger avatar */}
-          <Card className="relative overflow-hidden border border-gray-200/60 dark:border-gray-800/50 shadow-sm bg-white/80 dark:bg-gray-950/70 py-2">
+          <Card className="relative overflow-hidden border border-orange-200/60 dark:border-orange-800/50 shadow-sm bg-gradient-to-br from-orange-50 via-white to-orange-100/80 py-2">
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-400/10 rounded-full blur-3xl" />
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/10 rounded-full blur-2xl" />
             
@@ -301,14 +301,14 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
           </Card>
 
           {/* Daily Check-ins - Moved from right column */}
-          <Card className="flex-grow border border-gray-200/60 dark:border-gray-800/50 shadow-sm bg-white/80 dark:bg-gray-950/70 py-2">
+          <Card className="flex-grow border border-orange-200/60 dark:border-orange-800/50 shadow-sm bg-gradient-to-br from-orange-50 via-white to-orange-100/80 py-2">
             <CardHeader className="px-2 py-0.5">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                  <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <Calendar className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   Daily Check-ins
                 </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-indigo-300/30">
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-orange-300/30">
                   <Calendar className="h-4 w-4" />
                 </Button>
               </div>
@@ -377,7 +377,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
         {/* Middle Column - Analytics (5 cols) */}
         <div className="col-span-12 lg:col-span-6 flex flex-col space-y-4">
           {/* Mood Trends Chart - Enhanced Glassmorphic */}
-          <Card className="border border-gray-200/60 dark:border-gray-800/50 shadow-sm bg-white/80 dark:bg-gray-950/70 py-2">
+          <Card className="border border-orange-200/60 dark:border-orange-800/50 shadow-sm bg-gradient-to-br from-orange-50 via-white to-orange-100/80 py-2">
             <CardHeader className="px-2 py-0.5">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-xl font-semibold">
@@ -605,10 +605,10 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
           </Card>
 
           {/* Quick Actions - Moved from left column */}
-          <Card className="flex-grow border border-gray-200/60 dark:border-gray-800/50 shadow-sm bg-white/80 dark:bg-gray-950/70 py-2">
+          <Card className="flex-grow border border-orange-200/60 dark:border-orange-800/50 shadow-sm bg-gradient-to-br from-orange-50 via-white to-orange-100/80 py-2">
             <CardHeader className="px-2 py-0.5">
               <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                <Zap className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                <Zap className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 Quick Actions
               </CardTitle>
             </CardHeader>

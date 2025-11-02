@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 pt-16 pb-0 bg-gradient-to-b from-orange-50/50 via-white to-orange-50/30 mt-auto overflow-hidden w-full">
+    <footer className="relative z-10 pt-16 pb-0 bg-gradient-to-b from-orange-100 via-white to-orange-100 mt-auto overflow-hidden w-full">
       {/* Background decorative elements */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute top-10 left-10 w-20 h-20 bg-primary rounded-full blur-xl"></div>

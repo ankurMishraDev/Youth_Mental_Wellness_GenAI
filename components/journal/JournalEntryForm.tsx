@@ -136,7 +136,7 @@ export function JournalEntryForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Give your entry a title..."
-              className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              className="w-full px-4 py-2 border border-orange-200 dark:border-orange-700 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-orange-950/70 text-gray-900 dark:text-gray-100"
               disabled={isSubmitting}
               maxLength={100}
             />
@@ -173,7 +173,7 @@ export function JournalEntryForm({
                 <button
                   type="button"
                   onClick={() => setShowReflection(true)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 text-white font-medium rounded-lg transition-colors"
                 >
                   <Sparkles size={20} />
                   <span>Get AI Reflection Questions</span>
@@ -193,11 +193,11 @@ export function JournalEntryForm({
           )}
 
           {/* Submit Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-orange-200 dark:border-orange-700">
             <button
               type="submit"
               disabled={!isValid || isSubmitting}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -217,7 +217,7 @@ export function JournalEntryForm({
                 type="button"
                 onClick={onCancel}
                 disabled={isSubmitting}
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 border border-orange-300 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-800 text-orange-700 dark:text-orange-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -225,11 +225,11 @@ export function JournalEntryForm({
           </div>
 
           {!isEditing && (
-            <div className="flex items-start gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <Sparkles size={20} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-700 dark:text-blue-300">
+            <div className="flex items-start gap-2 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <Sparkles size={20} className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-orange-700 dark:text-orange-300">
                 <p className="font-medium mb-1">AI Auto-Categorization</p>
-                <p className="text-blue-600 dark:text-blue-400">
+                <p className="text-orange-600 dark:text-orange-400">
                   Your entry will be automatically categorized using AI to help you track themes and patterns.
                 </p>
               </div>

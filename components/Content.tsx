@@ -6,7 +6,7 @@ export default function Content() {
     return(
         <div>
         {/* Features Section */}
-      <section id="why-choose-curez" className="relative z-10 py-24 px-6 bg-gradient-to-b from-white to-orange-50/50">
+      <section id="why-choose-curez" className="relative z-10 py-24 px-6 bg-gradient-to-b from-orange-50 via-white to-orange-100">
         <div className="max-w-7xl mx-auto">
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
@@ -146,7 +146,7 @@ export default function Content() {
       </section>
 
       {/* Journey Section */}
-      <section id="wellness-journey" className="relative z-10 py-24 px-6 bg-gradient-to-b from-orange-50/50 to-white">
+      <section id="wellness-journey" className="relative z-10 py-24 px-6 bg-gradient-to-b from-orange-100 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-3xl bg-card border border-border p-12 shadow-lg">
             {/* Section Header */}

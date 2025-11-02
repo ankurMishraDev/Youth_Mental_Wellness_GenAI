@@ -499,10 +499,10 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
       {/* Header with Filters - Refined */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
             Wellness Analytics
           </h2>
-          <p className="text-gray-600 mt-1">
+          <p className="text-orange-800/80 dark:text-orange-200/80 mt-1">
             Track your mental wellness journey over time
           </p>
         </div>

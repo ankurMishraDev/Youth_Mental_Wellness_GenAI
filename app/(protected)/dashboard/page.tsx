@@ -9,7 +9,7 @@ export default function DashboardPage() {
   const auth = useAuth();
 
   return (
-    <div className="flex flex-col h-full bg-gray-200 dark:bg-gray-900 p-2 md:p-4 max-w-full">
+    <div className="flex flex-col h-full bg-gradient-to-br from-orange-50 via-white to-orange-100 p-2 md:p-4 max-w-full">
       <ModernHomeSection
         setCurrentView={(view) => {
           if (view === 'session') {

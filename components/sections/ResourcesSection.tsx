@@ -52,14 +52,14 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 border rounded-lg">
-            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
+          <div className="text-center py-8 border border-orange-200/60 dark:border-orange-800/50 rounded-lg bg-white/80 dark:bg-gray-950/70">
+            <Activity className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+            <p className="text-orange-800/80 dark:text-orange-200/80">
               Your AI mentor will add personalized exercises here after your sessions.
             </p>
             <Button
               onClick={() => setCurrentView("session")}
-              className="mt-4"
+              className="mt-4 bg-orange-500 text-white hover:bg-orange-600"
               size="sm"
             >
               Start a Session to Get Started
@@ -69,7 +69,7 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
       </div>
 
       <div className="text-center">
-        <Button onClick={() => setShowAllExercises(!showAllExercises)}>
+        <Button onClick={() => setShowAllExercises(!showAllExercises)} className="bg-orange-500 text-white hover:bg-orange-600">
           {showAllExercises ? "Less Exercises" : "More Exercises"}
         </Button>
       </div>

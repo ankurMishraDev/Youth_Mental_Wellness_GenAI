@@ -224,7 +224,7 @@ export default function ConsultantsPage() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-4 md:p-8 bg-gradient-to-br from-orange-50 via-white to-orange-100">
         <DashboardHeader 
           title="Mental Health Consultants"
           description="Connect with professional mental health consultants"
@@ -238,7 +238,7 @@ export default function ConsultantsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 h-screen overflow-hidden flex flex-col">
+    <div className="p-4 md:p-8 h-screen overflow-hidden flex flex-col bg-gradient-to-br from-orange-50 via-white to-orange-100">
       <DashboardHeader 
         title="Mental Health Consultants"
         description="Connect with professional mental health consultants"

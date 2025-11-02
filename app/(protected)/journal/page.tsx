@@ -84,10 +84,10 @@ export default function JournalPage() {
   // Show loading state while checking user
   if (userLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-200 dark:bg-gray-900">
+      <div className="flex items-center justify-center min-h-screen bg-orange-50 dark:bg-orange-900/20">
         <div className="text-center">
-          <Loader2 size={48} className="animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <Loader2 size={48} className="animate-spin text-orange-600 mx-auto mb-4" />
+          <p className="text-orange-600 dark:text-orange-400">Loading...</p>
         </div>
       </div>
     );
@@ -115,20 +115,20 @@ export default function JournalPage() {
   const mostCommonMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
 
   return (
-    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 px-4 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 px-4 lg:px-8">
       <div className="container mx-auto py-8">
         {/* Header with gradient */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+              <div className="p-3 bg-gradient-to-br from-orange-500 to-pink-600 rounded-2xl shadow-lg">
                 <BookOpen size={32} className="text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
                   My Journal
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-orange-800/80 dark:text-orange-200/80 mt-1">
                   {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Your personal space for reflection
                 </p>
               </div>
@@ -143,7 +143,7 @@ export default function JournalPage() {
               </button> */}
               <button
                 onClick={() => router.push('/journal/new')}
-                className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
               >
                 <PlusCircle size={20} className="group-hover:rotate-90 transition-transform" />
                 <span className="font-medium">New Entry</span>
@@ -155,8 +155,8 @@ export default function JournalPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <BookOpen className="text-blue-600 dark:text-blue-400" size={24} />
+                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <BookOpen className="text-orange-600 dark:text-orange-400" size={24} />
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Entries</p>
@@ -167,8 +167,8 @@ export default function JournalPage() {
 
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <Calendar className="text-purple-600 dark:text-purple-400" size={24} />
+                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <Calendar className="text-orange-600 dark:text-orange-400" size={24} />
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">This Week</p>
@@ -179,8 +179,8 @@ export default function JournalPage() {
 
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
-                  <TrendingUp className="text-pink-600 dark:text-pink-400" size={24} />
+                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <TrendingUp className="text-orange-600 dark:text-orange-400" size={24} />
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Common Mood</p>
@@ -204,7 +204,7 @@ export default function JournalPage() {
           <div className="lg:col-span-2 h-[calc(100vh-280px)] overflow-y-auto pr-2">
             {loading ? (
               <div className="flex justify-center py-20">
-                <Loader2 size={48} className="animate-spin text-purple-600" />
+                <Loader2 size={48} className="animate-spin text-orange-600" />
               </div>
             ) : entries.length === 0 ? (
               <div className="text-center py-20 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
@@ -219,7 +219,7 @@ export default function JournalPage() {
                 </p>
                 <button
                   onClick={() => router.push('/journal/new')}
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                 >
                   <PlusCircle size={20} />
                   Create your first entry
@@ -242,7 +242,7 @@ export default function JournalPage() {
         {/* Floating Action Button for Mobile */}
         <button
           onClick={() => router.push('/journal/new')}
-          className="fixed bottom-6 right-6 sm:hidden p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:shadow-xl transition-all transform hover:scale-110"
+          className="fixed bottom-6 right-6 sm:hidden p-4 bg-gradient-to-r from-orange-600 to-pink-600 text-white rounded-full shadow-2xl hover:shadow-xl transition-all transform hover:scale-110"
           aria-label="Create new entry"
         >
           <PlusCircle size={24} />

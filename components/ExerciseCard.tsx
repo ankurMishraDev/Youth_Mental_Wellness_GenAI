@@ -11,7 +11,7 @@ interface ExerciseCardProps {
 
 export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onGetStarted }) => {
   return (
-    <Card className="overflow-hidden flex flex-col h-full group border border-gray-200/60 dark:border-gray-800/50 shadow-sm bg-white/80 dark:bg-gray-950/70 hover:shadow-xl transition-all duration-300">
+    <Card className="overflow-hidden flex flex-col h-full group border border-orange-200/60 dark:border-orange-800/50 shadow-sm bg-white/80 dark:bg-gray-950/70 hover:shadow-xl transition-all duration-300">
       <CardHeader className="p-0">
         <div className="relative aspect-[4/3] w-full">
           <Image

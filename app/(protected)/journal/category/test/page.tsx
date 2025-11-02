@@ -27,7 +27,7 @@ export default function CategoryTestPage() {
       });
       const result = await response.json();
       setData(result);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -35,7 +35,7 @@ export default function CategoryTestPage() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'monospace', background: '#f0f0f0' }}>
+    <div style={{ padding: '20px', fontFamily: 'monospace', background: 'linear-gradient(to bottom right, #fff7f0, #ffffff, #fff0e6)' }}>
       <h1>Category API Test Page</h1>
       {userId ? (
         <div>

@@ -77,7 +77,7 @@ export const Auth: React.FC<AuthProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 flex items-center justify-center p-4">
       {/* Consent Modal */}
       <Dialog open={isConsentModalOpen} onOpenChange={setIsConsentModalOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -185,16 +185,16 @@ export const Auth: React.FC<AuthProps> = ({
         <span className="font-medium">Home</span>
       </Link>
 
-      <Card className="w-full max-w-md shadow-xl border-0 bg-card/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-4">
-          <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mx-auto shadow-lg">
-            <MessageCircle className="h-10 w-10 text-primary-foreground" />
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-pink-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
+            <MessageCircle className="h-10 w-10 text-white" />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
               Welcome to CureZ
             </CardTitle>
-            <CardDescription className="text-lg mt-2">Your AI-powered companion for mental wellness</CardDescription>
+            <CardDescription className="text-lg mt-2 text-orange-800/80">Your AI-powered companion for mental wellness</CardDescription>
           </div>
         </CardHeader>
 

@@ -156,10 +156,10 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Left Column - Profile Information Card */}
-        <Card>
+        <Card className="bg-white/80 dark:bg-gray-950/70 border border-gray-200/60 dark:border-gray-800/50 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserIcon className="h-5 w-5" />
+              <UserIcon className="h-5 w-5 text-orange-500" />
               Profile Information
             </CardTitle>
             <CardDescription>
@@ -232,7 +232,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
               </p>
             </div>
             {!isEditing ? (
-              <Button onClick={handleEdit} className="w-full">
+              <Button onClick={handleEdit} className="w-full bg-orange-500 text-white hover:bg-orange-600">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Profile
               </Button>
@@ -240,7 +240,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
               <div className="flex gap-2">
                 <Button
                   onClick={handleSave}
-                  className="flex-1"
+                  className="flex-1 bg-orange-500 text-white hover:bg-orange-600"
                   disabled={isLoading}
                 >
                   <Check className="h-4 w-4 mr-2" />
@@ -263,10 +263,10 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
         {/* Right Column - Account Actions */}
         <div className="grid grid-rows-2 gap-6">
           {/* Export Data Card */}
-          <Card>
+          <Card className="bg-white/80 dark:bg-gray-950/70 border border-gray-200/60 dark:border-gray-800/50 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
+                <Download className="h-5 w-5 text-orange-500" />
                 Export Your Data
               </CardTitle>
               <CardDescription>

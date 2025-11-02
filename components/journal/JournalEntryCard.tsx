@@ -44,7 +44,7 @@ export function JournalEntryCard({ entry, onDelete }: JournalEntryCardProps) {
   return (
     <div
       onClick={handleClick}
-      className="group block p-6 bg-card border border-border rounded-xl hover:shadow-lg transition-all hover:border-primary/50 cursor-pointer"
+      className="group block p-6 bg-white/80 dark:bg-gray-950/70 border border-gray-200/60 dark:border-gray-800/50 rounded-xl hover:shadow-lg transition-all hover:border-orange-500/50 cursor-pointer"
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">

@@ -83,10 +83,10 @@ export function ReflectionQuestions({
   // If no questions yet, show the generate button
   if (questions.length === 0 && !isLoading) {
     return (
-      <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+      <div className="p-6 bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
         <div className="flex items-start gap-4 mb-4">
-          <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-            <Sparkles size={24} className="text-purple-600 dark:text-purple-400" />
+          <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+            <Sparkles size={24} className="text-orange-600 dark:text-orange-400" />
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -100,7 +100,7 @@ export function ReflectionQuestions({
 
         <button
           onClick={generateQuestions}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors"
         >
           <Sparkles size={20} />
           <span>Generate Reflection Questions</span>
@@ -118,9 +118,9 @@ export function ReflectionQuestions({
   // Loading state
   if (isLoading) {
     return (
-      <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+      <div className="p-6 bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
         <div className="flex items-center justify-center gap-3">
-          <Loader2 size={24} className="animate-spin text-purple-600" />
+          <Loader2 size={24} className="animate-spin text-orange-600" />
           <p className="text-gray-600 dark:text-gray-400">
             Generating personalized questions...
           </p>
@@ -131,12 +131,12 @@ export function ReflectionQuestions({
 
   // Show questions
   return (
-    <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-xl space-y-4">
+    <div className="p-6 bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200 dark:border-orange-800 rounded-xl space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-            <Sparkles size={24} className="text-purple-600 dark:text-purple-400" />
+          <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+            <Sparkles size={24} className="text-orange-600 dark:text-orange-400" />
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -161,7 +161,7 @@ export function ReflectionQuestions({
         </div>
         <button
           onClick={generateQuestions}
-          className="p-2 text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+          className="p-2 text-gray-600 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400 transition-colors"
           title="Generate new questions"
         >
           <RefreshCw size={20} />
@@ -173,10 +173,10 @@ export function ReflectionQuestions({
         {questions.map((question, index) => (
           <div
             key={index}
-            className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+            className="p-4 bg-white dark:bg-orange-950/70 border border-orange-200 dark:border-orange-700 rounded-lg"
           >
             <div className="flex items-start gap-3">
-              <MessageCircle size={18} className="text-purple-600 dark:text-purple-400 mt-1 flex-shrink-0" />
+              <MessageCircle size={18} className="text-orange-600 dark:text-orange-400 mt-1 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-gray-900 dark:text-white font-medium mb-2">
                   {question}
@@ -188,7 +188,7 @@ export function ReflectionQuestions({
                       value={answer}
                       onChange={(e) => setAnswer(e.target.value)}
                       placeholder="Write your thoughts..."
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none"
+                      className="w-full px-3 py-2 border border-orange-200 dark:border-orange-700 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-orange-950/70 text-gray-900 dark:text-gray-100 resize-none"
                       rows={3}
                       autoFocus
                     />
@@ -196,7 +196,7 @@ export function ReflectionQuestions({
                       <button
                         onClick={() => handleAnswerSubmit(index)}
                         disabled={!answer.trim()}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
                       >
                         Add to Entry
                       </button>
@@ -205,7 +205,7 @@ export function ReflectionQuestions({
                           setSelectedQuestion(null);
                           setAnswer('');
                         }}
-                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-sm font-medium rounded-lg transition-colors"
+                        className="px-4 py-2 bg-orange-200 hover:bg-orange-300 dark:bg-orange-700 dark:hover:bg-orange-600 text-orange-900 dark:text-white text-sm font-medium rounded-lg transition-colors"
                       >
                         Cancel
                       </button>
@@ -214,7 +214,7 @@ export function ReflectionQuestions({
                 ) : (
                   <button
                     onClick={() => setSelectedQuestion(index)}
-                    className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium transition-colors"
+                    className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors"
                   >
                     Answer this question →
                   </button>
