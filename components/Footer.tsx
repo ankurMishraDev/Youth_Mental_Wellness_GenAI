@@ -2,6 +2,7 @@ import {
   Brain,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Logo } from "@/components/Logo";
 
 export default function Footer() {
   return (
@@ -25,14 +26,9 @@ export default function Footer() {
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="flex items-center gap-3 cursor-pointer transition-all duration-300 hover:opacity-80 w-fit"
+              className="cursor-pointer"
             >
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <Brain className="w-8 h-8 text-primary" />
-              </div>
-              <span className="text-3xl font-bold text-primary">
-                CureZ
-              </span>
+              <Logo size={48} showText={true} href="" />
             </motion.div>
             
             {/* Description */}

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/lib/contexts/UserContext';
 import type { DashboardPage } from '@/lib/types';
+import { Logo } from '@/components/Logo';
 
 interface SidebarProps {
   dashboardPage?: DashboardPage;
@@ -140,25 +141,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col h-full p-4">
           {/* Logo/Header */}
           <div className="flex items-center justify-between mb-8">
-            <Link
-              href="/"
+            <div
               onClick={() => {
                 if (onNavigateToLanding) {
                   onNavigateToLanding();
                 }
               }}
-              className={`flex items-center gap-3 transition-opacity ${
+              className={`transition-opacity ${
                 isDesktopCollapsed ? 'lg:opacity-0 lg:w-0' : 'opacity-100'
               }`}
-              prefetch={true}
             >
-              <Image src="/logo.png" alt="CureZ Logo" width={40} height={40} />
-              {!isDesktopCollapsed && (
-                <span className="text-2xl font-bold text-orange-600">
-                  CureZ
-                </span>
-              )}
-            </Link>
+              <Logo 
+                size={44} 
+                showText={!isDesktopCollapsed} 
+                href="/" 
+                className="hover:opacity-80 transition-opacity"
+              />
+            </div>
 
             {/* Desktop Collapse Button */}
             <button

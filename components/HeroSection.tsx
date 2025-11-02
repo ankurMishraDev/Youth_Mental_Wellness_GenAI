@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { Logo } from "@/components/Logo";
 
 interface HeroSectionProps {
   onBeginJourney: () => void;
@@ -81,9 +82,9 @@ export default function Home({ onBeginJourney }: HeroSectionProps) {
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="text-white ribeye-regular text-3xl drop-shadow-lg pr-6 cursor-pointer transition-all duration-300 hover:text-orange-200"
+              className="cursor-pointer"
             >
-              CureZ
+              <Logo size={50} showText={true} href="" className="drop-shadow-lg" />
             </motion.div>
 
             {/* Navigation Links */}
