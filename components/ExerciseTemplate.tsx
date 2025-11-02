@@ -21,9 +21,18 @@ export const ExerciseTemplate: React.FC<ExerciseTemplateProps> = ({ exercise, on
   };
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.play();
-    }
+    const playAudio = async () => {
+      if (audioRef.current) {
+        try {
+          await audioRef.current.play();
+        } catch (error) {
+          console.error("Audio play failed:", error);
+          // Autoplay was prevented. We can show a play button to the user here if needed.
+        }
+      }
+    };
+
+    playAudio();
 
     return () => {
       if (audioRef.current) {

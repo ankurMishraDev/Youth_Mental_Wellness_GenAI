@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Mic, MicOff, PhoneOff, Settings, Home, MessageCircle, Send, Keyboard } from "lucide-react"
-import { Message, ViewType } from "../lib/types"
+import { Exercise, Message, ViewType } from "../lib/types"
 import { formatTime } from "../lib/utils"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 
 interface SessionProps {
+  exercise: Exercise | null
   messages: Message[]
   messagesEndRef: React.RefObject<HTMLDivElement>
   isRecording: boolean
@@ -22,6 +23,7 @@ interface SessionProps {
 }
 
 export const Session: React.FC<SessionProps> = ({
+  exercise,
   messages,
   messagesEndRef,
   isRecording,
@@ -61,7 +63,7 @@ export const Session: React.FC<SessionProps> = ({
               <MessageCircle className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h2 className="font-bold text-foreground">CureZ</h2>
+              <h2 className="font-bold text-foreground">{exercise ? exercise.exercise_name : "CureZ"}</h2>
               <p className="text-xs text-muted-foreground">
                 {sessionActive ? `Connected - ${formatTime(sessionSeconds)}` : "Connecting..."}
               </p>

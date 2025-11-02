@@ -4,15 +4,30 @@ import { Session } from '@/components/Session';
 import { useMessages } from '@/hooks/useMessages';
 import { useSession } from '@/hooks/useSession';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Exercise } from '@/lib/types';
 
 export default function SessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [exercise, setExercise] = useState<Exercise | null>(null);
   const auth = useAuth();
   const [isReady, setIsReady] = useState(false);
   const { messages, setMessages, messagesEndRef } = useMessages();
   const session = useSession(auth.currentUser, setMessages);
+
+  useEffect(() => {
+    const exerciseQuery = searchParams.get('exercise');
+    if (exerciseQuery) {
+      try {
+        const exerciseData = JSON.parse(decodeURIComponent(exerciseQuery));
+        setExercise(exerciseData);
+      } catch (error) {
+        console.error("Failed to parse exercise data from URL", error);
+      }
+    }
+  }, [searchParams]);
 
   // Protect session route and wait for validation
   useEffect(() => {
@@ -58,6 +73,7 @@ export default function SessionPage() {
 
   return (
     <Session
+      exercise={exercise}
       messages={messages}
       messagesEndRef={messagesEndRef}
       isRecording={session.isRecording}

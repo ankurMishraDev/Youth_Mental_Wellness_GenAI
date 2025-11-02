@@ -165,6 +165,7 @@ async function updateAnalyticsSummary(uid, newMetric) {
       const summaryDoc = await transaction.get(summaryRef);
       
       const now = new Date();
+      const currentDay = now.toISOString().split('T')[0]; // YYYY-MM-DD
       const currentWeek = `${now.getFullYear()}-W${String(getWeekNumber(now)).padStart(2, '0')}`;
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
@@ -185,6 +186,7 @@ async function updateAnalyticsSummary(uid, newMetric) {
             last_30_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null },
             last_90_days: { mood_avg: null, stress_avg: null, energy_avg: null, entries_count: 0, updated_at: null }
           },
+          daily_history: [], // NEW: For daily timeline chart
           weekly_history: [],
           monthly_history: [],
           breakdown: { ai_sessions: 0, journal_entries: 0, total: 0 },
@@ -330,6 +332,46 @@ async function updateAnalyticsSummary(uid, newMetric) {
         summary.monthly_history.push(monthSnapshot);
       }
       
+      // Update daily history (for fine-grained timeline)
+      if (!summary.daily_history) summary.daily_history = [];
+      
+      const lastDay = summary.daily_history[0]?.date;
+      
+      if (lastDay !== currentDay) {
+        // New day, create a new snapshot
+        const daySnapshot = {
+          date: currentDay,
+          mood_avg: newMetric.mood_percentage || null,
+          stress_avg: newMetric.stress_level || null,
+          energy_avg: newMetric.energy_level || null,
+          entries_count: 1,
+          snapshot_taken_at: now.toISOString()
+        };
+        summary.daily_history.unshift(daySnapshot);
+        
+        // Keep last 90 days
+        if (summary.daily_history.length > 90) {
+          summary.daily_history = summary.daily_history.slice(0, 90);
+        }
+      } else if (summary.daily_history.length > 0) {
+        // Same day, update existing snapshot
+        const today = summary.daily_history[0];
+        const oldCount = today.entries_count || 0;
+        
+        if (newMetric.mood_percentage !== null) {
+          today.mood_avg = calculateIncrementalAverage(today.mood_avg || 0, oldCount, newMetric.mood_percentage);
+        }
+        if (newMetric.stress_level !== null) {
+          today.stress_avg = calculateIncrementalAverage(today.stress_avg || 0, oldCount, newMetric.stress_level);
+        }
+        if (newMetric.energy_level !== null) {
+          today.energy_avg = calculateIncrementalAverage(today.energy_avg || 0, oldCount, newMetric.energy_level);
+        }
+        
+        today.entries_count = oldCount + 1;
+        today.snapshot_taken_at = now.toISOString();
+      }
+      
       // Update metadata
       summary.metadata.total_lifetime_entries = summary.breakdown.total;
       summary.metadata.last_entry = now.toISOString();
@@ -360,9 +402,9 @@ app.get("/get-analytics-summary/:uid", async (req, res) => {
     const summaryDoc = await db.collection("users").doc(uid).collection("analytics").doc("summary").get();
     
     if (!summaryDoc.exists) {
-      return res.status(200).send({ 
+      return res.status(200).send({
         exists: false,
-        message: "No analytics data yet" 
+        message: "No analytics data yet"
       });
     }
     
@@ -377,9 +419,112 @@ app.get("/get-analytics-summary/:uid", async (req, res) => {
   }
 });
 
-// ==================== END ANALYTICS FUNCTIONS ====================
+/**
+ * GET /get-raw-metrics/:uid
+ * Fetch raw metrics directly from users/{uid}/metrics/ collection
+ * TEMPORARY SOLUTION: Bypass embedded windows system for graph data
+ */
+app.get("/get-raw-metrics/:uid", async (req, res) => {
+  const { uid } = req.params;
+  const limit = parseInt(req.query.limit) || 100;
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" });
+  }
+  
+  try {
+    console.log(`[RAW METRICS] Fetching metrics for user: ${uid}, limit: ${limit}`);
+    
+    // Fetch metrics directly from flat metrics collection
+    const metricsSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("metrics")
+      .orderBy("timestamp", "desc")
+      .limit(limit)
+      .get();
+    
+    if (metricsSnapshot.empty) {
+      return res.status(200).send({
+        metrics: [],
+        total: 0,
+        aggregates: null,
+        message: "No metrics found"
+      });
+    }
+    
+    // Map documents to metric objects
+    const metrics = [];
+    metricsSnapshot.forEach(doc => {
+      const data = doc.data();
+      metrics.push({
+        id: doc.id,
+        timestamp: data.timestamp?._seconds 
+          ? new Date(data.timestamp._seconds * 1000).toISOString()
+          : data.timestamp || new Date().toISOString(),
+        source: data.source || "unknown",
+        confidence: data.confidence || 0,
+        mood_percentage: data.mood_percentage !== null ? data.mood_percentage : null,
+        stress_level: data.stress_level !== null ? data.stress_level : null,
+        energy_level: data.energy_level !== null ? data.energy_level : null,
+        anxiety_level: data.anxiety_level !== null ? data.anxiety_level : null,
+        sleep_quality: data.sleep_quality !== null ? data.sleep_quality : null,
+        cognitive_score: data.cognitive_score !== null ? data.cognitive_score : null,
+        emotional_score: data.emotional_score !== null ? data.emotional_score : null,
+        main_topics: data.main_topics || [],
+        risk_flags: data.risk_flags || {}
+      });
+    });
+    
+    // Calculate aggregates from raw data
+    const validMetrics = {
+      mood: metrics.filter(m => m.mood_percentage !== null).map(m => m.mood_percentage),
+      stress: metrics.filter(m => m.stress_level !== null).map(m => m.stress_level),
+      energy: metrics.filter(m => m.energy_level !== null).map(m => m.energy_level),
+      anxiety: metrics.filter(m => m.anxiety_level !== null).map(m => m.anxiety_level),
+      sleep: metrics.filter(m => m.sleep_quality !== null).map(m => m.sleep_quality)
+    };
+    
+    const calculateStats = (values) => {
+      if (values.length === 0) return null;
+      const sum = values.reduce((a, b) => a + b, 0);
+      return {
+        average: Math.round(sum / values.length),
+        min: Math.min(...values),
+        max: Math.max(...values),
+        data_points: values.length
+      };
+    };
+    
+    const aggregates = {
+      mood: calculateStats(validMetrics.mood),
+      stress: calculateStats(validMetrics.stress),
+      energy: calculateStats(validMetrics.energy),
+      anxiety: calculateStats(validMetrics.anxiety),
+      sleep: calculateStats(validMetrics.sleep),
+      total_entries: metrics.length,
+      breakdown: {
+        ai_sessions: metrics.filter(m => m.source === "ai_session").length,
+        journal_entries: metrics.filter(m => m.source === "journal_entry").length
+      }
+    };
+    
+    console.log(`[RAW METRICS] Found ${metrics.length} metrics`);
+    console.log(`[RAW METRICS] Breakdown: ${aggregates.breakdown.ai_sessions} sessions, ${aggregates.breakdown.journal_entries} journals`);
+    
+    res.status(200).send({
+      metrics,
+      total: metrics.length,
+      aggregates
+    });
+    
+  } catch (error) {
+    console.error("[RAW METRICS] Error fetching metrics:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
 
-// ==================== COUNT-BASED ARCHIVING FUNCTIONS ====================
+// ==================== END ANALYTICS FUNCTIONS ====================// ==================== COUNT-BASED ARCHIVING FUNCTIONS ====================
 
 /**
  * Check if archiving is needed and execute if summaries count >= 10

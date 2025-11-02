@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "../ExerciseCard";
+import { ExerciseTemplate } from "../ExerciseTemplate";
 import { Activity } from "lucide-react";
 import { Exercise, ViewType } from "../../lib/types";
 import allExercises from "../../lib/exercises.json";
@@ -19,9 +20,20 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
   setCurrentView,
 }) => {
   const [showAllExercises, setShowAllExercises] = useState(false);
+  const [selectedExerciseForModal, setSelectedExerciseForModal] = useState<Exercise | null>(null);
+
+  const handleGetStarted = (exercise: Exercise) => {
+    const correctedExercise = {
+      ...exercise,
+      image: exercise.image.replace('./images/', '/images/'),
+      bgSound: exercise.bgSound.replace('./sounds/', '/sounds/')
+    };
+    setSelectedExerciseForModal(correctedExercise);
+  };
 
   return (
-    <div className="space-y-8">
+    <>
+      <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-4">Your Suggested Exercises</h2>
         {isLoadingExercises ? (
@@ -35,7 +47,7 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
               <ExerciseCard 
                 key={exercise.id} 
                 exercise={exercise} 
-                onGetStarted={() => setSelectedExercise(exercise)} 
+                onGetStarted={() => handleGetStarted(exercise)} 
               />
             ))}
           </div>
@@ -66,16 +78,29 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-foreground mb-4 mt-8">All Available Exercises</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {allExercises.map(exercise => (
-              <ExerciseCard 
-                key={exercise.id} 
-                exercise={exercise} 
-                onGetStarted={() => setSelectedExercise(exercise)} 
-              />
-            ))}
+            {allExercises.map(exercise => {
+              const correctedExercise = {
+                ...exercise,
+                image: exercise.image.replace('./images/', '/images/')
+              };
+              return (
+                <ExerciseCard 
+                  key={correctedExercise.id} 
+                  exercise={correctedExercise} 
+                  onGetStarted={() => handleGetStarted(correctedExercise)} 
+                />
+              );
+            })}
           </div>
         </div>
       )}
     </div>
+      {selectedExerciseForModal && (
+        <ExerciseTemplate 
+          exercise={selectedExerciseForModal} 
+          onClose={() => setSelectedExerciseForModal(null)} 
+        />
+      )}
+    </>
   );
 };

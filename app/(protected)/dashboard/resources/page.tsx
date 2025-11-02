@@ -70,6 +70,13 @@ export default function ResourcesPage() {
     fetchSuggestedExercises();
   }, [auth.currentUser?.uid]);
 
+  useEffect(() => {
+    if (selectedExercise) {
+      const exerciseQuery = encodeURIComponent(JSON.stringify(selectedExercise));
+      router.push(`/session?exercise=${exerciseQuery}`);
+    }
+  }, [selectedExercise, router]);
+
   return (
     <div className="p-4 md:p-8">
       <DashboardHeader 
