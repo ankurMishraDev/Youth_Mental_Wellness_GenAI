@@ -249,10 +249,9 @@ export default function Content() {
               >
                 <div className="flex-1">
                   <div className="text-3xl font-bold text-primary mb-4 group-hover:scale-110 group-hover:text-primary/90 transition-all duration-300">04.</div>
-                  <h3 className="text-xl font-semibold mb-4 group-hover:text-primary transition-colors duration-300">Growth & Community</h3>
+                  <h3 className="text-xl font-semibold mb-4 group-hover:text-primary transition-colors duration-300">Consultation Service</h3>
                   <p className="text-muted-foreground leading-relaxed text-sm group-hover:text-foreground transition-colors duration-300">
-                    Connect with a supportive community, track your progress, and celebrate milestones on your journey
-                    to better mental health.
+                    Connect with a recommended consultant to receive personalized guidance and take your mental wellness from professional help.
                   </p>
                 </div>
               </motion.div>

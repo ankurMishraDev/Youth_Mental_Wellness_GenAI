@@ -281,12 +281,12 @@ export default function ConsultantsPage() {
                 if (!consultant) return null;
 
                 return (
-                  <Card key={rec.id} className="hover:shadow-lg transition-shadow">
+                  <Card key={rec.id} className="border-2 border-transparent bg-clip-padding bg-gradient-to-br from-purple-100 via-white to-orange-100 p-0.5 shadow-lg transition-all hover:shadow-xl">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-6 w-6 text-primary" />
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-orange-500 flex items-center justify-center shadow-md">
+                            <User className="h-6 w-6 text-white" />
                           </div>
                           <div>
                             <CardTitle className="text-lg">{consultant.name}</CardTitle>
@@ -320,7 +320,7 @@ export default function ConsultantsPage() {
                     </CardHeader>
                     <CardContent className="space-y-3 pt-0">
                       {/* Recommendation Reason */}
-                      <Alert variant="default" className="bg-blue-50 dark:bg-blue-950 py-2">
+                      <Alert variant="default" className="bg-green-50 dark:bg-green-950 py-2 border-green-200 dark:border-green-800">
                         <AlertCircle className="h-3 w-3" />
                         <AlertDescription className="text-xs">
                           <strong>Why recommended:</strong> {rec.recommendation_reason}
@@ -361,7 +361,7 @@ export default function ConsultantsPage() {
                       {/* Action Button */}
                       <Button 
                         onClick={() => handleSelectConsultant(consultant)}
-                        className="w-full h-8 text-xs"
+                        className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-orange-500 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105"
                         disabled={selectedConsultant?.id === consultant.id && showBookingForm}
                       >
                         {selectedConsultant?.id === consultant.id && showBookingForm

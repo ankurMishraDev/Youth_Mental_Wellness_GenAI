@@ -30,11 +30,11 @@
   --popover: oklch(1 0 0); /* #ffffff - Popover background */
   --popover-foreground: oklch(0.25 0 0); /* #3f3f3f - Popover text */
   
-  /* Primary Brand Colors (Purple Theme) */
-  --primary: oklch(0.55 0.22 290); /* #8b5cf6 - Main brand color (Purple 500) */
+  /* Primary Brand Colors (Orange Theme) */
+  --primary: oklch(0.65 0.2 40); /* #ea580c - Main brand color (Orange 600) */
   --primary-foreground: oklch(1 0 0); /* #ffffff - Text on primary */
-  --primary-light: oklch(0.75 0.18 290); /* Lighter purple for hover states */
-  --primary-dark: oklch(0.45 0.24 290); /* Darker purple for active states */
+  --primary-light: oklch(0.75 0.18 50); /* Lighter orange for hover states */
+  --primary-dark: oklch(0.6 0.2 40); /* Darker orange for active states */
   
   /* Secondary Accent Colors (Blue) */
   --secondary: oklch(0.60 0.20 250); /* #6366f1 - Secondary accent (Indigo 500) */
@@ -42,8 +42,8 @@
   --secondary-light: oklch(0.75 0.16 250); /* Lighter blue for hover */
   
   /* Muted/Subtle Colors */
-  --muted: oklch(0.96 0.01 270); /* #f5f3ff - Very light purple tint */
-  --muted-foreground: oklch(0.50 0.02 270); /* #6b7280 - Muted text */
+  --muted: oklch(0.98 0.02 50); /* #fff7ed - Very light orange tint */
+  --muted-foreground: oklch(0.55 0.05 50); /* Muted text */
   
   /* Accent Colors (Pink for special elements) */
   --accent: oklch(0.65 0.24 340); /* #ec4899 - Pink accent (Pink 500) */
@@ -55,11 +55,11 @@
   
   /* Border & Input Colors */
   --border: oklch(0.90 0.01 270); /* #e5e7eb - Border color (light gray) */
-  --input: oklch(0.96 0.01 270); /* #f5f3ff - Input background (light purple tint) */
-  --ring: oklch(0.55 0.22 290 / 0.4); /* Focus ring (purple with transparency) */
+  --input: oklch(0.98 0.02 50); /* #fff7ed - Input background (light orange tint) */
+  --ring: oklch(0.65 0.2 40 / 0.4); /* Focus ring (orange with transparency) */
   
   /* Chart Colors - Coordinated Palette */
-  --chart-1: oklch(0.55 0.22 290); /* Purple */
+  --chart-1: oklch(0.65 0.2 40); /* Orange */
   --chart-2: oklch(0.60 0.20 250); /* Blue */
   --chart-3: oklch(0.65 0.24 340); /* Pink */
   --chart-4: oklch(0.70 0.18 200); /* Cyan */
@@ -73,7 +73,7 @@
   --mood-very-happy: oklch(0.60 0.20 220); /* #3b82f6 - Blue */
   
   /* Journal-Specific Gradient Colors */
-  --journal-gradient-start: oklch(0.55 0.22 290); /* Purple */
+  --journal-gradient-start: oklch(0.65 0.2 40); /* Orange */
   --journal-gradient-mid: oklch(0.60 0.20 250); /* Blue */
   --journal-gradient-end: oklch(0.65 0.24 340); /* Pink */
   
@@ -162,12 +162,12 @@
   
   --sidebar: oklch(1 0 0); /* #ffffff - Sidebar background */
   --sidebar-foreground: oklch(0.25 0 0); /* #3f3f3f - Sidebar text */
-  --sidebar-primary: oklch(0.55 0.22 290); /* Purple - Active item */
+  --sidebar-primary: oklch(0.65 0.2 40); /* Orange - Active item */
   --sidebar-primary-foreground: oklch(1 0 0); /* #ffffff - Active item text */
-  --sidebar-accent: oklch(0.96 0.01 270); /* Light purple - Hover state */
+  --sidebar-accent: oklch(0.98 0.02 50); /* Light orange - Hover state */
   --sidebar-accent-foreground: oklch(0.25 0 0); /* Dark gray - Hover text */
   --sidebar-border: oklch(0.90 0.01 270); /* #e5e7eb - Sidebar border */
-  --sidebar-ring: oklch(0.55 0.22 290 / 0.4); /* Purple ring for focus */
+  --sidebar-ring: oklch(0.65 0.2 40 / 0.4); /* Orange ring for focus */
   
   /* ========================================
      🌟 SHADOWS & EFFECTS
@@ -201,10 +201,10 @@
   --popover-foreground: oklch(0.95 0 0); /* #f5f5f5 */
   
   /* Primary Brand Colors - Dark Mode (Lighter for contrast) */
-  --primary: oklch(0.65 0.20 290); /* #a78bfa - Lighter purple */
-  --primary-foreground: oklch(0.15 0.01 270); /* Dark background */
-  --primary-light: oklch(0.75 0.18 290); /* Even lighter */
-  --primary-dark: oklch(0.55 0.22 290); /* Standard purple */
+  --primary: oklch(0.75 0.18 50); /* #fb923c - Lighter orange */
+  --primary-foreground: oklch(0.15 0.02 40); /* Dark orange background */
+  --primary-light: oklch(0.8 0.16 50); /* Even lighter */
+  --primary-dark: oklch(0.65 0.2 40); /* Standard orange */
   
   /* Secondary Accent Colors - Dark Mode */
   --secondary: oklch(0.70 0.18 250); /* #818cf8 - Lighter indigo */
@@ -212,8 +212,8 @@
   --secondary-light: oklch(0.80 0.16 250); /* Even lighter */
   
   /* Muted/Subtle Colors - Dark Mode */
-  --muted: oklch(0.25 0.02 270); /* #2d2640 - Dark muted */
-  --muted-foreground: oklch(0.65 0.02 270); /* #9ca3af */
+  --muted: oklch(0.25 0.02 50); /* #422006 - Dark muted orange */
+  --muted-foreground: oklch(0.65 0.04 50); /* Lighter muted orange text */
   
   /* Accent Colors - Dark Mode */
   --accent: oklch(0.70 0.22 340); /* #f472b6 - Lighter pink */
@@ -224,12 +224,12 @@
   --destructive-foreground: oklch(0.95 0 0); /* #f5f5f5 */
   
   /* Border & Input Colors - Dark Mode */
-  --border: oklch(0.30 0.02 270); /* #3d3551 - Dark border */
-  --input: oklch(0.25 0.02 270); /* #2d2640 - Dark input */
-  --ring: oklch(0.65 0.20 290 / 0.5); /* Lighter purple ring */
+  --border: oklch(0.30 0.02 50); /* #572e0b - Dark orange border */
+  --input: oklch(0.25 0.02 50); /* #422006 - Dark orange input */
+  --ring: oklch(0.75 0.18 50 / 0.5); /* Lighter orange ring */
   
   /* Chart Colors - Dark Mode (Lighter versions) */
-  --chart-1: oklch(0.65 0.20 290); /* Lighter purple */
+  --chart-1: oklch(0.75 0.18 50); /* Lighter orange */
   --chart-2: oklch(0.70 0.18 250); /* Lighter blue */
   --chart-3: oklch(0.70 0.22 340); /* Lighter pink */
   --chart-4: oklch(0.75 0.16 200); /* Lighter cyan */
@@ -243,19 +243,19 @@
   --mood-very-happy: oklch(0.65 0.18 220); /* Lighter blue */
   
   /* Journal Gradient - Dark Mode */
-  --journal-gradient-start: oklch(0.65 0.20 290); /* Lighter purple */
+  --journal-gradient-start: oklch(0.75 0.18 50); /* Lighter orange */
   --journal-gradient-mid: oklch(0.70 0.18 250); /* Lighter blue */
   --journal-gradient-end: oklch(0.70 0.22 340); /* Lighter pink */
   
   /* Sidebar Colors - Dark Mode */
-  --sidebar: oklch(0.20 0.02 270); /* #252032 */
+  --sidebar: oklch(0.20 0.02 50); /* #2d1600 */
   --sidebar-foreground: oklch(0.95 0 0); /* #f5f5f5 */
-  --sidebar-primary: oklch(0.65 0.20 290); /* Lighter purple */
+  --sidebar-primary: oklch(0.75 0.18 50); /* Lighter orange */
   --sidebar-primary-foreground: oklch(0.95 0 0); /* #f5f5f5 */
-  --sidebar-accent: oklch(0.25 0.02 270); /* #2d2640 */
+  --sidebar-accent: oklch(0.25 0.02 50); /* #422006 */
   --sidebar-accent-foreground: oklch(0.95 0 0); /* #f5f5f5 */
-  --sidebar-border: oklch(0.30 0.02 270); /* #3d3551 */
-  --sidebar-ring: oklch(0.65 0.20 290 / 0.5); /* Lighter purple ring */
+  --sidebar-border: oklch(0.30 0.02 50); /* #572e0b */
+  --sidebar-ring: oklch(0.75 0.18 50 / 0.5); /* Lighter orange ring */
   
   /* Shadows - Dark Mode (Softer shadows) */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
@@ -487,11 +487,11 @@
      ======================================== */
   
   :root {
-    --cursor-color: oklch(0.55 0.22 290); /* Purple - change this for different cursor color */
+    --cursor-color: oklch(0.65 0.2 40); /* Orange - change this for different cursor color */
   }
   
   .dark {
-    --cursor-color: oklch(0.65 0.20 290); /* Lighter purple for dark mode */
+    --cursor-color: oklch(0.75 0.18 50); /* Lighter orange for dark mode */
   }
   
   /* Custom Cursor Main Circle */
