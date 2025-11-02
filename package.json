@@ -55,6 +55,7 @@
     "firebase-admin": "latest",
     "framer-motion": "^12.23.16",
     "geist": "latest",
+    "ics": "^3.8.1",
     "input-otp": "1.4.1",
     "jose": "^6.1.0",
     "lucide-react": "^0.454.0",

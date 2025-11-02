@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
+  Stethoscope,
 } from 'lucide-react';
 import { useUser } from '@/lib/contexts/UserContext';
 import type { DashboardPage } from '@/lib/types';
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (dashboardPage) return dashboardPage;
     
     if (pathname?.startsWith('/journal')) return 'journal';
+    if (pathname?.startsWith('/dashboard/consultants')) return 'consultants';
     if (pathname?.startsWith('/dashboard/sessions')) return 'sessions';
     if (pathname?.startsWith('/dashboard/analytics')) return 'analytics';
     if (pathname?.startsWith('/dashboard/resources')) return 'resources';
@@ -62,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/dashboard/analytics' },
     { id: 'resources', label: 'Resources', icon: BookOpen, path: '/dashboard/resources' },
     { id: 'journal', label: 'Journal', icon: BookText, path: '/journal' },
+    { id: 'consultants', label: 'Consultants', icon: Stethoscope, path: '/dashboard/consultants' },
     { id: 'profile', label: 'Profile', icon: UserIcon, path: '/dashboard/profile' },
   ];
 

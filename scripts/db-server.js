@@ -7,6 +7,7 @@ const admin = require("firebase-admin")
 const cors = require("cors")
 const { encryptField, decryptField, encryptFields, decryptFields, encryptArray, decryptArray } = require("./encryption")
 const { GoogleGenerativeAI } = require('@google/generative-ai')
+const { createEvent } = require('ics')
 
 const serviceAccount = require("./admin-key.json")
 
@@ -2345,6 +2346,1046 @@ app.delete("/delete-user-account/:uid", async (req, res) => {
 });
 
 // ==================== END USER DATA EXPORT & DELETION ====================
+
+// ==================== CONSULTANT SYSTEM ====================
+
+/**
+ * Get all active consultants
+ * GET /consultants
+ */
+app.get("/consultants", async (req, res) => {
+  try {
+    const consultantsRef = db.collection("consultants").where("is_active", "==", true);
+    const snapshot = await consultantsRef.get();
+    
+    const consultants = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.status(200).json({ success: true, consultants });
+  } catch (error) {
+    console.error("Error fetching consultants:", error);
+    res.status(500).json({ error: "Failed to fetch consultants" });
+  }
+});
+
+/**
+ * Get consultant recommendations for a specific user
+ * GET /consultants/recommendations/:uid
+ */
+// Find this section (around line 1150):
+
+app.get("/consultants/recommendations/:uid", async (req, res) => {
+  const { uid } = req.params;
+  
+  try {
+    // Get active recommendations for user
+    const recommendationsRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("consultants")
+      .where("status", "==", "pending");
+      // REMOVE THIS LINE: .orderBy("recommended_at", "desc");
+    
+    const snapshot = await recommendationsRef.get();
+    
+    if (snapshot.empty) {
+      return res.status(200).json({ 
+        success: true, 
+        has_recommendations: false,
+        recommendations: [] 
+      });
+    }
+    
+    // Get consultant details for each recommendation
+    const recommendations = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const recData = doc.data();
+        const consultantDoc = await db.collection("consultants").doc(recData.consultant_id).get();
+        
+        return {
+          id: doc.id,
+          ...recData,
+          consultant: consultantDoc.exists ? { id: consultantDoc.id, ...consultantDoc.data() } : null
+        };
+      })
+    );
+    
+    // Sort in memory instead (descending - newest first)
+    recommendations.sort((a, b) => {
+      const aTime = a.recommended_at?._seconds || 0;
+      const bTime = b.recommended_at?._seconds || 0;
+      return bTime - aTime;
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      has_recommendations: true,
+      recommendations 
+    });
+  } catch (error) {
+    console.error("Error fetching recommendations:", error);
+    res.status(500).json({ error: "Failed to fetch recommendations" });
+  }
+});
+
+/**
+ * Create consultant recommendation (called by AI when concern detected)
+ * POST /consultants/recommend
+ */
+app.post("/consultants/recommend", async (req, res) => {
+  const { uid, consultant_id, reason, urgency, trigger_source, session_ids } = req.body;
+  
+  if (!uid || !consultant_id || !reason) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  
+  try {
+    // Check if user already has active recommendation for this consultant
+    const existingRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("consultants")
+      .where("consultant_id", "==", consultant_id)
+      .where("status", "==", "pending");
+    
+    const existing = await existingRef.get();
+    
+    if (!existing.empty) {
+      return res.status(200).json({ 
+        success: true, 
+        message: "Recommendation already exists",
+        recommendation_id: existing.docs[0].id
+      });
+    }
+    
+    // Create new recommendation
+    const recommendationRef = await db
+      .collection("users")
+      .doc(uid)
+      .collection("consultants")
+      .add({
+        consultant_id,
+        recommended_at: admin.firestore.FieldValue.serverTimestamp(),
+        recommendation_reason: reason,
+        urgency_level: urgency || "moderate",
+        status: "pending",
+        trigger_source: trigger_source || "ai_session",
+        related_session_ids: session_ids || [],
+        user_viewed_at: null,
+        user_action: null
+      });
+    
+    console.log(`[CONSULTANT] Created recommendation ${recommendationRef.id} for user ${uid}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      recommendation_id: recommendationRef.id 
+    });
+  } catch (error) {
+    console.error("Error creating recommendation:", error);
+    res.status(500).json({ error: "Failed to create recommendation" });
+  }
+});
+
+/**
+ * Dismiss consultant recommendation (user action)
+ * PATCH /consultants/dismiss-recommendation
+ */
+app.patch("/consultants/dismiss-recommendation", async (req, res) => {
+  const { uid, recommendation_id, dismiss_reason } = req.body;
+  
+  if (!uid || !recommendation_id) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  
+  try {
+    const recommendationRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("consultants")
+      .doc(recommendation_id);
+    
+    const recommendationDoc = await recommendationRef.get();
+    
+    if (!recommendationDoc.exists) {
+      return res.status(404).json({ error: "Recommendation not found" });
+    }
+    
+    // Update recommendation status to dismissed
+    await recommendationRef.update({
+      status: "dismissed",
+      user_action: "dismissed",
+      dismissed_at: admin.firestore.FieldValue.serverTimestamp(),
+      dismiss_reason: dismiss_reason || null,
+      user_viewed_at: recommendationDoc.data().user_viewed_at || admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`[CONSULTANT] User ${uid} dismissed recommendation ${recommendation_id}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: "Recommendation dismissed successfully" 
+    });
+  } catch (error) {
+    console.error("Error dismissing recommendation:", error);
+    res.status(500).json({ error: "Failed to dismiss recommendation" });
+  }
+});
+
+/**
+ * Submit consultation request
+ * POST /consultants/submit-request
+ */
+app.post("/consultants/submit-request", async (req, res) => {
+  const { 
+    uid, 
+    consultant_id, 
+    recommendation_id,
+    data_sharing_consent, 
+    preferred_time_ranges 
+  } = req.body;
+  
+  if (!uid || !consultant_id) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  
+  try {
+    // Get user email for notifications
+    const userProfileRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("user_profiling")
+      .doc("profile");
+    const userProfile = await userProfileRef.get();
+    const userEmail = userProfile.exists ? decryptField(userProfile.data().email, uid) : null;
+    
+    // Prepare shared data if consent given
+    let sharedDataSnapshot = null;
+    if (data_sharing_consent) {
+      // Get user profiling details
+      const userDetailsRef = db
+        .collection("users")
+        .doc(uid)
+        .collection("user_profiling")
+        .doc("user_details");
+      const userDetailsDoc = await userDetailsRef.get();
+      
+      if (userDetailsDoc.exists) {
+        const userDetails = userDetailsDoc.data();
+        // Decrypt sections
+        const decryptedProfiling = {};
+        const sections = [
+          'core_identity', 'communication_profile', 'psychological_profile',
+          'life_context_profile', 'historical_profile', 'strengths_profile',
+          'behavioral_profile', 'risk_profile', 'treatment_response_profile'
+        ];
+        
+        sections.forEach(section => {
+          if (userDetails[section]) {
+            try {
+              decryptedProfiling[section] = decryptFields(userDetails[section], uid);
+            } catch (error) {
+              console.error(`Error decrypting ${section}:`, error);
+            }
+          }
+        });
+        
+        sharedDataSnapshot = {
+          profile: userProfile.exists ? {
+            name: decryptField(userProfile.data().name, uid),
+            age: decryptField(userProfile.data().age, uid),
+            gender: decryptField(userProfile.data().gender, uid),
+            email: userEmail
+          } : null,
+          profiling: decryptedProfiling
+        };
+      }
+    } else {
+      // Only basic demographics
+      sharedDataSnapshot = userProfile.exists ? {
+        name: decryptField(userProfile.data().name, uid),
+        age: decryptField(userProfile.data().age, uid),
+        gender: decryptField(userProfile.data().gender, uid),
+        email: userEmail
+      } : null;
+    }
+    
+    // Create consultation request
+    const requestRef = await db.collection("consultation_requests").add({
+      user_id: uid,
+      user_email: userEmail,
+      consultant_id,
+      recommendation_id: recommendation_id || null,
+      status: "pending",
+      data_sharing_consent: data_sharing_consent || false,
+      preferred_time_ranges: preferred_time_ranges || [],
+      shared_data_snapshot: sharedDataSnapshot,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      admin_viewed_at: null,
+      proposed_slot: null,
+      meet_link: null,
+      user_confirmed_at: null
+    });
+    
+    // Update recommendation status if exists
+    if (recommendation_id) {
+      await db
+        .collection("users")
+        .doc(uid)
+        .collection("consultants")
+        .doc(recommendation_id)
+        .update({
+          status: "contacted",
+          user_action: "interested",
+          request_submitted_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+    }
+    
+    console.log(`[CONSULTANT] Created consultation request ${requestRef.id} for user ${uid}`);
+    
+    // TODO: Send email notification to admins (will implement in next step)
+    
+    res.status(200).json({ 
+      success: true, 
+      request_id: requestRef.id,
+      message: "Your consultation request has been submitted. You'll receive an email within 24 hours." 
+    });
+  } catch (error) {
+    console.error("Error submitting consultation request:", error);
+    res.status(500).json({ error: "Failed to submit request" });
+  }
+});
+
+/**
+ * Get all consultation requests (for admin)
+ * GET /admin/consultation-requests
+ */
+app.get("/admin/consultation-requests", async (req, res) => {
+  const { admin_secret, status } = req.query;
+  
+  // Simple admin auth (prototype only)
+  if (admin_secret !== process.env.ADMIN_SECRET && admin_secret !== "curez_admin_2025") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  
+  try {
+    console.log("[ADMIN] Fetching consultation requests, status:", status);
+    
+    let snapshot;
+    
+    if (status) {
+      // Query with status filter - needs composite index
+      snapshot = await db.collection("consultation_requests")
+        .where("status", "==", status)
+        .get();
+    } else {
+      // Get all requests without ordering
+      snapshot = await db.collection("consultation_requests").get();
+    }
+    
+    console.log("[ADMIN] Found", snapshot.size, "requests");
+    console.log("[ADMIN] Found", snapshot.size, "requests");
+    
+    const requests = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        
+        // Get consultant details
+        let consultant = null;
+        try {
+          const consultantDoc = await db.collection("consultants").doc(data.consultant_id).get();
+          consultant = consultantDoc.exists ? { id: consultantDoc.id, ...consultantDoc.data() } : null;
+        } catch (error) {
+          console.error("[ADMIN] Error fetching consultant:", error);
+        }
+        
+        // Get recommendation details if exists
+        let recommendation = null;
+        if (data.recommendation_id) {
+          try {
+            const recDoc = await db
+              .collection("users")
+              .doc(data.user_id)
+              .collection("consultants")
+              .doc(data.recommendation_id)
+              .get();
+            recommendation = recDoc.exists ? recDoc.data() : null;
+          } catch (error) {
+            console.error("[ADMIN] Error fetching recommendation:", error);
+          }
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at || new Date().toISOString(),
+          consultant,
+          recommendation
+        };
+      })
+    );
+    
+    // Sort by created_at in memory (descending - newest first)
+    requests.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    res.status(200).json({ success: true, requests });
+  } catch (error) {
+    console.error("Error fetching consultation requests:", error);
+    res.status(500).json({ error: "Failed to fetch requests" });
+  }
+});
+
+/**
+ * Complete consultation request (admin action)
+ * POST /admin/complete-consultation
+ */
+app.post("/admin/complete-consultation", async (req, res) => {
+  const { admin_secret, request_id, completion_notes } = req.body;
+  
+  // Simple admin auth (prototype only)
+  if (admin_secret !== process.env.ADMIN_SECRET && admin_secret !== "curez_admin_2025") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  
+  if (!request_id) {
+    return res.status(400).json({ error: "Missing request_id" });
+  }
+  
+  try {
+    const requestRef = db.collection("consultation_requests").doc(request_id);
+    const requestDoc = await requestRef.get();
+    
+    if (!requestDoc.exists) {
+      return res.status(404).json({ error: "Consultation request not found" });
+    }
+    
+    const requestData = requestDoc.data();
+    
+    // Update consultation request status to completed
+    await requestRef.update({
+      status: "completed",
+      completed_at: admin.firestore.FieldValue.serverTimestamp(),
+      completion_notes: completion_notes || null,
+      completed_by: "admin"
+    });
+    
+    // Update user's recommendation if linked
+    if (requestData.recommendation_id && requestData.user_id) {
+      try {
+        await db
+          .collection("users")
+          .doc(requestData.user_id)
+          .collection("consultants")
+          .doc(requestData.recommendation_id)
+          .update({
+            status: "completed",
+            completed_at: admin.firestore.FieldValue.serverTimestamp()
+          });
+      } catch (error) {
+        console.error("[ADMIN] Error updating recommendation status:", error);
+        // Don't fail the whole operation if recommendation update fails
+      }
+    }
+    
+    console.log(`[ADMIN] Marked consultation ${request_id} as completed`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: "Consultation marked as completed" 
+    });
+  } catch (error) {
+    console.error("Error completing consultation:", error);
+    res.status(500).json({ error: "Failed to complete consultation" });
+  }
+});
+
+/**
+ * Download consultation shared data as text (admin action)
+ * GET /admin/consultation-shared-data/:request_id
+ */
+app.get("/admin/consultation-shared-data/:request_id", async (req, res) => {
+  const { request_id } = req.params;
+  const { admin_secret } = req.query;
+  
+  // Simple admin auth (prototype only)
+  if (admin_secret !== process.env.ADMIN_SECRET && admin_secret !== "curez_admin_2025") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  
+  if (!request_id) {
+    return res.status(400).json({ error: "Missing request_id" });
+  }
+  
+  try {
+    const requestRef = db.collection("consultation_requests").doc(request_id);
+    const requestDoc = await requestRef.get();
+    
+    if (!requestDoc.exists) {
+      return res.status(404).json({ error: "Consultation request not found" });
+    }
+    
+    const requestData = requestDoc.data();
+    const sharedData = requestData.shared_data_snapshot;
+    
+    if (!sharedData) {
+      return res.status(404).json({ error: "No shared data available" });
+    }
+    
+    // Get consultant details
+    let consultantName = "Unknown Consultant";
+    if (requestData.consultant_id) {
+      const consultantDoc = await db.collection("consultants").doc(requestData.consultant_id).get();
+      if (consultantDoc.exists) {
+        consultantName = consultantDoc.data().name;
+      }
+    }
+    
+    // Get recommendation reason if exists
+    let recommendationReason = null;
+    if (requestData.recommendation_id && requestData.user_id) {
+      const recDoc = await db
+        .collection("users")
+        .doc(requestData.user_id)
+        .collection("consultants")
+        .doc(requestData.recommendation_id)
+        .get();
+      if (recDoc.exists) {
+        recommendationReason = recDoc.data().recommendation_reason;
+      }
+    }
+    
+    // Format as text for consultant
+    let text = '='.repeat(80) + '\n';
+    text += 'CureZ - Consultation Data Export\n';
+    text += '='.repeat(80) + '\n\n';
+    text += `Export Date: ${new Date().toLocaleString()}\n`;
+    text += `Consultation ID: ${request_id}\n`;
+    text += `Consultant: ${consultantName}\n`;
+    text += `Data Sharing Consent: ${requestData.data_sharing_consent ? 'Full Profile' : 'Basic Demographics Only'}\n\n`;
+    
+    // Add recommendation context
+    if (recommendationReason) {
+      text += '\n' + '='.repeat(80) + '\n';
+      text += 'REFERRAL CONTEXT\n';
+      text += '='.repeat(80) + '\n\n';
+      text += `Reason for Referral: ${recommendationReason}\n`;
+      text += `Urgency Level: ${requestData.recommendation?.urgency_level || 'N/A'}\n\n`;
+    }
+    
+    // Fetch session summaries
+    let summaries = [];
+    try {
+      const summariesSnapshot = await db
+        .collection("users")
+        .doc(requestData.user_id)
+        .collection("summaries")
+        .orderBy("timestamp", "desc")
+        .limit(20) // Last 20 summaries
+        .get();
+      
+      summariesSnapshot.forEach(doc => {
+        const data = doc.data();
+        summaries.push({
+          date: data.timestamp?.toDate() || new Date(),
+          summary: data.summary || '',
+          mood: data.mood_trend || '',
+          key_topics: data.key_topics || []
+        });
+      });
+    } catch (error) {
+      console.log('No summaries found or error fetching:', error.message);
+    }
+    
+    // Fetch analytics summary
+    let analyticsData = null;
+    try {
+      const analyticsDoc = await db
+        .collection("users")
+        .doc(requestData.user_id)
+        .collection("analytics")
+        .doc("summary")
+        .get();
+      
+      if (analyticsDoc.exists) {
+        analyticsData = analyticsDoc.data();
+        console.log(`✅ Analytics found for user ${requestData.user_id}`);
+      } else {
+        console.log(`ℹ️  No analytics document yet for user ${requestData.user_id}`);
+      }
+    } catch (error) {
+      console.log('❌ Error fetching analytics:', error.message);
+    }
+    
+    // Add session summaries section
+    if (summaries.length > 0) {
+      text += '\n' + '='.repeat(80) + '\n';
+      text += 'SESSION SUMMARIES\n';
+      text += '='.repeat(80) + '\n\n';
+      
+      summaries.forEach((summary, index) => {
+        text += `\n--- Session ${summaries.length - index} (${summary.date.toLocaleDateString()}) ---\n`;
+        if (summary.mood) text += `Mood Trend: ${summary.mood}\n`;
+        if (summary.key_topics && summary.key_topics.length > 0) {
+          text += `Key Topics: ${summary.key_topics.join(', ')}\n`;
+        }
+        text += `\nSummary:\n${summary.summary}\n`;
+      });
+      
+      text += '\n';
+    }
+    
+    // Add analytics overview section (Embedded Windows Architecture)
+    if (analyticsData) {
+      text += '\n' + '='.repeat(80) + '\n';
+      text += 'ANALYTICS OVERVIEW (Embedded Windows System)\n';
+      text += '='.repeat(80) + '\n\n';
+      
+      // Current State (Real-time aggregates)
+      if (analyticsData.current) {
+        text += '--- CURRENT STATE (Real-Time Metrics) ---\n\n';
+        
+        const current = analyticsData.current;
+        if (current.mood && current.mood.data_points > 0) {
+          text += `Mood: ${current.mood.average}% (${current.mood.data_points} data points)\n`;
+          text += `  Range: ${current.mood.min}% - ${current.mood.max}%\n`;
+          text += `  Reliability: ${current.mood.reliable ? 'High' : 'Low'}\n\n`;
+        }
+        
+        if (current.stress && current.stress.data_points > 0) {
+          text += `Stress Level: ${current.stress.average}% (${current.stress.data_points} data points)\n`;
+          text += `  Range: ${current.stress.min}% - ${current.stress.max}%\n\n`;
+        }
+        
+        if (current.energy && current.energy.data_points > 0) {
+          text += `Energy Level: ${current.energy.average}% (${current.energy.data_points} data points)\n\n`;
+        }
+        
+        if (current.anxiety && current.anxiety.data_points > 0) {
+          text += `Anxiety Level: ${current.anxiety.average}% (${current.anxiety.data_points} data points)\n\n`;
+        }
+        
+        if (current.sleep && current.sleep.data_points > 0) {
+          text += `Sleep Quality: ${current.sleep.average}% (${current.sleep.data_points} data points)\n\n`;
+        }
+      }
+      
+      // Time Windows (7-day, 30-day, 90-day trends)
+      if (analyticsData.windows) {
+        text += '\n--- TIME-BASED WINDOWS ---\n\n';
+        
+        const windows = analyticsData.windows;
+        
+        // 7-Day Window
+        if (windows.last_7_days && windows.last_7_days.entries_count > 0) {
+          text += '📊 Last 7 Days (Recent Trends):\n';
+          if (windows.last_7_days.mood_avg !== null) {
+            text += `  Mood Average: ${windows.last_7_days.mood_avg}%\n`;
+          }
+          if (windows.last_7_days.stress_avg !== null) {
+            text += `  Stress Average: ${windows.last_7_days.stress_avg}%\n`;
+          }
+          if (windows.last_7_days.energy_avg !== null) {
+            text += `  Energy Average: ${windows.last_7_days.energy_avg}%\n`;
+          }
+          text += `  Total Entries: ${windows.last_7_days.entries_count}\n`;
+          if (windows.last_7_days.updated_at) {
+            text += `  Last Updated: ${new Date(windows.last_7_days.updated_at).toLocaleDateString()}\n`;
+          }
+          text += '\n';
+        }
+        
+        // 30-Day Window
+        if (windows.last_30_days && windows.last_30_days.entries_count > 0) {
+          text += '📊 Last 30 Days (Monthly Pattern):\n';
+          if (windows.last_30_days.mood_avg !== null) {
+            text += `  Mood Average: ${windows.last_30_days.mood_avg}%\n`;
+          }
+          if (windows.last_30_days.stress_avg !== null) {
+            text += `  Stress Average: ${windows.last_30_days.stress_avg}%\n`;
+          }
+          if (windows.last_30_days.energy_avg !== null) {
+            text += `  Energy Average: ${windows.last_30_days.energy_avg}%\n`;
+          }
+          text += `  Total Entries: ${windows.last_30_days.entries_count}\n`;
+          if (windows.last_30_days.updated_at) {
+            text += `  Last Updated: ${new Date(windows.last_30_days.updated_at).toLocaleDateString()}\n`;
+          }
+          text += '\n';
+        }
+        
+        // 90-Day Window
+        if (windows.last_90_days && windows.last_90_days.entries_count > 0) {
+          text += '📊 Last 90 Days (Quarterly Progress):\n';
+          if (windows.last_90_days.mood_avg !== null) {
+            text += `  Mood Average: ${windows.last_90_days.mood_avg}%\n`;
+          }
+          if (windows.last_90_days.stress_avg !== null) {
+            text += `  Stress Average: ${windows.last_90_days.stress_avg}%\n`;
+          }
+          if (windows.last_90_days.energy_avg !== null) {
+            text += `  Energy Average: ${windows.last_90_days.energy_avg}%\n`;
+          }
+          text += `  Total Entries: ${windows.last_90_days.entries_count}\n`;
+          if (windows.last_90_days.updated_at) {
+            text += `  Last Updated: ${new Date(windows.last_90_days.updated_at).toLocaleDateString()}\n`;
+          }
+          text += '\n';
+        }
+      }
+      
+      // Data Breakdown
+      if (analyticsData.breakdown) {
+        text += '\n--- DATA SOURCES ---\n';
+        text += `AI Sessions: ${analyticsData.breakdown.ai_sessions || 0}\n`;
+        text += `Journal Entries: ${analyticsData.breakdown.journal_entries || 0}\n`;
+        text += `Total Tracked Events: ${analyticsData.breakdown.total || 0}\n\n`;
+      }
+      
+      // Metadata
+      if (analyticsData.metadata) {
+        text += '\n--- TRACKING SUMMARY ---\n';
+        text += `Lifetime Entries: ${analyticsData.metadata.total_lifetime_entries || 0}\n`;
+        if (analyticsData.metadata.first_entry) {
+          text += `First Entry: ${new Date(analyticsData.metadata.first_entry).toLocaleDateString()}\n`;
+        }
+        if (analyticsData.metadata.last_entry) {
+          text += `Last Entry: ${new Date(analyticsData.metadata.last_entry).toLocaleDateString()}\n`;
+        }
+        text += '\n';
+      }
+      
+      text += '\n';
+    } else {
+      // No analytics document exists yet
+      text += '\n' + '='.repeat(80) + '\n';
+      text += 'ANALYTICS OVERVIEW\n';
+      text += '='.repeat(80) + '\n\n';
+      text += 'Analytics are generated automatically as the user completes sessions and journal entries.\n';
+      text += 'No analytics data available yet for this user.\n\n';
+    }
+    
+    // Basic Demographics (always included)
+    text += '\n' + '='.repeat(80) + '\n';
+    text += 'PATIENT DEMOGRAPHICS\n';
+    text += '='.repeat(80) + '\n\n';
+    
+    if (sharedData.profile) {
+      if (sharedData.profile.name) text += `Name: ${sharedData.profile.name}\n`;
+      if (sharedData.profile.age) text += `Age: ${sharedData.profile.age}\n`;
+      if (sharedData.profile.gender) text += `Gender: ${sharedData.profile.gender}\n`;
+      if (sharedData.profile.email) text += `Email: ${sharedData.profile.email}\n`;
+    } else if (sharedData.name) {
+      // Handle basic demographics format
+      if (sharedData.name) text += `Name: ${sharedData.name}\n`;
+      if (sharedData.age) text += `Age: ${sharedData.age}\n`;
+      if (sharedData.gender) text += `Gender: ${sharedData.gender}\n`;
+      if (sharedData.email) text += `Email: ${sharedData.email}\n`;
+    }
+    
+    // Full Profiling Data (only if consent given)
+    if (requestData.data_sharing_consent && sharedData.profiling) {
+      text += '\n' + '='.repeat(80) + '\n';
+      text += 'PSYCHOLOGICAL PROFILING\n';
+      text += '='.repeat(80) + '\n\n';
+      
+      // Remove empty fields from profiling data
+      const profiling = removeEmptyFields(sharedData.profiling);
+      
+      // Core Identity
+      if (profiling.core_identity && Object.keys(profiling.core_identity).length > 0) {
+        text += '\n--- Core Identity ---\n';
+        text += formatObject(profiling.core_identity, 1);
+      }
+      
+      // Communication Profile
+      if (profiling.communication_profile && Object.keys(profiling.communication_profile).length > 0) {
+        text += '\n--- Communication Style ---\n';
+        text += formatObject(profiling.communication_profile, 1);
+      }
+      
+      // Psychological Profile
+      if (profiling.psychological_profile && Object.keys(profiling.psychological_profile).length > 0) {
+        text += '\n--- Psychological Overview ---\n';
+        text += formatObject(profiling.psychological_profile, 1);
+      }
+      
+      // Life Context
+      if (profiling.life_context_profile && Object.keys(profiling.life_context_profile).length > 0) {
+        text += '\n--- Life Context ---\n';
+        text += formatObject(profiling.life_context_profile, 1);
+      }
+      
+      // Strengths & Protective Factors
+      if (profiling.strengths_profile && Object.keys(profiling.strengths_profile).length > 0) {
+        text += '\n--- Strengths & Protective Factors ---\n';
+        text += formatObject(profiling.strengths_profile, 1);
+      }
+      
+      // Behavioral Patterns
+      if (profiling.behavioral_profile && Object.keys(profiling.behavioral_profile).length > 0) {
+        text += '\n--- Behavioral Patterns ---\n';
+        text += formatObject(profiling.behavioral_profile, 1);
+      }
+      
+      // Risk Factors
+      if (profiling.risk_profile && Object.keys(profiling.risk_profile).length > 0) {
+        text += '\n--- Risk Assessment ---\n';
+        text += formatObject(profiling.risk_profile, 1);
+      }
+      
+      // Treatment Response
+      if (profiling.treatment_response_profile && Object.keys(profiling.treatment_response_profile).length > 0) {
+        text += '\n--- Treatment Response Insights ---\n';
+        text += formatObject(profiling.treatment_response_profile, 1);
+      }
+    } else if (requestData.data_sharing_consent) {
+      text += '\n(User consented to full profile sharing, but no profiling data available yet)\n';
+    } else {
+      text += '\n' + '='.repeat(80) + '\n';
+      text += 'NOTE: User chose to share basic demographics only.\n';
+      text += 'Full psychological profiling not included.\n';
+      text += '='.repeat(80) + '\n';
+    }
+    
+    text += '\n' + '='.repeat(80) + '\n';
+    text += 'END OF CONSULTATION DATA EXPORT\n';
+    text += '='.repeat(80) + '\n';
+    
+    // Determine filename
+    const userName = sharedData.profile?.name || sharedData.name || 'patient';
+    const safeUserName = userName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const filename = `consultation_${safeUserName}_${new Date().toISOString().split('T')[0]}.txt`;
+    
+    // Send as downloadable file
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(text);
+    
+    console.log(`[ADMIN] Downloaded consultation shared data for request ${request_id}`);
+  } catch (error) {
+    console.error("Error downloading consultation data:", error);
+    res.status(500).json({ error: "Failed to download consultation data" });
+  }
+});
+
+/**
+ * Generate .ics calendar file for consultation
+ * POST /admin/generate-calendar-invite
+ */
+app.post("/admin/generate-calendar-invite", async (req, res) => {
+  const { 
+    admin_secret, 
+    request_id, 
+    meeting_date, 
+    meeting_time, 
+    duration_minutes,
+    meeting_link 
+  } = req.body;
+  
+  // Simple admin auth (prototype only)
+  if (admin_secret !== process.env.ADMIN_SECRET && admin_secret !== "curez_admin_2025") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  
+  if (!request_id || !meeting_date || !meeting_time || !duration_minutes || !meeting_link) {
+    return res.status(400).json({ 
+      error: "Missing required fields: request_id, meeting_date, meeting_time, duration_minutes, meeting_link" 
+    });
+  }
+  
+  try {
+    // Get consultation request details
+    const requestRef = db.collection("consultation_requests").doc(request_id);
+    const requestDoc = await requestRef.get();
+    
+    if (!requestDoc.exists) {
+      return res.status(404).json({ error: "Consultation request not found" });
+    }
+    
+    const requestData = requestDoc.data();
+    
+    // Get consultant name
+    let consultantName = "Mental Health Consultant";
+    if (requestData.consultant_id) {
+      const consultantDoc = await db.collection("consultants").doc(requestData.consultant_id).get();
+      if (consultantDoc.exists) {
+        consultantName = consultantDoc.data().name;
+      }
+    }
+    
+    // Parse date and time (format: "2025-11-15" and "14:00")
+    const [year, month, day] = meeting_date.split('-').map(Number);
+    const [hours, minutes] = meeting_time.split(':').map(Number);
+    
+    // Create start date array [year, month, day, hour, minute]
+    const startDate = [year, month, day, hours, minutes];
+    
+    // Calculate end time
+    const endHours = hours + Math.floor((minutes + duration_minutes) / 60);
+    const endMinutes = (minutes + duration_minutes) % 60;
+    
+    // Create calendar event
+    const event = {
+      start: startDate,
+      duration: { minutes: duration_minutes },
+      title: `Mental Wellness Consultation with ${consultantName}`,
+      description: `Join your consultation session with ${consultantName}.\n\nMeeting Link: ${meeting_link}\n\nPlease be in a quiet, private space and test your camera/microphone beforehand.`,
+      location: meeting_link,
+      url: meeting_link,
+      status: 'CONFIRMED',
+      busyStatus: 'BUSY',
+      organizer: { name: 'CureZ Mental Wellness', email: 'support@curez.app' },
+      attendees: [
+        { name: requestData.user_email || 'Patient', email: requestData.user_email || '', rsvp: true, role: 'REQ-PARTICIPANT' }
+      ],
+      alarms: [
+        { action: 'display', trigger: { minutes: 15, before: true }, description: 'Reminder: Your consultation starts in 15 minutes' },
+        { action: 'display', trigger: { minutes: 60, before: true }, description: 'Reminder: Your consultation starts in 1 hour' }
+      ]
+    };
+    
+    // Generate .ics file
+    createEvent(event, (error, value) => {
+      if (error) {
+        console.error('Error creating calendar event:', error);
+        return res.status(500).json({ error: 'Failed to generate calendar file' });
+      }
+      
+      // Determine filename
+      const userName = requestData.user_email?.split('@')[0] || 'patient';
+      const safeUserName = userName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const filename = `consultation_${safeUserName}_${meeting_date}.ics`;
+      
+      // Send as downloadable file
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(value);
+      
+      console.log(`[ADMIN] Generated calendar invite for request ${request_id}`);
+    });
+  } catch (error) {
+    console.error("Error generating calendar invite:", error);
+    res.status(500).json({ error: "Failed to generate calendar invite" });
+  }
+});
+
+/**
+ * Seed mock consultants (for initial setup)
+ * POST /admin/seed-consultants
+ */
+app.post("/admin/seed-consultants", async (req, res) => {
+  const { admin_secret } = req.body;
+  
+  if (admin_secret !== process.env.ADMIN_SECRET && admin_secret !== "curez_admin_2025") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  
+  const mockConsultants = [
+    {
+      name: "Dr. Sarah Thompson",
+      age: 38,
+      gender: "female",
+      specialty: "Clinical Psychology",
+      sub_specialty: ["Youth Anxiety", "Depression", "Academic Stress"],
+      languages: ["English", "Spanish"],
+      experience_years: 12,
+      education: "PhD Clinical Psychology, Stanford University",
+      certifications: ["Licensed Clinical Psychologist (LCP)", "CBT Certified"],
+      bio: "Dr. Thompson specializes in working with young adults facing anxiety and depression. With over 12 years of experience, she uses evidence-based approaches including CBT and mindfulness techniques to help clients develop coping strategies and improve their mental wellness.",
+      photo_url: "/consultants/dr-sarah.jpg",
+      rating: 4.8,
+      is_active: true
+    },
+    {
+      name: "Dr. Michael Chen",
+      age: 42,
+      gender: "male",
+      specialty: "Psychiatry",
+      sub_specialty: ["Mood Disorders", "ADHD", "Medication Management"],
+      languages: ["English", "Mandarin"],
+      experience_years: 15,
+      education: "MD Psychiatry, Johns Hopkins University",
+      certifications: ["Board Certified Psychiatrist", "ADHD Specialist"],
+      bio: "Dr. Chen is a board-certified psychiatrist with expertise in mood disorders and ADHD. He takes a holistic approach, combining medication management with therapeutic interventions to support young adults in achieving optimal mental health.",
+      photo_url: "/consultants/dr-chen.jpg",
+      rating: 4.9,
+      is_active: true
+    },
+    {
+      name: "Dr. Priya Sharma",
+      age: 35,
+      gender: "female",
+      specialty: "Counseling Psychology",
+      sub_specialty: ["Trauma", "Cultural Identity", "Family Issues"],
+      languages: ["English", "Hindi", "Punjabi"],
+      experience_years: 10,
+      education: "PsyD Counseling Psychology, University of California",
+      certifications: ["Licensed Professional Counselor", "Trauma-Informed Care Certified"],
+      bio: "Dr. Sharma specializes in trauma-informed care and cultural identity issues. She creates a safe, culturally-sensitive space for young adults to explore their experiences and develop resilience. Her approach integrates traditional therapeutic methods with mindfulness practices.",
+      photo_url: "/consultants/dr-sharma.jpg",
+      rating: 4.7,
+      is_active: true
+    },
+    {
+      name: "Dr. James Rodriguez",
+      age: 40,
+      gender: "male",
+      specialty: "Clinical Social Work",
+      sub_specialty: ["Substance Abuse", "Crisis Intervention", "Social Anxiety"],
+      languages: ["English", "Spanish"],
+      experience_years: 14,
+      education: "PhD Clinical Social Work, Columbia University",
+      certifications: ["Licensed Clinical Social Worker (LCSW)", "Substance Abuse Counselor"],
+      bio: "Dr. Rodriguez has extensive experience in crisis intervention and substance abuse counseling. He works with young adults to address underlying mental health issues and develop healthy coping mechanisms. His compassionate approach focuses on empowerment and sustainable recovery.",
+      photo_url: "/consultants/dr-rodriguez.jpg",
+      rating: 4.6,
+      is_active: true
+    },
+    {
+      name: "Dr. Emily Wong",
+      age: 33,
+      gender: "female",
+      specialty: "Youth Psychology",
+      sub_specialty: ["Stress Management", "Self-Esteem", "Relationship Issues"],
+      languages: ["English", "Cantonese"],
+      experience_years: 8,
+      education: "PhD Youth Psychology, University of Toronto",
+      certifications: ["Licensed Psychologist", "Mindfulness-Based Stress Reduction Certified"],
+      bio: "Dr. Wong specializes in helping young adults navigate stress, build self-esteem, and develop healthy relationships. She uses a strengths-based approach combined with mindfulness techniques to help clients discover their potential and achieve their goals.",
+      photo_url: "/consultants/dr-wong.jpg",
+      rating: 4.8,
+      is_active: true
+    }
+  ];
+  
+  try {
+    const batch = db.batch();
+    
+    mockConsultants.forEach(consultant => {
+      const docRef = db.collection("consultants").doc();
+      batch.set(docRef, {
+        ...consultant,
+        created_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    
+    await batch.commit();
+    
+    console.log(`[CONSULTANT] Seeded ${mockConsultants.length} mock consultants`);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully seeded ${mockConsultants.length} consultants` 
+    });
+  } catch (error) {
+    console.error("Error seeding consultants:", error);
+    res.status(500).json({ error: "Failed to seed consultants" });
+  }
+});
+
+// ==================== END CONSULTANT SYSTEM ====================
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`)
