@@ -140,17 +140,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user profile from database
+    // Get user profile from database (with decrypted data)
     let profile = null;
     try {
+      console.log(`🔍 [LOGIN] Fetching profile for user: ${firebaseUser.localId}`);
       const profileResponse = await fetch(
-        `${request.nextUrl.origin}/api/user/${firebaseUser.localId}`
+        `${request.nextUrl.origin}/api/user/${firebaseUser.localId}`,
+        { cache: 'no-store' }
       );
+      
       if (profileResponse.ok) {
         profile = await profileResponse.json();
+        console.log(`✅ [LOGIN] Profile fetched:`, {
+          hasName: !!profile?.name,
+          name: profile?.name,
+          hasAge: !!profile?.age,
+          age: profile?.age,
+          hasGender: !!profile?.gender,
+          gender: profile?.gender
+        });
+      } else {
+        console.warn(`⚠️ [LOGIN] Profile fetch failed: ${profileResponse.status}`);
       }
     } catch (error) {
-      console.warn("Failed to load profile from database:", error);
+      console.error("❌ [LOGIN] Failed to load profile from database:", error);
     }
 
     // Sync user profile
@@ -177,8 +190,18 @@ export async function POST(request: NextRequest) {
       gender: profile?.gender,
     };
 
+    console.log(`✅ [LOGIN] Creating session with user data:`, {
+      uid: user.uid,
+      email: user.email,
+      name: user.name,
+      age: user.age,
+      gender: user.gender
+    });
+
     // Create secure session
     await createSession(user);
+
+    console.log(`✅ [LOGIN] Session created successfully for ${user.email}`);
 
     return NextResponse.json({
       user,

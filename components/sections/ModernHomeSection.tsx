@@ -55,16 +55,100 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardStats, setDashboardStats] = useState({
+    sessionCount: 0,
+    journalCount: 0,
+    latestMood: null as number | null,
+    latestEnergy: null as number | null,
+  });
   const [moodTrends, setMoodTrends] = useState<any[]>([]);
   const [wellnessTimeline, setWellnessTimeline] = useState<any[]>([]);
+  const [homeTimelineData, setHomeTimelineData] = useState<any[]>([]);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser?.uid) {
       fetchDashboardData();
+      fetchRawMetricsForHome();
+      fetchDashboardStats();
     }
   }, [currentUser?.uid]);
+
+  const fetchRawMetricsForHome = async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      const response = await fetch(`/api/raw-metrics/${currentUser.uid}?limit=30`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.metrics && data.metrics.length > 0) {
+          // Group metrics by date (YYYY-MM-DD)
+          const grouped: { [key: string]: any[] } = {};
+          
+          data.metrics.forEach((m: any) => {
+            if (!m.timestamp) return;
+            const date = new Date(m.timestamp);
+            const dateKey = date.toISOString().split('T')[0];
+            
+            if (!grouped[dateKey]) {
+              grouped[dateKey] = [];
+            }
+            grouped[dateKey].push(m);
+          });
+          
+          // Calculate daily averages
+          const dailyData = Object.entries(grouped)
+            .map(([dateKey, dayMetrics]) => {
+              const avg = (values: (number | null)[]) => {
+                const valid = values.filter((v): v is number => v !== null);
+                return valid.length > 0 
+                  ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length)
+                  : null;
+              };
+              
+              const date = new Date(dateKey);
+              
+              return {
+                date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                rawTimestamp: date.getTime(),
+                mood: avg(dayMetrics.map((m: any) => m.mood_percentage)),
+                stress: avg(dayMetrics.map((m: any) => m.stress_level)),
+                energy: avg(dayMetrics.map((m: any) => m.energy_level)),
+              };
+            })
+            .sort((a, b) => a.rawTimestamp - b.rawTimestamp)
+            .slice(-7); // Take last 7 days
+          
+          setHomeTimelineData(dailyData);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching raw metrics for home:', error);
+    }
+  };
+
+  const fetchDashboardStats = async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      const response = await fetch(`/api/dashboard-stats/${currentUser.uid}`);
+      
+      if (response.ok) {
+        const stats = await response.json();
+        setDashboardStats({
+          sessionCount: stats.sessionCount || 0,
+          journalCount: stats.journalCount || 0,
+          latestMood: stats.latestMood,
+          latestEnergy: stats.latestEnergy,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
   const generateAvatar = async () => {
     setIsGeneratingAvatar(true);
@@ -126,6 +210,17 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
       // Process user and session data
       if (userResponse.ok) {
         const userData = await userResponse.json();
+        console.log('👤 [FRONTEND] User data received:', userData);
+        console.log('📋 [FRONTEND] User data details:', {
+          hasName: !!userData.name,
+          name: userData.name,
+          hasGender: !!userData.gender,
+          gender: userData.gender,
+          hasAge: !!userData.age,
+          age: userData.age,
+          uid: userData.uid
+        });
+        
         let sessionCount = 0;
         let moodHistory: any[] = [];
 
@@ -231,7 +326,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Hello, {dashboardData?.name || "User"}!
+            Hello, {currentUser?.name || "User"}!
           </h1>
           <p className="text-sm text-muted-foreground">Your personal dashboard overview</p>
         </div>
@@ -277,7 +372,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                   <Avatar className="h-24 w-24 border-4 border-white/60 dark:border-slate-800/60 shadow-2xl ring-4 ring-orange-300/70 dark:ring-orange-600/60">
                     <AvatarImage src={avatarUrl || dashboardData?.photoURL} />
                     <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-orange-400 to-pink-500 text-white">
-                      {getInitials(dashboardData?.name || "User")}
+                      {getInitials(currentUser?.name || "User")}
                     </AvatarFallback>
                   </Avatar>
                   {isGeneratingAvatar && (
@@ -288,9 +383,9 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                 </div>
                 
                 <div>
-                  <h3 className="font-bold text-2xl text-foreground">{dashboardData?.name || "User"}</h3>
+                  <h3 className="font-bold text-2xl text-foreground">{currentUser?.name || "User"}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {dashboardData?.gender || "Not specified"} • {dashboardData?.age || "N/A"} years
+                    {currentUser?.gender || "Not specified"} • {currentUser?.age || "N/A"} years
                   </p>
                 </div>
 
@@ -298,21 +393,21 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                   <div className="text-center bg-white/50 dark:bg-slate-800/40 backdrop-blur-sm rounded-xl p-1 border border-white/30 dark:border-slate-700/30 shadow-md">
                     <Users className="h-5 w-5 mx-auto mb-1 text-orange-600 dark:text-orange-400" />
                     <div className="text-xl font-bold text-foreground">
-                      {dashboardData?.sessionCount || 0}
+                      {dashboardStats.sessionCount}
                     </div>
                     <p className="text-xs text-muted-foreground">Sessions</p>
                   </div>
                   <div className="text-center bg-white/50 dark:bg-slate-800/40 backdrop-blur-sm rounded-xl p-1 border border-white/30 dark:border-slate-700/30 shadow-md">
                     <BookOpen className="h-5 w-5 mx-auto mb-1 text-cyan-600 dark:text-cyan-400" />
                     <div className="text-xl font-bold text-foreground">
-                      {dashboardData?.journalCount || 0}
+                      {dashboardStats.journalCount}
                     </div>
                     <p className="text-xs text-muted-foreground">Journals</p>
                   </div>
                   <div className="text-center bg-white/50 dark:bg-slate-800/40 backdrop-blur-sm rounded-xl p-1 border border-white/30 dark:border-slate-700/30 shadow-md">
                     <Zap className="h-5 w-5 mx-auto mb-1 text-purple-600 dark:text-purple-400" />
                     <div className="text-xl font-bold text-foreground">
-                      {Math.floor(Math.random() * 30) + 1}
+                      {dashboardData?.streak || 24}
                     </div>
                     <p className="text-xs text-muted-foreground">Streak</p>
                   </div>
@@ -405,13 +500,13 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                   <TrendingUp className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   Focus Trends
                 </CardTitle>
-                <span className="text-sm text-muted-foreground">Last 7 Sessions</span>
+                <span className="text-sm text-muted-foreground">Last 7 Days</span>
               </div>
             </CardHeader>
             <CardContent className="px-2 py-0.5 h-[280px]">
-              {wellnessTimeline.length > 1 ? (
+              {homeTimelineData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={wellnessTimeline} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                  <LineChart data={homeTimelineData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="date" 
@@ -467,7 +562,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <Activity className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Complete a few more sessions to see your wellness trends.</p>
+                  <p className="text-sm text-muted-foreground">Complete a few sessions or journals to see your wellness trends.</p>
                 </div>
               )}
             </CardContent>
@@ -475,39 +570,39 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
 
           {/* Stats Cards Grid */}
           <div className="grid grid-cols-2 gap-4 flex-grow">
-            {/* Prioritized Tasks Card */}
+            {/* Mood Card */}
             <Card className="relative overflow-hidden border-orange-500/60 dark:border-orange-500/50 shadow-lg bg-gradient-to-br from-orange-100 to-rose-100 dark:from-orange-900/50 dark:to-rose-900/50 hover:shadow-xl transition-all duration-300 cursor-pointer group py-2" onClick={() => setCurrentView("session")}>
               <CardContent className="relative px-2 py-0.5 h-full flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-md font-semibold text-foreground/90 mb-0.5">Prioritized Tasks</p>
+                    <p className="text-md font-semibold text-foreground/90 mb-0.5">Mood</p>
                     <div className="text-5xl font-bold bg-gradient-to-br from-orange-600 to-pink-600 bg-clip-text text-transparent leading-none">
-                      {dashboardData?.latestMood?.mood_percentage || 0}%
+                      {dashboardStats.latestMood ?? 0}%
                     </div>
                   </div>
                   <div className="p-1.5 rounded-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
                     <Heart className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
                 </div>
-                <p className="text-sm text-foreground/70 mt-auto">Avg. Completed</p>
+                <p className="text-sm text-foreground/70 mt-auto">Latest Recording</p>
               </CardContent>
             </Card>
 
-            {/* Additional Tasks Card */}
+            {/* Energy Card */}
             <Card className="relative overflow-hidden border-cyan-500/60 dark:border-cyan-500/50 shadow-lg bg-gradient-to-br from-cyan-100 to-indigo-100 dark:from-cyan-900/50 dark:to-indigo-900/50 hover:shadow-xl transition-all duration-300 cursor-pointer group py-2" onClick={() => (window.location.href = "/journal")}>
               <CardContent className="relative px-2 py-0.5 h-full flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-md font-semibold text-foreground/90 mb-0.5">Additional Tasks</p>
+                    <p className="text-md font-semibold text-foreground/90 mb-0.5">Energy</p>
                     <div className="text-5xl font-bold bg-gradient-to-br from-cyan-600 to-blue-600 bg-clip-text text-transparent leading-none">
-                      {Math.round(((dashboardData?.journalCount || 0) / 10) * 100)}%
+                      {dashboardStats.latestEnergy ?? 0}%
                     </div>
                   </div>
                   <div className="p-1.5 rounded-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
-                    <BookOpen className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                    <Zap className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                   </div>
                 </div>
-                <p className="text-sm text-foreground/70 mt-auto">Avg. Completed</p>
+                <p className="text-sm text-foreground/70 mt-auto">Latest Recording</p>
               </CardContent>
             </Card>
 

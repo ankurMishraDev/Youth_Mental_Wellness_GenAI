@@ -524,6 +524,69 @@ app.get("/get-raw-metrics/:uid", async (req, res) => {
   }
 });
 
+/**
+ * GET /dashboard-stats/:uid
+ * Fetch dashboard statistics: session count, journal count, latest mood/energy
+ */
+app.get("/dashboard-stats/:uid", async (req, res) => {
+  const { uid } = req.params;
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" });
+  }
+  
+  try {
+    console.log(`📊 [DASHBOARD STATS] Fetching stats for user: ${uid}`);
+    
+    // Fetch metrics to get counts and latest values
+    const metricsSnapshot = await db
+      .collection("users")
+      .doc(uid)
+      .collection("metrics")
+      .orderBy("timestamp", "desc")
+      .limit(100)
+      .get();
+    
+    if (metricsSnapshot.empty) {
+      return res.status(200).send({
+        sessionCount: 0,
+        journalCount: 0,
+        latestMood: null,
+        latestEnergy: null,
+        totalMetrics: 0
+      });
+    }
+    
+    const metrics = metricsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Count by source
+    const sessionCount = metrics.filter(m => m.source === 'ai_session').length;
+    const journalCount = metrics.filter(m => m.source === 'journal_entry').length;
+    
+    // Get latest mood and energy (from most recent metric)
+    const latestMetric = metrics[0]; // Already sorted by timestamp desc
+    const latestMood = latestMetric?.mood_percentage || null;
+    const latestEnergy = latestMetric?.energy_level || null;
+    
+    console.log(`✅ [DASHBOARD STATS] Stats: ${sessionCount} sessions, ${journalCount} journals, mood: ${latestMood}, energy: ${latestEnergy}`);
+    
+    res.status(200).send({
+      sessionCount,
+      journalCount,
+      latestMood: latestMood ? Math.round(latestMood) : null,
+      latestEnergy: latestEnergy ? Math.round(latestEnergy) : null,
+      totalMetrics: metrics.length
+    });
+    
+  } catch (error) {
+    console.error("[DASHBOARD STATS] Error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
 // ==================== END ANALYTICS FUNCTIONS ====================// ==================== COUNT-BASED ARCHIVING FUNCTIONS ====================
 
 /**
@@ -1085,6 +1148,8 @@ app.get("/get-summary/:uid", async (req, res) => {
 
 app.get("/user/:uid", async (req, res) => {
   const { uid } = req.params
+  console.log(`👤 [USER DATA] Fetching user data for uid: ${uid}`)
+  
   try {
     // Read from new subcollections
     const profileRef = db.collection("users").doc(uid).collection("user_profiling").doc("profile")
@@ -1095,7 +1160,10 @@ app.get("/user/:uid", async (req, res) => {
       latestMetricsRef.get()
     ])
     
+    console.log(`📄 [USER DATA] Profile exists: ${profileDoc.exists}`)
+    
     if (!profileDoc.exists) {
+      console.log(`❌ [USER DATA] Profile not found for uid: ${uid}`)
       return res.status(404).send({ error: "User not found" })
     }
     
@@ -1103,19 +1171,29 @@ app.get("/user/:uid", async (req, res) => {
       uid,
       ...profileDoc.data()
     }
+    
+    console.log(`🔐 [USER DATA] Raw profile data:`, {
+      hasName: !!userData.name,
+      hasGender: !!userData.gender,
+      hasAge: !!userData.age,
+      hasEmail: !!userData.email
+    })
 
     // Decrypt sensitive profile fields
     if (userData.name) {
       userData.name = await decryptField(userData.name, uid)
+      console.log(`✅ [USER DATA] Decrypted name: ${userData.name}`)
     }
     
     if (userData.gender) {
       userData.gender = await decryptField(userData.gender, uid)
+      console.log(`✅ [USER DATA] Decrypted gender: ${userData.gender}`)
     }
     
     if (userData.age) {
       const decryptedAge = await decryptField(userData.age, uid)
       userData.age = Number.parseInt(decryptedAge, 10)
+      console.log(`✅ [USER DATA] Decrypted age: ${userData.age}`)
     }
     
     // Add latestSummary (from metrics/latest) for backward compatibility
@@ -1125,8 +1203,17 @@ app.get("/user/:uid", async (req, res) => {
       }
     }
     
+    console.log(`✅ [USER DATA] Sending user data:`, {
+      uid: userData.uid,
+      name: userData.name,
+      gender: userData.gender,
+      age: userData.age,
+      hasLatestSummary: !!userData.latestSummary
+    })
+    
     res.status(200).send(userData)
   } catch (error) {
+    console.error(`❌ [USER DATA] Error fetching user: ${error.message}`)
     res.status(500).send({ error: error.message })
   }
 })
