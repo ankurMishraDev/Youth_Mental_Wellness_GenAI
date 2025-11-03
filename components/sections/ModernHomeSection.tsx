@@ -39,6 +39,7 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  Legend,
 } from "recharts";
 import { MoodData, ViewType } from "../../lib/types";
 import { TreeVisualization } from "../TreeVisualization";
@@ -55,6 +56,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [moodTrends, setMoodTrends] = useState<any[]>([]);
+  const [wellnessTimeline, setWellnessTimeline] = useState<any[]>([]);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -107,26 +109,29 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Fetch user data
-      const userResponse = await fetch(`/api/user/${currentUser.uid}`);
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        
-        // Fetch session summaries
-        const summariesResponse = await fetch("/api/session-summaries", {
+      // Fetch user data, session summaries, and analytics in parallel
+      const token = await currentUser.getIdToken();
+      const [userResponse, summariesResponse, analyticsResponse] = await Promise.all([
+        fetch(`/api/user/${currentUser.uid}`),
+        fetch("/api/session-summaries", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ uid: currentUser.uid }),
-        });
-        
+        }),
+        fetch(`/api/analytics-summary/${currentUser.uid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      // Process user and session data
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
         let sessionCount = 0;
         let moodHistory: any[] = [];
-        
+
         if (summariesResponse.ok) {
           const summariesData = await summariesResponse.json();
           sessionCount = summariesData.summaries?.length || 0;
-          
-          // Process mood trends (last 7 sessions)
           if (summariesData.summaries && summariesData.summaries.length > 0) {
             moodHistory = summariesData.summaries
               .slice(0, 7)
@@ -135,13 +140,12 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                 name: `Day ${index + 1}`,
                 mood: summary.summary_data?.mood_percentage || 0,
                 energy: summary.summary_data?.energy_level || 0,
-                stress: 100 - (summary.summary_data?.stress_level || 0), // Invert stress for positivity
+                stress: 100 - (summary.summary_data?.stress_level || 0),
                 date: new Date(summary.created_at?.seconds * 1000).toLocaleDateString(),
               }));
           }
         }
 
-        // Fetch journal entries
         const journalResponse = await fetch("/api/journal");
         let journalCount = 0;
         if (journalResponse.ok) {
@@ -155,9 +159,26 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
           journalCount,
           latestMood: userData.latestSummary?.summary_data,
         });
-        
         setMoodTrends(moodHistory);
       }
+
+      // Process analytics data for wellness timeline
+      if (analyticsResponse.ok) {
+        const analyticsData = await analyticsResponse.json();
+        if (analyticsData.exists && analyticsData.summary.daily_history) {
+          const formattedTimeline = analyticsData.summary.daily_history
+            .map((item: any) => ({
+              date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              mood: item.mood_avg,
+              stress: item.stress_avg,
+              energy: item.energy_avg,
+            }))
+            .slice(0, 7) // Take the last 7 days
+            .reverse(); // To show oldest to newest
+          setWellnessTimeline(formattedTimeline);
+        }
+      }
+
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -387,89 +408,66 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                 <span className="text-sm text-muted-foreground">Last 7 Sessions</span>
               </div>
             </CardHeader>
-            <CardContent className="px-2 py-0.5">
-              {moodTrends.length > 0 ? (
-                <div className="space-y-2">
-                  <ResponsiveContainer width="100%" height={150}>
-                    <AreaChart data={moodTrends} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                      <defs>
-                        <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis
-                        dataKey="name"
-                        className="text-xs"
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        stroke="hsl(var(--border))"
-                      />
-                      <YAxis
-                        className="text-xs"
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        stroke="hsl(var(--border))"
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--background))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "12px",
-                          fontSize: "14px",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="mood"
-                        stroke="#f97316"
-                        strokeWidth={3}
-                        fill="url(#colorMood)"
-                        name="Mood"
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="energy"
-                        stroke="#3b82f6"
-                        strokeWidth={3}
-                        fill="url(#colorEnergy)"
-                        name="Energy"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                  
-                  <div className="flex items-center justify-center gap-6 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-orange-500" />
-                      <span className="text-muted-foreground">Max Focus</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-blue-500" />
-                      <span className="text-muted-foreground">Min Focus</span>
-                    </div>
-                  </div>
-
-                  <div className="text-center bg-white/50 dark:bg-slate-800/40 backdrop-blur-sm rounded-xl p-4 shadow-md border border-white/30 dark:border-slate-700/30">
-                    <div className="text-5xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
-                      {moodTrends.length > 0
-                        ? Math.round(
-                            moodTrends.reduce((acc, curr) => acc + curr.mood, 0) /
-                              moodTrends.length
-                          )
-                        : 0}
-                      %
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">Avg. Completion</p>
-                  </div>
-                </div>
+            <CardContent className="px-2 py-0.5 h-[280px]">
+              {wellnessTimeline.length > 1 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={wellnessTimeline} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 12 }}
+                      stroke="#6b7280"
+                    />
+                    <YAxis 
+                      domain={[0, 100]} 
+                      tick={{ fontSize: 12 }}
+                      stroke="#6b7280"
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '20px' }}
+                      iconType="circle"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="mood"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      name="Mood"
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="stress"
+                      stroke="#ef4444"
+                      strokeWidth={3}
+                      name="Stress"
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="energy"
+                      stroke="#f59e0b"
+                      strokeWidth={3}
+                      name="Energy"
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="text-center py-12">
+                <div className="flex flex-col items-center justify-center h-full text-center">
                   <Activity className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Complete sessions to see trends</p>
+                  <p className="text-sm text-muted-foreground">Complete a few more sessions to see your wellness trends.</p>
                 </div>
               )}
             </CardContent>
