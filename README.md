@@ -29,10 +29,13 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
 
 
 >- **Curie AI Companion**: Converse with AI in real time in one to one talk session.
+>- **Patient & Consultant Support**: Curie automatically prepares summaries and insights to guide consultants so that each session builds on the user’s progress.
 >- **Multilingual support**:Allow users to interacte with AI using thier own regional langauge.
 >- **Anonymous Chat**: Safe space for users to express feelings without judgment
 >- **Resource Library**: Access to relaxation techniques, coping methods, and mental health resources
->- **Mood Tracking**: System calculates user mood based on session interactions
+>- **Mood Tracking**: System calculates user mood based on session interactions.
+>- **AI-Powered Journaling**: Maintain personal journals with AI-assisted reflections, mood tracking, and categorized entries for better self-awareness.
+>- **Gamified Wellness Plant**: Celebrate streaks with a virtual plant that grows as users show up for themselves every day, turning consistency into a rewarding habit.
 
 ## Installation
 
@@ -45,7 +48,7 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
 
 ### Backend Setup
 
-1. **Cloning the Repo**
+1. **Clone & Install Dependencies**
    ```
    git clone https://github.com/ankurMishraDev/Youth_Mental_Wellness_GenAI.git
    cd Youth_Mental_Wellness_GenAI
@@ -59,22 +62,21 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
    NEXT_PUBLIC_WS_PATH = # Add your Path for the websocket
    DATABASE_SERVICE_URL = # Add your Database URL
    ```
+ - Add the Firebase Admin credential JSON at `scripts/admin-server.json` to unlock database access for the Node.js server.
    
 
 3. **Database Server (Node.js + Firebase)**
 
-   - <b>Make sure to create admin-server.json in the Scripts and add the details</b> 
-
    ```bash
    cd scripts
-   nodemon db_server.js
+   npm install
+   nodemon db-server.js
    ```
+ - Requires the Firebase Admin SDK credentials referenced above.
 
-
-1. **AI WebSocket Server (Python)**
-   
-   - <b>Make sure to enable Vertex AI API service</b>
-   - <b> In root directory create service-account and inside it add google cloud credentials. </b>
+4. **AI WebSocket Server (Python)**
+   - Enable the Google Vertex AI API on your Google Cloud project.
+   - Create a `service-account/` folder in the repository root and place your Google Cloud service account JSON inside it.
    ```bash
    # Install Python dependencies
    pip install -r requirements.txt
@@ -82,11 +84,10 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
    python server.py
    ```
 
-2. **Frontend (Next.js)**
+5. **Frontend (Next.js)**
+   ```bash
+   npm run dev
    ```
-   The frontend is pre-configured and ready to run.
-   ```
-
 
 
 <img src="./public/images/signUp.jpg" style="padding-bottom:5px">
@@ -100,6 +101,7 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
 5. After clicking on create Account a mail will be sent to the registered mail id <b>please make sure to check it in spam section</b>
 6. Only after authentication Login to the system can take place
 7. Start AI sessions with Curie and explore resources.
+8. Use the AI-powered journaling feature to maintain personal journals, get AI-assisted reflections, and track your mood.
 
 ## Technologies
 
@@ -112,30 +114,13 @@ In India, mental health is often not taken seriously. Fear of judgment from soci
 ## Future Enhancement
 - **More Personalized coping suggestion**
 - **Curated Support Groups**
-- **Will add system of Journaling**
+- **Native Mobile Application**: Expand the experience with a dedicated phone app to keep support within reach anywhere.
+- **IoT-Based Wellness Insights**: Pair with wearable devices to surface contextualized recommendations from biometric signals.
+- **Predictive Well-Being Analytics**: Use longitudinal data to forecast high-risk periods and intervene proactively.
+- **Video-Based Interaction**: Introduce video sessions to deepen connection with consultants and community mentors.
+
 
 ## AI session
 <img src="./public/images/CurieAIsession.jpg">
 
 
-## Mobile application (React Native)
-
-A React Native mobile client now lives under `mobile/`. It reuses the CureZ authentication and session flows with a
-native navigation stack and a shared design system that is controlled from `mobile/tailwind.config.js`.
-
-### Getting started
-
-```bash
-cd mobile
-npm install
-npm run start
-```
-
-Set the following environment variables before running the Expo dev server:
-
-- `EXPO_PUBLIC_FIREBASE_API_KEY` – same value used on the web client.
-- `EXPO_PUBLIC_API_BASE_URL` – URL of the deployed CureZ backend (for example `https://your-domain.example`).
-
-The mobile session screen currently falls back to an on-device response if the `/api/mobile-session` endpoint is not
-available. Hook this endpoint up to the existing WebSocket/audio workflow when you are ready to surface the full
-experience on mobile.
