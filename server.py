@@ -108,6 +108,18 @@ MODEL = "gemini-live-2.5-flash-preview-native-audio"
 VOICE_NAME = "Puck"
 SEND_SAMPLE_RATE = 16000
 
+def should_refresh_token(creds, buffer_seconds=300):
+    """
+    Check if token needs refresh (with 5-minute buffer).
+    Returns True if token should be refreshed, False otherwise.
+    """
+    if not creds or not hasattr(creds, 'expiry') or not creds.expiry:
+        return True
+    
+    import datetime as dt
+    time_until_expiry = (creds.expiry - dt.datetime.utcnow()).total_seconds()
+    return time_until_expiry < buffer_seconds
+
 def read_text_file_best_effort(path: str) -> str:
     # Try common encodings first; fall back to byte decode with replacement
     tried = []
@@ -731,55 +743,82 @@ class LiveAPIWebSocketServer:
         # 🔥 CRITICAL FIX: Refresh authentication before connecting to LiveAPI
         logger.info(f"⏳ Connecting to Gemini LiveAPI (model: {MODEL})...")
         auth_start = datetime.now()
+        
+        global client, creds
+        
         try:
             logger.info("🔄 Refreshing authentication credentials...")
             
-            # Force token refresh by creating new credentials
-            fresh_creds = service_account.Credentials.from_service_account_file(
-                KEY_PATH, 
-                scopes=SCOPES
-            )
+            # Log current token state
+            if creds.expiry:
+                import datetime as dt
+                time_left = (creds.expiry - dt.datetime.utcnow()).total_seconds()
+                logger.info(f"📊 Current token age: {time_left:.0f}s remaining")
             
-            # Force token generation
-            fresh_creds.refresh(Request())
+            # Method 1: Refresh existing credentials (fastest)
+            creds.refresh(Request())
             
-            # Recreate client with fresh credentials
-            global client
+            # Recreate client with refreshed credentials
             client = genai.Client(
                 vertexai=True,
                 project=PROJECT_ID,
                 location=LOCATION,
-                credentials=fresh_creds,
+                credentials=creds,
             )
             
             auth_time = (datetime.now() - auth_start).total_seconds()
-            logger.info(f"✅ Authentication refreshed in {auth_time:.2f}s")
+            expiry_time = creds.expiry.strftime("%H:%M:%S") if creds.expiry else "unknown"
+            logger.info(f"✅ Token refreshed in {auth_time:.2f}s (expires at: {expiry_time})")
             
         except Exception as auth_error:
-            logger.error(f"❌ Authentication refresh failed: {auth_error}")
-            # Try one more time with simpler approach
+            logger.error(f"❌ Token refresh failed: {auth_error}")
+            
+            # Method 2: Recreate credentials from file (slower but more thorough)
             try:
+                logger.info("🔄 Fallback: Recreating credentials from service account file...")
+                
+                creds = service_account.Credentials.from_service_account_file(
+                    KEY_PATH, 
+                    scopes=SCOPES
+                )
+                
+                # Force immediate token fetch
+                creds.refresh(Request())
+                
+                # Recreate client
                 client = genai.Client(
                     vertexai=True,
                     project=PROJECT_ID,
                     location=LOCATION,
+                    credentials=creds,
                 )
-                logger.info("✅ Fallback authentication successful")
+                
+                auth_time = (datetime.now() - auth_start).total_seconds()
+                expiry_time = creds.expiry.strftime("%H:%M:%S") if creds.expiry else "unknown"
+                logger.info(f"✅ Fallback successful in {auth_time:.2f}s (expires at: {expiry_time})")
+                
             except Exception as fallback_error:
-                logger.error(f"❌ Fallback authentication also failed: {fallback_error}")
-                # Send error to client and return
+                logger.error(f"❌ All authentication attempts failed: {fallback_error}")
+                logger.error(traceback.format_exc())
+                
+                # Send error to client
                 try:
                     await websocket.send(json.dumps({
                         "type": "error",
-                        "data": f"Authentication failed: {str(auth_error)}"
+                        "data": f"Authentication failed: Unable to connect to AI service. Please try again."
                     }))
                 except Exception as send_error:
                     logger.error(f"Failed to send error message to client: {send_error}")
+                
+                # Don't proceed to LiveAPI connection
                 return
 
+        # NOW connect to LiveAPI with fresh token
+        logger.info(f"⏳ Attempting LiveAPI connection with fresh credentials...")
         try:
             async with client.aio.live.connect(model=MODEL, config=live_config) as session:
-                logger.info(f"✅ Successfully connected to Gemini LiveAPI!")
+                connect_time = (datetime.now() - auth_start).total_seconds()
+                logger.info(f"✅ Successfully connected to Gemini LiveAPI! (total time: {connect_time:.2f}s)")
                 
                 # Send success status to client
                 try:
