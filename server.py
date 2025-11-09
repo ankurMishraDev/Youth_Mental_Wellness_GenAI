@@ -4,6 +4,8 @@ import base64
 import os
 import requests
 from datetime import datetime, timezone
+from google.auth.transport.requests import Request
+
 def extract_json(text: str) -> dict:
     """Best-effort extraction of a JSON object from model output."""
     if not text:
@@ -106,16 +108,6 @@ MODEL = "gemini-live-2.5-flash-preview-native-audio"
 VOICE_NAME = "Puck"
 SEND_SAMPLE_RATE = 16000
 
-# # --- System instruction loader (unchanged) ---
-# try:
-#     file_path = os.path.join(os.path.dirname(__file__), "system_instruction.txt")
-#     with open(file_path, 'r') as file:
-#         SYSTEM_INSTRUCTION = file.read()
-# except FileNotFoundError:
-#     logger.error("Error: system_instruction.txt not found. Using a default instruction.")
-#     SYSTEM_INSTRUCTION = "You are a helpful AI assistant."
-
-
 def read_text_file_best_effort(path: str) -> str:
     # Try common encodings first; fall back to byte decode with replacement
     tried = []
@@ -142,7 +134,6 @@ try:
 except FileNotFoundError:
     logger.error("Error: system_instruction.txt not found. Using a default instruction.")
     SYSTEM_INSTRUCTION = "You are a helpful AI assistant."
-
 
 
 from google.oauth2 import service_account
@@ -277,103 +268,88 @@ class LiveAPIWebSocketServer:
             if client_id in self.user_ids:
                 del self.user_ids[client_id]
 
+    async def _fetch_with_timeout(self, url, method="GET", json_data=None, timeout=8.0):
+        """Helper method for HTTP requests with better timeout handling."""
+        try:
+            loop = asyncio.get_event_loop()
+            if method.upper() == "GET":
+                response = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, 
+                        lambda: requests.get(url, timeout=timeout)
+                    ),
+                    timeout=timeout + 2.0
+                )
+            else:
+                response = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, 
+                        lambda: requests.post(url, json=json_data, timeout=timeout)
+                    ),
+                    timeout=timeout + 2.0
+                )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"HTTP {response.status_code} from {url}")
+                return None
+                
+        except asyncio.TimeoutError:
+            logger.error(f"Request timeout for {url} after {timeout}s")
+            return None
+        except Exception as e:
+            logger.error(f"Request failed for {url}: {e}")
+            return None
+
     async def generate_dynamic_system_instruction(self, uid: str) -> str:
         """
         Generates a dynamic system instruction based on user data from the database.
         Uses unified context system: 7-day recent summaries + historical archives
         """
+        total_start = datetime.now()
+        logger.info(f"🚀 Starting dynamic instruction generation for UID: {uid}")
+        
         if not uid:
             logger.warning("No UID provided, using default system instruction.")
             return SYSTEM_INSTRUCTION
 
         try:
             # 1. Fetch user data from the Node.js server
-            response = requests.get(f"http://localhost:3000/user/{uid}")
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch user data for UID {uid}. Status: {response.status_code}")
+            user_data = await self._fetch_with_timeout(
+                f"http://localhost:3000/user/{uid}", 
+                timeout=8.0
+            )
+            if not user_data:
+                logger.error(f"Failed to fetch user data for UID {uid}.")
                 return SYSTEM_INSTRUCTION
 
-            user_data = response.json()
             user_name = user_data.get("name", "there")
             latest_summary = user_data.get("latestSummary", {}).get("summary_data", {})
 
-            # 2. Fetch recent context (last 5 sessions + last 5 journals)
-            from datetime import datetime, timedelta
-            
-            try:
-                recent_context_response = requests.post(
-                    "http://localhost:3000/get-recent-context",
-                    json={"uid": uid},  # Fetches last 5 sessions + last 5 journals automatically
-                    timeout=5  # 5 second timeout
-                )
-            except requests.Timeout:
-                logger.error("⚠️ Recent context fetch timed out")
-                recent_context_response = type('obj', (object,), {'status_code': 500})()
-            except Exception as e:
-                logger.error(f"⚠️ Recent context fetch failed: {e}")
-                recent_context_response = type('obj', (object,), {'status_code': 500})()
-            
-            # 3. Fetch weekly archives (last 4 weeks of compressed history)
-            try:
-                weekly_archives_response = requests.get(
+            # 2. Make parallel requests for context data
+            recent_context_response, weekly_archives_response, user_profile_response = await asyncio.gather(
+                self._fetch_with_timeout(
+                    "http://localhost:3000/get-recent-context", 
+                    method="POST", 
+                    json_data={"uid": uid}, 
+                    timeout=10.0
+                ),
+                self._fetch_with_timeout(
                     f"http://localhost:3000/get-weekly-archives/{uid}?limit=4",
-                    timeout=5  # 5 second timeout
-                )
-            except requests.Timeout:
-                logger.error("⚠️ Weekly archives fetch timed out")
-                weekly_archives_response = type('obj', (object,), {'status_code': 500})()
-            except Exception as e:
-                logger.error(f"⚠️ Weekly archives fetch failed: {e}")
-                weekly_archives_response = type('obj', (object,), {'status_code': 500})()
-            
-            # 4. Fetch user profile (long-term understanding)
-            logger.info(f"Fetching user profile for UID: {uid}")
-            try:
-                user_profile_response = requests.get(
+                    timeout=10.0
+                ),
+                self._fetch_with_timeout(
                     f"http://localhost:3000/user-profile/{uid}",
-                    timeout=3  # 3 second timeout
-                )
-            except requests.Timeout:
-                logger.error("⚠️ User profile fetch timed out")
-                user_profile_response = type('obj', (object,), {'status_code': 500})()
-            except Exception as e:
-                logger.error(f"⚠️ User profile fetch failed: {e}")
-                user_profile_response = type('obj', (object,), {'status_code': 500})()
+                    timeout=8.0
+                ),
+                return_exceptions=True
+            )
 
-            
-            # 4a. Initialize profile if it doesn't exist (404 means not found)
-            if user_profile_response.status_code == 404:
-                logger.info(f"Profile not found for UID {uid} (404), initializing empty profile...")
-                try:
-                    init_response = requests.post(
-                        f"http://localhost:3000/initialize-profile/{uid}"
-                    )
-                    if init_response.status_code in [200, 201]:
-                        logger.info(f"✅ Initialized empty profile for UID {uid}")
-                        # Fetch again to get the initialized profile
-                        user_profile_response = requests.get(
-                            f"http://localhost:3000/user-profile/{uid}"
-                        )
-                        if user_profile_response.status_code == 200:
-                            logger.info(f"✅ Profile fetched successfully after initialization")
-                    else:
-                        logger.error(f"Failed to initialize profile. Status: {init_response.status_code}")
-                except Exception as init_error:
-                    logger.error(f"Error initializing profile: {init_error}")
-            
-            # 4b. Validate profile data
-            if user_profile_response.status_code == 200:
-                profile_data = user_profile_response.json()
-                if profile_data.get("exists"):
-                    logger.info(f"✅ Profile exists for UID {uid}, including in context")
-                else:
-                    logger.warning(f"Profile response OK but exists=false for UID {uid}")
-            else:
-                logger.error(f"❌ Failed to fetch user profile. Status: {user_profile_response.status_code}")
-            
+            # Process recent context
             recent_activity = ""
-            if recent_context_response.status_code == 200:
-                context_data = recent_context_response.json()
+            if recent_context_response and not isinstance(recent_context_response, Exception):
+                context_data = recent_context_response
                 all_summaries = context_data.get("summaries", [])
                 
                 if all_summaries:
@@ -441,10 +417,10 @@ class LiveAPIWebSocketServer:
                     journal_count = sum(1 for s in all_summaries if s.get("source") == "journal_entry")
                     recent_activity += f"\nRecent activity summary: {session_count} AI sessions, {journal_count} journal entries\n"
 
-            # Format weekly archives
+            # Process weekly archives
             weekly_archives_section = ""
-            if weekly_archives_response.status_code == 200:
-                archives_data = weekly_archives_response.json()
+            if weekly_archives_response and not isinstance(weekly_archives_response, Exception):
+                archives_data = weekly_archives_response
                 archives = archives_data.get("archives", [])
                 
                 if archives:
@@ -500,33 +476,14 @@ class LiveAPIWebSocketServer:
                                 metrics.append(f"Stress: {stress_avg}/100")
                             weekly_archives_section += f"Metrics: {', '.join(metrics)}\n"
                         
-                        # Significant events
-                        events = archive.get("significant_events", [])
-                        if events:
-                            weekly_archives_section += f"Key events:\n"
-                            for event in events[:3]:  # Limit to top 3
-                                weekly_archives_section += f"  • {event}\n"
-                        
-                        # Patterns detected
-                        patterns = archive.get("patterns_detected", [])
-                        if patterns:
-                            weekly_archives_section += f"Patterns:\n"
-                            for pattern in patterns[:2]:  # Limit to top 2
-                                weekly_archives_section += f"  • {pattern}\n"
-                        
-                        # Coping strategies
-                        strategies = archive.get("coping_strategies", [])
-                        if strategies:
-                            weekly_archives_section += f"Coping strategies used: {', '.join(strategies[:3])}\n"
-                        
                         weekly_archives_section += "\n" + "-" * 50 + "\n\n"
                     
                     logger.info(f"Included {len(archives)} weekly archives in context")
 
-            # Format user profile for AI context
+            # Process user profile
             user_profile_section = ""
-            if user_profile_response.status_code == 200:
-                profile_data = user_profile_response.json()
+            if user_profile_response and not isinstance(user_profile_response, Exception):
+                profile_data = user_profile_response
                 
                 if profile_data.get("exists"):
                     profile = profile_data.get("profile", {})
@@ -563,10 +520,6 @@ class LiveAPIWebSocketServer:
                             user_profile_section += f"  • Comfort with vulnerability: {comm['comfort_with_vulnerability']}\n"
                         if comm.get("uses_humor") is not None:
                             user_profile_section += f"  • Uses humor: {'Yes' if comm['uses_humor'] else 'No'}\n"
-                        if comm.get("common_phrases"):
-                            phrases = comm['common_phrases']
-                            if isinstance(phrases, list) and phrases:
-                                user_profile_section += f"  • Common phrases: {', '.join(phrases[:3])}\n"
                         user_profile_section += "\n"
                     
                     # Psychological Patterns
@@ -579,16 +532,6 @@ class LiveAPIWebSocketServer:
                                 user_profile_section += f"  • Coping mechanisms: {', '.join(coping)}\n"
                         if psych.get("stress_response_pattern"):
                             user_profile_section += f"  • Stress response: {psych['stress_response_pattern']}\n"
-                        if psych.get("core_beliefs"):
-                            beliefs = psych['core_beliefs']
-                            if isinstance(beliefs, list) and beliefs:
-                                user_profile_section += f"  • Core beliefs:\n"
-                                for belief in beliefs[:2]:
-                                    user_profile_section += f"    - {belief}\n"
-                        if psych.get("anxiety_triggers"):
-                            triggers = psych['anxiety_triggers']
-                            if isinstance(triggers, list) and triggers:
-                                user_profile_section += f"  • Anxiety triggers: {', '.join(triggers)}\n"
                         user_profile_section += "\n"
                     
                     # Life Context
@@ -599,14 +542,6 @@ class LiveAPIWebSocketServer:
                             user_profile_section += f"  • Life stage: {life['current_life_stage']}\n"
                         if life.get("academic_pressure_level"):
                             user_profile_section += f"  • Academic pressure: {life['academic_pressure_level']}\n"
-                        if life.get("family_dynamics"):
-                            user_profile_section += f"  • Family dynamics: {life['family_dynamics']}\n"
-                        if life.get("social_support_level"):
-                            user_profile_section += f"  • Social support: {life['social_support_level']}\n"
-                        if life.get("upcoming_major_events"):
-                            events = life['upcoming_major_events']
-                            if isinstance(events, list) and events:
-                                user_profile_section += f"  • Upcoming events: {', '.join(events)}\n"
                         user_profile_section += "\n"
                     
                     # Strengths
@@ -617,97 +552,11 @@ class LiveAPIWebSocketServer:
                             chars = strengths['character_strengths']
                             if isinstance(chars, list) and chars:
                                 user_profile_section += f"  • Character strengths: {', '.join(chars)}\n"
-                        if strengths.get("past_successes"):
-                            successes = strengths['past_successes']
-                            if isinstance(successes, list) and successes:
-                                user_profile_section += f"  • Past successes:\n"
-                                for success in successes[:2]:
-                                    user_profile_section += f"    - {success}\n"
-                        if strengths.get("activities_that_help"):
-                            activities = strengths['activities_that_help']
-                            if isinstance(activities, list) and activities:
-                                user_profile_section += f"  • Activities that help: {', '.join(activities)}\n"
                         user_profile_section += "\n"
                     
-                    # Behavioral Patterns
-                    behavior = profile.get("behavioral_profile", {})
-                    if any(behavior.values()):
-                        user_profile_section += "BEHAVIORAL PATTERNS:\n"
-                        if behavior.get("sleep_patterns"):
-                            user_profile_section += f"  • Sleep: {behavior['sleep_patterns']}\n"
-                        if behavior.get("physical_activity_habits"):
-                            user_profile_section += f"  • Physical activity: {behavior['physical_activity_habits']}\n"
-                        if behavior.get("social_withdrawal_patterns"):
-                            user_profile_section += f"  • Social patterns: {behavior['social_withdrawal_patterns']}\n"
-                        user_profile_section += "\n"
-                    
-                    # Treatment Response
-                    treatment = profile.get("treatment_response_profile", {})
-                    if any(treatment.values()):
-                        user_profile_section += "WHAT WORKS FOR THIS USER:\n"
-                        if treatment.get("helpful_exercises"):
-                            helpful = treatment['helpful_exercises']
-                            if isinstance(helpful, list) and helpful:
-                                user_profile_section += f"  • Helpful exercises: {', '.join(helpful)}\n"
-                        if treatment.get("unhelpful_exercises"):
-                            unhelpful = treatment['unhelpful_exercises']
-                            if isinstance(unhelpful, list) and unhelpful:
-                                user_profile_section += f"  • Avoid suggesting: {', '.join(unhelpful)}\n"
-                        if treatment.get("preferred_intervention_types"):
-                            preferred = treatment['preferred_intervention_types']
-                            if isinstance(preferred, list) and preferred:
-                                user_profile_section += f"  • Prefers: {', '.join(preferred)}\n"
-                        user_profile_section += "\n"
-                    
-                    # Cultural Context
-                    cultural = profile.get("cultural_profile", {})
-                    if any(cultural.values()):
-                        user_profile_section += "CULTURAL CONTEXT:\n"
-                        if cultural.get("family_cultural_expectations"):
-                            expectations = cultural['family_cultural_expectations']
-                            if isinstance(expectations, list) and expectations:
-                                user_profile_section += f"  • Family expectations: {', '.join(expectations)}\n"
-                        if cultural.get("stigma_concerns"):
-                            stigma = cultural['stigma_concerns']
-                            if isinstance(stigma, list) and stigma:
-                                user_profile_section += f"  • Stigma concerns: {', '.join(stigma)}\n"
-                        if cultural.get("family_mh_literacy"):
-                            user_profile_section += f"  • Family MH literacy: {cultural['family_mh_literacy']}\n"
-                        user_profile_section += "\n"
-                    
-                    # Risk Awareness (handled sensitively)
-                    risk = profile.get("risk_profile", {})
-                    if risk.get("risk_level") and risk['risk_level'] != "low":
-                        user_profile_section += "IMPORTANT CONSIDERATIONS:\n"
-                        if risk.get("protective_factors_present"):
-                            factors = risk['protective_factors_present']
-                            if isinstance(factors, list) and factors:
-                                user_profile_section += f"  • Protective factors: {', '.join(factors)}\n"
-                        if risk.get("coping_strategies_for_crisis"):
-                            strategies = risk['coping_strategies_for_crisis']
-                            if isinstance(strategies, list) and strategies:
-                                user_profile_section += f"  • Crisis coping: {', '.join(strategies)}\n"
-                        user_profile_section += "\n"
-                    
-                    # Metadata
-                    metadata = profile.get("metadata", {})
-                    confidence = metadata.get("confidence_level", "low")
-                    total_updates = metadata.get("total_updates", 0)
-                    
-                    user_profile_section += f"Profile confidence: {confidence} ({total_updates} updates)\n"
                     user_profile_section += "-" * 50 + "\n\n"
                     
-                    logger.info(f"Included user profile (confidence: {confidence}) in context")
-                else:
-                    # Profile doesn't exist yet - initialize it
-                    try:
-                        init_response = requests.post(
-                            f"http://localhost:3000/initialize-profile/{uid}"
-                        )
-                        if init_response.status_code in [200, 201]:
-                            logger.info(f"Initialized empty profile for new user: {uid}")
-                    except Exception as e:
-                        logger.error(f"Error initializing profile: {e}")
+                    logger.info(f"Included user profile in context")
 
             # 4. Generate questions using Gemini based on the latest summary
             generated_questions = ""
@@ -740,7 +589,7 @@ class LiveAPIWebSocketServer:
                     logger.error(f"Error generating questions with Gemini: {e}")
                     generated_questions = "How have you been feeling since we last talked?" # Fallback question
 
-            # 4. Construct the dynamic system instruction with unified context + archives
+            # 5. Construct the dynamic system instruction with unified context + archives
             greeting = f"Start the conversation by warmly welcoming the user back. Greet them by name: '{user_name}'."
             
             dynamic_instruction = (
@@ -755,12 +604,8 @@ class LiveAPIWebSocketServer:
                 dynamic_instruction += (
                     "\nUse the recent activity timeline above to:\n"
                     "- Reference both journal entries and AI sessions naturally\n"
-                    "- Notice patterns across different types of interactions\n"
                     "- Follow up on action items from previous AI sessions\n"
-                    "- Acknowledge journal entries when relevant (e.g., 'I see you wrote about...')\n"
-                    "- Celebrate progress shown in journals or sessions\n"
-                    "- Connect themes between written reflections and conversations\n"
-                    "- Avoid repeating questions they already explored in journals\n\n"
+                    "- Acknowledge journal entries when relevant\n\n"
                 )
             
             # Add weekly archives if available
@@ -770,9 +615,7 @@ class LiveAPIWebSocketServer:
                     "\nUse the weekly archives to:\n"
                     "- Recognize long-term patterns and progress\n"
                     "- Reference past breakthroughs or challenges when relevant\n"
-                    "- Celebrate growth over weeks (e.g., 'You've come a long way since...')\n"
-                    "- Connect current struggles to past experiences\n"
-                    "- Notice recurring themes or triggers\n\n"
+                    "- Celebrate growth over weeks\n\n"
                 )
             
             # Add user profile if available
@@ -780,23 +623,10 @@ class LiveAPIWebSocketServer:
                 dynamic_instruction += user_profile_section
                 dynamic_instruction += (
                     "\nUse the user profile to:\n"
-                    "- Adapt your communication style to match theirs (expressiveness, pace, directness)\n"
+                    "- Adapt your communication style to match theirs\n"
                     "- Reference their strengths when they feel discouraged\n"
-                    "- Avoid suggesting interventions they find unhelpful\n"
-                    "- Be sensitive to cultural context and family dynamics\n"
                     "- Use language that matches their emotional vocabulary range\n"
-                    "- Remember their coping mechanisms and reinforce what works\n"
-                    "- Connect current situations to their known triggers or patterns\n"
-                    "- NEVER explicitly mention 'the profile' - just naturally incorporate the knowledge\n"
-                    "- Treat profile as deep friendship understanding, not clinical data\n\n"
-                    "PROFILE UPDATE GUIDELINES:\n"
-                    "- Update profile fields organically during conversation (NEVER ask directly)\n"
-                    "- Use soft language: 'I've noticed...' not 'You are...'\n"
-                    "- Validate inferences: 'Does this resonate with you?'\n"
-                    "- Only update when you have clear evidence (multiple mentions or explicit statements)\n"
-                    "- For sensitive fields (trauma, self-harm, substance use): ONLY update if user explicitly shares\n"
-                    "- Mark your confidence level: high (user stated clearly) vs. inferred (pattern observed)\n"
-                    "- Use the update-profile endpoint to store new insights\n\n"
+                    "- NEVER explicitly mention 'the profile' - just naturally incorporate the knowledge\n\n"
                 )
 
             if generated_questions:
@@ -810,14 +640,17 @@ class LiveAPIWebSocketServer:
 
             dynamic_instruction += "--------------------------"
             
-            logger.info(f"Generated dynamic instruction with unified context for UID {uid}")
+            total_time = (datetime.now() - total_start).total_seconds()
+            logger.info(f"✅ Dynamic instruction generated in {total_time:.2f}s (length: {len(dynamic_instruction)} chars)")
+            
+            if total_time > 10.0:
+                logger.warning(f"⚠️  Slow generation detected: {total_time:.2f}s - encryption may be causing delays")
+            
             return dynamic_instruction
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"RequestException when fetching user data: {e}")
-            return SYSTEM_INSTRUCTION
         except Exception as e:
-            logger.error(f"An unexpected error occurred in generate_dynamic_system_instruction: {e}")
+            total_time = (datetime.now() - total_start).total_seconds()
+            logger.error(f"❌ Dynamic instruction generation failed after {total_time:.2f}s: {e}")
             logger.error(traceback.format_exc())
             return SYSTEM_INSTRUCTION
 
@@ -828,10 +661,10 @@ class LiveAPIWebSocketServer:
         # Init transcript buffer for this client
         self.session_transcripts[client_id] = []
 
-        # Wait for the initial user_id message before starting the session
+        # Wait for the initial user_id message before starting the session (with increased timeout)
         uid = None
         try:
-            message = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+            message = await asyncio.wait_for(websocket.recv(), timeout=30.0)  # Increased timeout
             data = json.loads(message)
             if data.get("type") == "user_id":
                 uid = data.get("data")
@@ -860,8 +693,14 @@ class LiveAPIWebSocketServer:
 
         # Generate dynamic system instruction using the received UID
         logger.info(f"⏳ Generating dynamic system instruction for UID: {uid}")
-        dynamic_system_instruction = await self.generate_dynamic_system_instruction(uid)
-        logger.info(f"✅ Dynamic instruction generated successfully (length: {len(dynamic_system_instruction)} chars)")
+        try:
+            dynamic_system_instruction = await asyncio.wait_for(
+                self.generate_dynamic_system_instruction(uid),
+                timeout=25.0  # Overall timeout for instruction generation
+            )
+        except asyncio.TimeoutError:
+            logger.error("🚨 Dynamic instruction generation timed out - using fallback")
+            dynamic_system_instruction = SYSTEM_INSTRUCTION + "\n\nWelcome back! How have you been feeling lately?"
 
         # Send status update to client
         try:
@@ -889,8 +728,55 @@ class LiveAPIWebSocketServer:
         )
         logger.info(f"✅ LiveAPI config created")
 
-        # Connect to Gemini using LiveAPI with the session-specific config
+        # 🔥 CRITICAL FIX: Refresh authentication before connecting to LiveAPI
         logger.info(f"⏳ Connecting to Gemini LiveAPI (model: {MODEL})...")
+        auth_start = datetime.now()
+        try:
+            logger.info("🔄 Refreshing authentication credentials...")
+            
+            # Force token refresh by creating new credentials
+            fresh_creds = service_account.Credentials.from_service_account_file(
+                KEY_PATH, 
+                scopes=SCOPES
+            )
+            
+            # Force token generation
+            fresh_creds.refresh(Request())
+            
+            # Recreate client with fresh credentials
+            global client
+            client = genai.Client(
+                vertexai=True,
+                project=PROJECT_ID,
+                location=LOCATION,
+                credentials=fresh_creds,
+            )
+            
+            auth_time = (datetime.now() - auth_start).total_seconds()
+            logger.info(f"✅ Authentication refreshed in {auth_time:.2f}s")
+            
+        except Exception as auth_error:
+            logger.error(f"❌ Authentication refresh failed: {auth_error}")
+            # Try one more time with simpler approach
+            try:
+                client = genai.Client(
+                    vertexai=True,
+                    project=PROJECT_ID,
+                    location=LOCATION,
+                )
+                logger.info("✅ Fallback authentication successful")
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback authentication also failed: {fallback_error}")
+                # Send error to client and return
+                try:
+                    await websocket.send(json.dumps({
+                        "type": "error",
+                        "data": f"Authentication failed: {str(auth_error)}"
+                    }))
+                except Exception as send_error:
+                    logger.error(f"Failed to send error message to client: {send_error}")
+                return
+
         try:
             async with client.aio.live.connect(model=MODEL, config=live_config) as session:
                 logger.info(f"✅ Successfully connected to Gemini LiveAPI!")
