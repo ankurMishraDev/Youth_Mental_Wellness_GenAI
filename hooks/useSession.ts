@@ -9,6 +9,11 @@ export const useSession = (
   const [isRecording, setIsRecording] = useState(false)
   const [sessionSeconds, setSessionSeconds] = useState(0)
   const [sessionActive, setSessionActive] = useState(false)
+  
+  // Debug: Log sessionActive changes
+  useEffect(() => {
+    console.log(`🔄 sessionActive changed to: ${sessionActive}`)
+  }, [sessionActive])
   const [isAudioPlaying, setIsAudioPlaying] = useState(false)
   const [dashboardPage, setDashboardPage] = useState<DashboardPage>("home")
   const [inputMode, setInputMode] = useState<InputMode>("audio")
@@ -20,10 +25,18 @@ export const useSession = (
   // Session timer
   useEffect(() => {
     if (sessionActive) {
+      console.log("🕐 Timer started - sessionActive is true")
       sessionTimerRef.current = setInterval(() => {
-        setSessionSeconds((prev) => prev + 1)
+        setSessionSeconds((prev) => {
+          const newValue = prev + 1
+          if (newValue % 5 === 0) { // Log every 5 seconds to reduce noise
+            console.log(`⏱️ Timer tick: ${newValue} seconds`)
+          }
+          return newValue
+        })
       }, 1000)
     } else {
+      console.log("⏸️ Timer stopped - sessionActive is false")
       if (sessionTimerRef.current) {
         clearInterval(sessionTimerRef.current)
       }
@@ -32,6 +45,7 @@ export const useSession = (
     return () => {
       if (sessionTimerRef.current) {
         clearInterval(sessionTimerRef.current)
+        console.log("🛑 Timer interval cleared")
       }
     }
   }, [sessionActive])
@@ -60,8 +74,9 @@ export const useSession = (
       let currentResponseElement: Message | null = null
 
       audioClient.onReady = () => {
-        console.log("Audio client ready")
+        console.log("✅ Audio client ready - Setting sessionActive to TRUE")
         setSessionActive(true)
+        console.log("📊 Current sessionSeconds:", sessionSeconds)
         setMessages([
           {
             text: "Hello! I'm CureZ, your AI mentor. I'm here to listen and support you. What's on your mind today?",

@@ -153,6 +153,99 @@ function calculateIncrementalAverage(oldAvg, oldCount, newValue) {
 }
 
 /**
+ * Generate activity log entry (NOT follow-up questions)
+ * Creates simple activity tracking entries for dashboard timeline
+ */
+async function generateCheckin(uid, activityData) {
+  try {
+    const { source } = activityData;
+    
+    // Get current time
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    
+    console.log(`🔍 [CHECK-IN] Checking for recent ${source} activity...`);
+    
+    // Query with orderBy to get most recent check-ins (composite index required!)
+    const recentCheckinsSnapshot = await db.collection("users").doc(uid)
+      .collection("dashboard").doc("checkins")
+      .collection("items")
+      .where("source", "==", source)
+      .orderBy("created_at", "desc")
+      .limit(10)
+      .get();
+    
+    console.log(`📊 [CHECK-IN] Found ${recentCheckinsSnapshot.size} recent ${source} check-ins`);
+    
+    console.log(`📊 [CHECK-IN] Found ${recentCheckinsSnapshot.size} recent ${source} check-ins`);
+    
+    // Filter in memory for last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentActivity = recentCheckinsSnapshot.docs.find(doc => {
+      const data = doc.data();
+      const createdAt = data.created_at?.toDate();
+      if (createdAt) {
+        const isRecent = createdAt >= oneHourAgo;
+        console.log(`  - Check-in ${doc.id}: ${createdAt.toLocaleTimeString()} (${isRecent ? 'RECENT' : 'OLD'})`);
+      }
+      return createdAt && createdAt >= oneHourAgo;
+    });
+    
+    if (recentActivity) {
+      const lastTime = recentActivity.data().created_at?.toDate();
+      const minutesSince = Math.floor((Date.now() - lastTime.getTime()) / 60000);
+      console.log(`⏭️  [CHECK-IN] Activity log skipped: ${source} already logged ${minutesSince} minutes ago`);
+      return recentActivity.id;
+    }
+    
+    console.log(`✅ [CHECK-IN] No recent activity found, creating new check-in...`);
+    
+    // Create activity log message (NOT a question!)
+    const activityMessages = {
+      ai_session: `Completed AI Session`,
+      journal_entry: `Wrote Journal Entry`
+    };
+    
+    const typeIcons = {
+      ai_session: "session",
+      journal_entry: "journal"
+    };
+    
+    const checkinId = `checkin_${Date.now()}`;
+    const checkinData = {
+      id: checkinId,
+      message: activityMessages[source] || "Completed Activity",
+      type: typeIcons[source] || "general",
+      source: source,
+      activity_date: today,
+      time_display: timeStr,
+      date_display: dateStr,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      completed: true, // Activity logs are always "completed"
+      completed_at: admin.firestore.FieldValue.serverTimestamp(),
+      response: null
+    };
+    
+    // Save to dashboard/checkins/items subcollection
+    await db.collection("users").doc(uid)
+      .collection("dashboard").doc("checkins")
+      .collection("items").doc(checkinId)
+      .set(checkinData);
+    
+    console.log(`✅ [CHECK-IN] Activity log created for user ${uid}: ${activityMessages[source]} at ${timeStr}`);
+    console.log(`📍 [CHECK-IN] Path: users/${uid}/dashboard/checkins/items/${checkinId}`);
+    return checkinId;
+    
+  } catch (error) {
+    console.error("❌ [CHECK-IN] Error generating activity log:", error);
+    console.error("Stack trace:", error.stack);
+    return null; // Don't fail the whole operation if check-in creation fails
+  }
+}
+
+/**
  * Update analytics summary (Embedded Windows Architecture - Layer 2)
  * This function implements the incremental update strategy for real-time analytics
  */
@@ -190,6 +283,35 @@ async function updateAnalyticsSummary(uid, newMetric) {
           weekly_history: [],
           monthly_history: [],
           breakdown: { ai_sessions: 0, journal_entries: 0, total: 0 },
+          // NEW: Session analytics with streak tracking
+          session_analytics: {
+            total_sessions: 0,
+            sessions_this_week: 0,
+            total_duration_minutes: 0,
+            avg_duration_minutes: 0,
+            current_week: currentWeek,
+            current_streak: 0,
+            longest_streak: 0,
+            last_activity_date: null
+          },
+          // NEW: Developed areas tracking (15 predefined areas)
+          developed_areas: {
+            self_awareness: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            emotional_regulation: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            stress_management: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            anxiety_coping: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            social_skills: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            academic_stress: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            family_relationships: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            peer_relationships: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            self_esteem: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            goal_setting: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            decision_making: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            conflict_resolution: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            time_management: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            healthy_habits: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            resilience: { count: 0, confidence_sum: 0, avg_confidence: 0 }
+          },
           metadata: {
             total_lifetime_entries: 0,
             first_entry: now.toISOString(),
@@ -199,6 +321,40 @@ async function updateAnalyticsSummary(uid, newMetric) {
         };
       } else {
         summary = summaryDoc.data();
+        
+        // Ensure new fields exist for older documents
+        if (!summary.session_analytics) {
+          summary.session_analytics = {
+            total_sessions: 0,
+            sessions_this_week: 0,
+            total_duration_minutes: 0,
+            avg_duration_minutes: 0,
+            current_week: currentWeek,
+            current_streak: 0,
+            longest_streak: 0,
+            last_activity_date: null
+          };
+        }
+        
+        if (!summary.developed_areas) {
+          summary.developed_areas = {
+            self_awareness: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            emotional_regulation: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            stress_management: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            anxiety_coping: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            social_skills: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            academic_stress: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            family_relationships: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            peer_relationships: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            self_esteem: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            goal_setting: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            decision_making: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            conflict_resolution: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            time_management: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            healthy_habits: { count: 0, confidence_sum: 0, avg_confidence: 0 },
+            resilience: { count: 0, confidence_sum: 0, avg_confidence: 0 }
+          };
+        }
       }
       
       // Update current aggregates (incremental calculation - no need to re-read all metrics!)
@@ -231,6 +387,71 @@ async function updateAnalyticsSummary(uid, newMetric) {
         summary.breakdown.journal_entries = (summary.breakdown.journal_entries || 0) + 1;
       }
       summary.breakdown.total = (summary.breakdown.total || 0) + 1;
+      
+      // Update session analytics (for AI sessions only)
+      if (newMetric.source === 'ai_session') {
+        summary.session_analytics.total_sessions = (summary.session_analytics.total_sessions || 0) + 1;
+        
+        // Reset sessions_this_week if new week started
+        if (summary.session_analytics.current_week !== currentWeek) {
+          summary.session_analytics.sessions_this_week = 1;
+          summary.session_analytics.current_week = currentWeek;
+        } else {
+          summary.session_analytics.sessions_this_week = (summary.session_analytics.sessions_this_week || 0) + 1;
+        }
+        
+        // Update duration tracking
+        const sessionDuration = newMetric.duration_minutes || 0;
+        summary.session_analytics.total_duration_minutes = (summary.session_analytics.total_duration_minutes || 0) + sessionDuration;
+        summary.session_analytics.avg_duration_minutes = summary.session_analytics.total_duration_minutes / summary.session_analytics.total_sessions;
+      }
+      
+      // Update streak tracking (for both AI sessions and journal entries)
+      const activityDate = currentDay; // YYYY-MM-DD format
+      const lastActivityDate = summary.session_analytics.last_activity_date;
+      
+      if (!lastActivityDate) {
+        // First activity ever
+        summary.session_analytics.current_streak = 1;
+        summary.session_analytics.longest_streak = 1;
+        summary.session_analytics.last_activity_date = activityDate;
+      } else if (lastActivityDate === activityDate) {
+        // Same day - streak continues (no change)
+        summary.session_analytics.last_activity_date = activityDate;
+      } else {
+        // Different day - check if consecutive
+        const lastDate = new Date(lastActivityDate);
+        const currentDate = new Date(activityDate);
+        const diffDays = Math.floor((currentDate - lastDate) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          // Consecutive day - increment streak
+          summary.session_analytics.current_streak = (summary.session_analytics.current_streak || 0) + 1;
+          summary.session_analytics.longest_streak = Math.max(
+            summary.session_analytics.longest_streak || 0,
+            summary.session_analytics.current_streak
+          );
+        } else {
+          // Streak broken - reset to 1
+          summary.session_analytics.current_streak = 1;
+        }
+        
+        summary.session_analytics.last_activity_date = activityDate;
+      }
+      
+      // Update developed areas (if confidence data exists and > 0.6)
+      if (newMetric.developed_areas && Array.isArray(newMetric.developed_areas)) {
+        newMetric.developed_areas.forEach(area => {
+          const areaName = area.name; // e.g., "stress_management"
+          const confidence = area.confidence || 0;
+          
+          if (confidence > 0.6 && summary.developed_areas[areaName]) {
+            summary.developed_areas[areaName].count = (summary.developed_areas[areaName].count || 0) + 1;
+            summary.developed_areas[areaName].confidence_sum = (summary.developed_areas[areaName].confidence_sum || 0) + confidence;
+            summary.developed_areas[areaName].avg_confidence = summary.developed_areas[areaName].confidence_sum / summary.developed_areas[areaName].count;
+          }
+        });
+      }
       
       // Update rolling windows (aggregated stats only - no individual entries)
       summary.windows.last_7_days.mood_avg = summary.current.mood.average;
@@ -420,29 +641,191 @@ app.get("/get-analytics-summary/:uid", async (req, res) => {
 });
 
 /**
- * GET /get-raw-metrics/:uid
- * Fetch raw metrics directly from users/{uid}/metrics/ collection
- * TEMPORARY SOLUTION: Bypass embedded windows system for graph data
+ * GET /session-analytics/:uid
+ * Optimized endpoint for session statistics (total, this week, avg duration, streak)
+ * Uses pre-aggregated data from analytics/summary - NO raw metrics reading!
  */
-app.get("/get-raw-metrics/:uid", async (req, res) => {
+app.get("/session-analytics/:uid", async (req, res) => {
   const { uid } = req.params;
-  const limit = parseInt(req.query.limit) || 100;
   
   if (!uid) {
     return res.status(400).send({ error: "Missing uid" });
   }
   
   try {
-    console.log(`[RAW METRICS] Fetching metrics for user: ${uid}, limit: ${limit}`);
+    const summaryDoc = await db.collection("users").doc(uid).collection("analytics").doc("summary").get();
     
-    // Fetch metrics directly from flat metrics collection
-    const metricsSnapshot = await db
+    if (!summaryDoc.exists) {
+      return res.status(200).send({
+        exists: false,
+        data: {
+          total_sessions: 0,
+          sessions_this_week: 0,
+          avg_duration_minutes: 0,
+          current_streak: 0,
+          longest_streak: 0
+        }
+      });
+    }
+    
+    const summary = summaryDoc.data();
+    const sessionAnalytics = summary.session_analytics || {};
+    
+    res.status(200).send({
+      exists: true,
+      data: {
+        total_sessions: sessionAnalytics.total_sessions || 0,
+        sessions_this_week: sessionAnalytics.sessions_this_week || 0,
+        avg_duration_minutes: Math.round(sessionAnalytics.avg_duration_minutes || 0),
+        total_duration_minutes: sessionAnalytics.total_duration_minutes || 0,
+        current_streak: sessionAnalytics.current_streak || 0,
+        longest_streak: sessionAnalytics.longest_streak || 0,
+        last_activity_date: sessionAnalytics.last_activity_date || null
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error fetching session analytics:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+/**
+ * GET /dashboard-summary/:uid
+ * Optimized endpoint for dashboard data (developed areas, streak, check-ins)
+ * Uses pre-aggregated data from analytics/summary
+ */
+app.get("/dashboard-summary/:uid", async (req, res) => {
+  const { uid } = req.params;
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" });
+  }
+  
+  try {
+    const summaryDoc = await db.collection("users").doc(uid).collection("analytics").doc("summary").get();
+    
+    if (!summaryDoc.exists) {
+      return res.status(200).send({
+        exists: false,
+        data: {
+          developed_areas: [],
+          streak: 0,
+          checkins: []
+        }
+      });
+    }
+    
+    const summary = summaryDoc.data();
+    const developedAreas = summary.developed_areas || {};
+    
+    // Get top 3 developed areas by avg_confidence
+    const areasArray = Object.entries(developedAreas)
+      .filter(([_, data]) => data.count > 0)
+      .map(([name, data]) => ({
+        name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), // Format: "Stress Management"
+        count: data.count,
+        avg_confidence: Math.round(data.avg_confidence * 100) // Convert to percentage
+      }))
+      .sort((a, b) => b.avg_confidence - a.avg_confidence)
+      .slice(0, 3);
+    
+    // Fetch recent check-ins (last 3)
+    const checkinsSnapshot = await db.collection("users").doc(uid).collection("dashboard")
+      .doc("checkins").collection("items")
+      .orderBy("created_at", "desc")
+      .limit(3)
+      .get();
+    
+    const checkins = checkinsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.status(200).send({
+      exists: true,
+      data: {
+        developed_areas: areasArray,
+        streak: summary.session_analytics?.current_streak || 0,
+        checkins: checkins
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error fetching dashboard summary:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+/**
+ * POST /dashboard/complete-checkin
+ * Mark a check-in as completed with user response
+ */
+app.post("/dashboard/complete-checkin", async (req, res) => {
+  const { uid, checkinId, response } = req.body;
+  
+  if (!uid || !checkinId) {
+    return res.status(400).send({ error: "Missing uid or checkinId" });
+  }
+  
+  try {
+    const checkinRef = db.collection("users").doc(uid)
+      .collection("dashboard").doc("checkins")
+      .collection("items").doc(checkinId);
+    
+    await checkinRef.update({
+      completed: true,
+      completed_at: admin.firestore.FieldValue.serverTimestamp(),
+      response: response || null
+    });
+    
+    console.log(`✅ Check-in completed: ${checkinId} for user ${uid}`);
+    
+    res.status(200).send({
+      message: "Check-in completed successfully",
+      checkinId
+    });
+    
+  } catch (error) {
+    console.error("Error completing check-in:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+/**
+ * GET /get-raw-metrics/:uid
+ * Fetch raw metrics directly from users/{uid}/metrics/ collection
+ * Supports optional ?days=7 parameter for date filtering (default: all)
+ */
+app.get("/get-raw-metrics/:uid", async (req, res) => {
+  const { uid } = req.params;
+  const limit = parseInt(req.query.limit) || 100;
+  const days = parseInt(req.query.days) || null; // NEW: Optional days filter
+  
+  if (!uid) {
+    return res.status(400).send({ error: "Missing uid" });
+  }
+  
+  try {
+    console.log(`[RAW METRICS] Fetching metrics for user: ${uid}, limit: ${limit}, days: ${days || 'all'}`);
+    
+    // Build query with optional date filter
+    let query = db
       .collection("users")
       .doc(uid)
       .collection("metrics")
-      .orderBy("timestamp", "desc")
-      .limit(limit)
-      .get();
+      .orderBy("timestamp", "desc");
+    
+    // Apply date filter if days parameter provided
+    if (days) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      query = query.where("timestamp", ">=", cutoffDate);
+    }
+    
+    query = query.limit(limit);
+    
+    const metricsSnapshot = await query.get();
     
     if (metricsSnapshot.empty) {
       return res.status(200).send({
@@ -846,13 +1229,19 @@ app.post("/save-summary", async (req, res) => {
     // 4. Update analytics summary (Embedded Windows System)
     await updateAnalyticsSummary(uid, metricsData);
 
-    // 5. Check and trigger count-based archiving (archive oldest 5 when count >= 10)
+    // 5. Generate activity log entry (deduplication handled inside)
+    const checkinId = await generateCheckin(uid, {
+      source: 'ai_session'
+    });
+
+    // 6. Check and trigger count-based archiving (archive oldest 5 when count >= 10)
     const archiveResult = await checkAndArchiveIfNeeded(uid);
     
     console.log(`✅ Summary saved for user ${uid} with encryption:`)
     console.log(`   - metrics/${sessionId} (source: ai_session, confidence: 90%, NOT encrypted)`)
     console.log(`   - summaries/${sessionId} (text encrypted)`)
     console.log(`   - latest/metrics (cache updated)`)
+    console.log(`   - dashboard/checkins/items/${checkinId} (activity log created)`)
     if (archiveResult.archived) {
       console.log(`   - ♻️ Archived ${archiveResult.count} oldest summaries`)
     }
@@ -862,12 +1251,14 @@ app.post("/save-summary", async (req, res) => {
       sessionId,
       source: "ai_session",
       confidence: 0.90,
+      checkinId,
       archived: archiveResult.archived,
       archived_count: archiveResult.count,
       paths: {
         metrics: `users/${uid}/metrics/${sessionId}`,
         summary: `users/${uid}/summaries/${sessionId}`,
-        latest: `users/${uid}/latest/metrics`
+        latest: `users/${uid}/latest/metrics`,
+        checkin: `users/${uid}/dashboard/checkins/items/${checkinId}`
       }
     })
   } catch (error) {
@@ -880,11 +1271,21 @@ app.post("/save-summary", async (req, res) => {
 app.post("/save-journal-metrics", async (req, res) => {
   const { uid, entryId, metrics } = req.body
   
+  console.log(`📝 [JOURNAL METRICS] Received request for user ${uid}, entry ${entryId}`);
+  
   if (!uid || !entryId || !metrics) {
+    console.error(`❌ [JOURNAL METRICS] Missing required fields - uid: ${!!uid}, entryId: ${!!entryId}, metrics: ${!!metrics}`);
     return res.status(400).send({ error: "Missing uid, entryId, or metrics" })
   }
 
   try {
+    console.log(`📊 [JOURNAL METRICS] Processing metrics:`, {
+      mood: metrics.mood_percentage,
+      energy: metrics.energy_level,
+      stress: metrics.stress_level,
+      confidence: metrics.confidence
+    });
+    
     const metricId = `jour_${Date.now()}`
     const timestamp = admin.firestore.FieldValue.serverTimestamp()
 
@@ -965,18 +1366,30 @@ app.post("/save-journal-metrics", async (req, res) => {
     }
 
     // Update analytics summary (Embedded Windows System)
+    console.log(`📈 [JOURNAL METRICS] Updating analytics summary...`);
     await updateAnalyticsSummary(uid, metricsData);
+    console.log(`✅ [JOURNAL METRICS] Analytics summary updated`);
+    
+    // Generate activity log entry (deduplication handled inside)
+    console.log(`📋 [JOURNAL METRICS] Creating activity log check-in...`);
+    const checkinId = await generateCheckin(uid, {
+      source: 'journal_entry'
+    });
+    console.log(`✅ [JOURNAL METRICS] Activity log check-in created: ${checkinId}`);
 
     console.log(`✅ Journal metrics saved: users/${uid}/metrics/${metricId}`)
     console.log(`   Source: journal_entry, Confidence: ${Math.round((metrics.confidence || 0.75) * 100)}%`)
     console.log(`   Entry ID: ${entryId}`)
+    console.log(`   Activity log: ${checkinId}`)
 
     res.status(200).send({
       message: "Journal metrics saved successfully",
       metricId,
       source: "journal_entry",
       confidence: metrics.confidence || 0.75,
-      path: `users/${uid}/metrics/${metricId}`
+      checkinId,
+      path: `users/${uid}/metrics/${metricId}`,
+      checkin_path: `users/${uid}/dashboard/checkins/items/${checkinId}`
     })
 
   } catch (error) {

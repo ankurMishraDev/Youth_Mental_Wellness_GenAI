@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import requests
+import traceback
 from datetime import datetime, timezone
 from aiohttp import web
 import logging
@@ -914,34 +915,82 @@ async def handle_extract_metrics(request):
     }
     """
     try:
+        logger.info("=" * 80)
+        logger.info("📝 [JOURNAL METRICS] NEW REQUEST RECEIVED")
+        logger.info("=" * 80)
+        
         data = await request.json()
+        logger.info(f"📦 [JOURNAL METRICS] Raw request body: {json.dumps(data, indent=2)}")
+        
         uid = data.get('uid')
         entry = data.get('entry', {})
         
+        logger.info(f"👤 [JOURNAL METRICS] User ID: {uid}")
+        logger.info(f"📄 [JOURNAL METRICS] Entry ID: {entry.get('id')}")
+        logger.info(f"📝 [JOURNAL METRICS] Entry title: {entry.get('title')}")
+        logger.info(f"😊 [JOURNAL METRICS] Entry mood: {entry.get('mood')}")
+        logger.info(f"📏 [JOURNAL METRICS] Content length: {len(entry.get('content_text', ''))} characters")
+        
         if not uid:
+            logger.error("❌ [JOURNAL METRICS] Missing uid parameter")
             return web.json_response(
                 {'error': 'Missing uid parameter'},
                 status=400
             )
         
         if not entry.get('content_text'):
+            logger.error("❌ [JOURNAL METRICS] Missing entry content_text")
             return web.json_response(
                 {'error': 'Missing entry content_text'},
                 status=400
             )
         
-        logger.info(f"Processing journal entry {entry.get('id')} for user {uid}")
+        logger.info(f"✅ [JOURNAL METRICS] Validation passed, processing entry {entry.get('id')}")
         
         # Step 1: Extract metrics (always done)
+        logger.info("🔬 [JOURNAL METRICS] Step 1: Extracting metrics...")
         metrics_result = await extract_journal_metrics(uid, entry)
+        logger.info(f"✅ [JOURNAL METRICS] Metrics extracted successfully")
+        logger.info(f"📊 [JOURNAL METRICS] Metrics: {json.dumps(metrics_result.get('metrics', {}), indent=2)}")
+        
+        # NEW: Send metrics to database server for analytics tracking
+        logger.info("🚀 [JOURNAL METRICS] Step 2: Sending metrics to db-server...")
+        try:
+            metrics_payload = {
+                "uid": uid,
+                "entryId": entry.get('id'),
+                "metrics": metrics_result.get('metrics', {})
+            }
+            logger.info(f"📦 [JOURNAL METRICS] Payload to db-server: {json.dumps(metrics_payload, indent=2)}")
+            logger.info(f"🌐 [JOURNAL METRICS] Calling: {DB_SERVER_URL}/save-journal-metrics")
+            
+            metrics_response = requests.post(
+                f"{DB_SERVER_URL}/save-journal-metrics",
+                json=metrics_payload,
+                timeout=10
+            )
+            
+            logger.info(f"📨 [JOURNAL METRICS] db-server response status: {metrics_response.status_code}")
+            logger.info(f"📨 [JOURNAL METRICS] db-server response body: {metrics_response.text}")
+            
+            if metrics_response.status_code == 200:
+                logger.info(f"✅ [JOURNAL METRICS] Metrics saved successfully to analytics")
+            else:
+                logger.error(f"❌ [JOURNAL METRICS] Failed to save metrics: {metrics_response.status_code}")
+        except Exception as e:
+            logger.error(f"❌ [JOURNAL METRICS] Error sending metrics to backend: {e}")
+            logger.error(traceback.format_exc())
         
         # Step 2: Evaluate if summary should be stored
+        logger.info("🤔 [JOURNAL METRICS] Step 3: Evaluating summary value...")
         evaluation = await evaluate_journal_summary_value(entry)
+        logger.info(f"📊 [JOURNAL METRICS] Evaluation result: {json.dumps(evaluation, indent=2)}")
         
         # Step 3: Generate summary only if confidence >= 0.65
         if evaluation['should_store_summary']:
+            logger.info(f"✅ [JOURNAL METRICS] Summary will be generated (confidence: {evaluation['confidence']:.2f})")
             summary_result = await generate_journal_summary(uid, entry, evaluation)
-            logger.info(f"✅ Summary will be stored (confidence: {evaluation['confidence']:.2f})")
+            logger.info(f"✅ [JOURNAL METRICS] Summary generated: {len(summary_result.get('summary_text', ''))} characters")
         else:
             summary_result = {
                 'summary_generated': False,
@@ -951,17 +1000,24 @@ async def handle_extract_metrics(request):
                 'reasoning': evaluation['reasoning'],
                 'should_store': False
             }
-            logger.info(f"⏭️  Summary skipped (confidence: {evaluation['confidence']:.2f}, reason: {evaluation['reasoning']})")
+            logger.info(f"⏭️  [JOURNAL METRICS] Summary skipped (confidence: {evaluation['confidence']:.2f}, reason: {evaluation['reasoning']})")
         
         # Return both metrics and summary decision
-        return web.json_response({
+        response_data = {
             'success': True,
             'metrics': metrics_result.get('metrics', {}),
             'summary': summary_result
-        })
+        }
+        logger.info("✅ [JOURNAL METRICS] Request completed successfully")
+        logger.info("=" * 80)
+        
+        return web.json_response(response_data)
         
     except Exception as e:
-        logger.error(f"Error in handle_extract_metrics: {e}")
+        logger.error("❌ [JOURNAL METRICS] FATAL ERROR")
+        logger.error(f"Error: {e}")
+        logger.error(traceback.format_exc())
+        logger.info("=" * 80)
         return web.json_response(
             {'error': str(e), 'success': False},
             status=500

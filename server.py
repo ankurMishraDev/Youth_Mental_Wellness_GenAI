@@ -237,6 +237,7 @@ class LiveAPIWebSocketServer:
         self.session_transcripts = {}
         self.session_ids = {}
         self.user_ids = {}
+        self.session_start_times = {}  # NEW: Track session start times for duration calculation
 
     async def start(self):
         logger.info(f"Starting WebSocket server on {self.host}:{self.port}")
@@ -672,6 +673,9 @@ class LiveAPIWebSocketServer:
 
         # Init transcript buffer for this client
         self.session_transcripts[client_id] = []
+        
+        # NEW: Record session start time for duration calculation
+        self.session_start_times[client_id] = datetime.now()
 
         # Wait for the initial user_id message before starting the session (with increased timeout)
         uid = None
@@ -1122,6 +1126,12 @@ class LiveAPIWebSocketServer:
             },
             "suggestions_non_clinical": [],
             "suggested_exercises": ["ex001","ex002","ex003"],
+            # NEW: Developed areas tracking (15 predefined areas with confidence scores)
+            "developed_areas": [
+                {"name": "self_awareness", "confidence": 0.0},
+                {"name": "emotional_regulation", "confidence": 0.0},
+                {"name": "stress_management", "confidence": 0.0}
+            ]
         }
 
         user_prompt = (
@@ -1150,6 +1160,13 @@ class LiveAPIWebSocketServer:
             "- 'anxiety_level' on a 0-100 scale distinct from stress (0 = no anxiety, 100 = extreme anxiety). "
             "- 'focus_level' describing their concentration (e.g., Focused, Distracted, Scattered). "
             "- 'positive_event' capturing a gratitude or positive moment noted by the user. "
+            "IMPORTANT - Developed Areas Analysis: "
+            "Analyze the conversation and identify which of these 15 wellness areas the user demonstrated growth or engagement in. "
+            "For each relevant area, assign a confidence score (0.0-1.0) representing how strongly this area was developed in the session. "
+            "Only include areas with confidence > 0.6 in the 'developed_areas' array. Each entry should have 'name' and 'confidence'. "
+            "Areas: self_awareness, emotional_regulation, stress_management, anxiety_coping, social_skills, academic_stress, "
+            "family_relationships, peer_relationships, self_esteem, goal_setting, decision_making, conflict_resolution, "
+            "time_management, healthy_habits, resilience. "
             "Use the behavioral and cognitive metrics (sleep quality, social connection, physical activity), along with mood, energy, and stress, when estimating 'mood_percentage'. "
             "Apply holistic scoring: Start with a base score from conversational tone, then adjust based on stress levels, energy levels, behavioral metrics, and cognitive functioning. "
             "Consider protective factors like support systems, coping strategies, and resilience indicators when determining the final mood percentage. "
@@ -1200,6 +1217,15 @@ class LiveAPIWebSocketServer:
         summary_obj = validate_mood_scores(summary_obj)
         logger.info(f"Parsed and validated summary object: {json.dumps(summary_obj, indent=2)}")
 
+        # NEW: Calculate session duration
+        session_duration_minutes = 0
+        if client_id in self.session_start_times:
+            session_end_time = datetime.now()
+            session_start_time = self.session_start_times[client_id]
+            duration_seconds = (session_end_time - session_start_time).total_seconds()
+            session_duration_minutes = round(duration_seconds / 60, 2)  # Convert to minutes
+            logger.info(f"📊 Session duration: {session_duration_minutes} minutes")
+
         # Send to Node.js backend
         try:
             payload = {
@@ -1210,12 +1236,18 @@ class LiveAPIWebSocketServer:
                         "client_id": client_id,
                         "session_id": session_handle,
                         "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+                        "duration_minutes": session_duration_minutes  # NEW: Include duration
                     }
                 }
             }
             response = requests.post("http://localhost:3000/save-summary", json=payload)
             response.raise_for_status()  # Raise an exception for bad status codes
             logger.info(f"✅ Summary sent to Node.js backend: {response.text}")
+            
+            # NEW: Clean up session start time after sending summary
+            if client_id in self.session_start_times:
+                del self.session_start_times[client_id]
+            
             return "ok"
         except requests.exceptions.RequestException as e:
             logger.error(f"Error sending summary to Node.js backend: {e}")

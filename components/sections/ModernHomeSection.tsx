@@ -64,6 +64,10 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
     latestMood: null as number | null,
     latestEnergy: null as number | null,
   });
+  const [streakData, setStreakData] = useState({
+    current_streak: 0,
+    longest_streak: 0,
+  });
   const [moodTrends, setMoodTrends] = useState<any[]>([]);
   const [wellnessTimeline, setWellnessTimeline] = useState<any[]>([]);
   const [homeTimelineData, setHomeTimelineData] = useState<any[]>([]);
@@ -190,8 +194,26 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
   useEffect(() => {
     if (currentUser?.uid) {
       fetchDashboardData();
+      fetchStreakData();
     }
   }, [currentUser?.uid]);
+
+  // Fetch streak data from session-analytics endpoint
+  const fetchStreakData = async () => {
+    try {
+      const response = await fetch(`/api/session-analytics/${currentUser.uid}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Streak data fetched:', data);
+        setStreakData({
+          current_streak: data.data?.current_streak || 0,
+          longest_streak: data.data?.longest_streak || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching streak data:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -306,14 +328,47 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
     return Math.min((totalJournals / weeklyGoal) * 100, 100);
   };
 
-  // Mock developed areas - In real app, fetch from user profiling
-  const developedAreas = [
-    { name: "Emotional Awareness", progress: 71, color: "#f97316" },
-    { name: "Stress Management", progress: 92, color: "#ec4899" },
-    { name: "Social Skills", progress: 53, color: "#8b5cf6" },
-    { name: "Self-Reflection", progress: 56, color: "#06b6d4" },
-    { name: "Mindfulness", progress: 79, color: "#10b981" },
-  ];
+  // NEW: Dynamic developed areas and check-ins from backend
+  const [developedAreas, setDevelopedAreas] = useState<any[]>([]);
+  const [checkins, setCheckins] = useState<any[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [loadingDashboardSummary, setLoadingDashboardSummary] = useState(true);
+  
+  // Fetch dashboard summary (developed areas, streak, check-ins)
+  useEffect(() => {
+    const fetchDashboardSummary = async () => {
+      if (!currentUser?.uid) {
+        setLoadingDashboardSummary(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/dashboard-summary/${currentUser.uid}`);
+        const data = await response.json();
+        
+        if (data.exists && data.data) {
+          // Transform developed areas to match UI format
+          const areas = data.data.developed_areas.map((area: any, idx: number) => ({
+            name: area.name,
+            progress: area.avg_confidence, // Already in percentage
+            color: ["#f97316", "#ec4899", "#8b5cf6"][idx] || "#06b6d4"
+          }));
+          
+          setDevelopedAreas(areas);
+          setCheckins(data.data.checkins || []);
+          setStreak(data.data.streak || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard summary:", error);
+      } finally {
+        setLoadingDashboardSummary(false);
+      }
+    };
+    
+    if (currentUser?.uid) {
+      fetchDashboardSummary();
+    }
+  }, [currentUser?.uid]);
 
   if (isLoading && !dashboardData) {
     return (
@@ -379,7 +434,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                   <Avatar className="h-24 w-24 border-4 border-white/60 dark:border-slate-800/60 shadow-2xl ring-4 ring-orange-300/70 dark:ring-orange-600/60">
                     <AvatarImage src={avatarUrl || dashboardData?.photoURL} />
                     <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-orange-400 to-pink-500 text-white">
-                      {getInitials(currentUser?.name || "User")}
+                      {getInitials(dashboardData?.name || currentUser?.displayName || "User")}
                     </AvatarFallback>
                   </Avatar>
                   {isGeneratingAvatar && (
@@ -390,7 +445,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                 </div>
                 
                 <div>
-                  <h3 className="font-bold text-2xl text-foreground">{currentUser?.name || "User"}</h3>
+                  <h3 className="font-bold text-2xl text-foreground">{currentUser?.name || currentUser?.displayName || "User"}</h3>
                   <p className="text-sm text-muted-foreground">
                     {currentUser?.gender || "Not specified"} • {currentUser?.age || "N/A"} years
                   </p>
@@ -414,7 +469,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
                   <div className="text-center bg-white/50 dark:bg-slate-800/40 backdrop-blur-sm rounded-xl p-1 border border-white/30 dark:border-slate-700/30 shadow-md">
                     <Zap className="h-5 w-5 mx-auto mb-1 text-purple-600 dark:text-purple-400" />
                     <div className="text-xl font-bold text-foreground">
-                      {dashboardData?.streak || 24}
+                      {streakData.current_streak}
                     </div>
                     <p className="text-xs text-muted-foreground">Streak</p>
                   </div>
@@ -437,62 +492,54 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
               </div>
             </CardHeader>
             <CardContent className="px-2 py-0.5 space-y-2">
-              {/* Check-in items */}
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/60 dark:bg-slate-800/50 backdrop-blur-sm hover:shadow-md transition-all cursor-pointer border border-white/40 dark:border-slate-700/40">
-                <div className="w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm flex items-center justify-center shadow-md flex-shrink-0 border border-orange-300/40 dark:border-orange-500/40">
-                  <Brain className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              {/* Dynamic check-in items */}
+              {loadingDashboardSummary ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate text-foreground">Evening Reflection</div>
-                  <div className="text-xs text-muted-foreground">Today • 07:00 PM</div>
+              ) : checkins.length > 0 ? (
+                <>
+                  {checkins.map((checkin, idx) => {
+                    const typeIcons: any = {
+                      session: MessageCircle,
+                      journal: BookOpen,
+                      general: Activity
+                    };
+                    const typeColors: any = {
+                      session: { icon: 'orange', border: 'orange-300/40', bg: 'orange-50' },
+                      journal: { icon: 'blue', border: 'blue-300/40', bg: 'blue-50' },
+                      general: { icon: 'purple', border: 'purple-300/40', bg: 'purple-50' }
+                    };
+                    
+                    const Icon = typeIcons[checkin.type] || Activity;
+                    const colors = typeColors[checkin.type] || { icon: 'gray', border: 'gray-300/40', bg: 'gray-50' };
+                    
+                    return (
+                      <div key={checkin.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/60 dark:bg-slate-800/50 backdrop-blur-sm hover:shadow-md transition-all cursor-pointer border border-white/40 dark:border-slate-700/40">
+                        <div className={`w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm flex items-center justify-center shadow-md flex-shrink-0 border border-${colors.border} dark:border-${colors.border.replace('300', '500')}`}>
+                          <Icon className={`h-5 w-5 text-${colors.icon}-600 dark:text-${colors.icon}-400`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate text-foreground">{checkin.message}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {checkin.date_display} • {checkin.time_display}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  Complete a session or journal entry to see your activity!
                 </div>
-                <div className="text-xs font-medium text-orange-600 dark:text-orange-400 flex-shrink-0">
-                  3h
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/60 dark:bg-slate-800/50 backdrop-blur-sm hover:shadow-md transition-all cursor-pointer border border-white/40 dark:border-slate-700/40">
-                <div className="w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm flex items-center justify-center shadow-md flex-shrink-0 border border-blue-300/40 dark:border-blue-500/40">
-                  <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate text-foreground">Morning Journal</div>
-                  <div className="text-xs text-muted-foreground">Tomorrow • 09:00 AM</div>
-                </div>
-                <div className="text-xs font-medium text-blue-600 dark:text-blue-400 flex-shrink-0">
-                  Tmr
-                </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/60 dark:bg-slate-800/50 backdrop-blur-sm hover:shadow-md transition-all cursor-pointer border border-white/40 dark:border-slate-700/40">
-                <div className="w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm flex items-center justify-center shadow-md flex-shrink-0 border border-purple-300/40 dark:border-purple-500/40">
-                  <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate text-foreground">Wellness Check</div>
-                  <div className="text-xs text-muted-foreground">Wed • 02:00 PM</div>
-                </div>
-                <div className="text-xs font-medium text-purple-600 dark:text-purple-400 flex-shrink-0">
-                  Wed
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/60 dark:bg-slate-800/50 backdrop-blur-sm hover:shadow-md transition-all cursor-pointer border border-white/40 dark:border-slate-700/40">
-                <div className="w-10 h-10 rounded-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm flex items-center justify-center shadow-md flex-shrink-0 border border-emerald-300/40 dark:border-emerald-500/40">
-                  <Heart className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate text-foreground">Mood Review</div>
-                  <div className="text-xs text-muted-foreground">Fri • 06:00 PM</div>
-                </div>
-                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                  Fri
-                </div>
-              </div>
-
-              <Button variant="ghost" className="w-full mt-2 h-8 hover:bg-indigo-200/50 dark:hover:bg-indigo-800/40 backdrop-blur-sm text-sm" size="sm">
-                See all →
-              </Button>
+              {checkins.length > 0 && (
+                <Button variant="ghost" className="w-full mt-2 h-8 hover:bg-indigo-200/50 dark:hover:bg-indigo-800/40 backdrop-blur-sm text-sm" size="sm">
+                  See all →
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>

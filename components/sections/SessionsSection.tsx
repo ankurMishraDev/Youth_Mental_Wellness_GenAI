@@ -24,7 +24,7 @@ import {
   Activity,
   User,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMessages } from '@/hooks/useMessages';
 import { useSession } from '@/hooks/useSession';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,24 +48,92 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
   const [textMessage, setTextMessage] = useState("");
   const [currentInputMode, setCurrentInputMode] = useState<"audio" | "text">("audio");
   
+  // Local timer state (independent of WebSocket)
+  const [localTimerSeconds, setLocalTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // NEW: Dynamic session stats
+  const [sessionStats, setSessionStats] = useState({
+    totalSessions: 0,
+    thisWeek: 0,
+    avgDuration: "0m",
+    streak: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+  
   const { messages, setMessages, messagesEndRef } = useMessages();
   const session = useSession(auth.currentUser, setMessages);
 
-  const sessionStats = {
-    totalSessions: 24,
-    thisWeek: 5,
-    avgDuration: "12m",
-    streak: 7,
-  };
+  // NEW: Fetch session analytics from backend
+  useEffect(() => {
+    const fetchSessionAnalytics = async () => {
+      if (!auth.currentUser?.uid) {
+        setLoadingStats(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/session-analytics/${auth.currentUser.uid}`);
+        const data = await response.json();
+        
+        if (data.exists && data.data) {
+          setSessionStats({
+            totalSessions: data.data.total_sessions || 0,
+            thisWeek: data.data.sessions_this_week || 0,
+            avgDuration: `${data.data.avg_duration_minutes || 0}m`,
+            streak: data.data.current_streak || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching session analytics:", error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    
+    fetchSessionAnalytics();
+  }, [auth.currentUser?.uid]);
+
+  // Local timer effect - runs independently
+  useEffect(() => {
+    if (isTimerRunning) {
+      console.log("🎬 Local timer STARTED");
+      timerIntervalRef.current = setInterval(() => {
+        setLocalTimerSeconds(prev => {
+          const newVal = prev + 1;
+          if (newVal % 10 === 0) console.log(`⏱️ Local timer: ${newVal}s`);
+          return newVal;
+        });
+      }, 1000);
+    } else {
+      if (timerIntervalRef.current) {
+        console.log("⏹️ Local timer STOPPED");
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [isTimerRunning]);
 
   const handleStartSession = () => {
     setIsFlipped(true);
+    setLocalTimerSeconds(0); // Reset timer
+    // DON'T start timer here - wait for user interaction
+    console.log("📱 Session card flipped - waiting for user to interact");
     if (auth.currentUser && !session.audioClientRef.current) {
       session.initializeAudioClient();
     }
   };
 
   const handleEndSession = () => {
+    setIsTimerRunning(false); // Stop local timer
+    console.log(`⏹️ Session ended - Duration: ${localTimerSeconds} seconds`);
     session.endSession();
     setIsFlipped(false);
     setMessages([]);
@@ -74,6 +142,11 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
 
   const handleSendText = () => {
     if (textMessage.trim()) {
+      // Start timer on first text message
+      if (!isTimerRunning) {
+        setIsTimerRunning(true);
+        console.log("▶️ Timer started - User sent first text message");
+      }
       session.sendTextMessage(textMessage.trim());
       setTextMessage("");
     }
@@ -87,6 +160,11 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
 
   // Handle recording start - user starts speaking
   const handleStartRecording = async () => {
+    // Start timer on first mic click
+    if (!isTimerRunning) {
+      setIsTimerRunning(true);
+      console.log("▶️ Timer started - User clicked mic button");
+    }
     await session.startRecording();
   };
 
@@ -293,13 +371,13 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
                   <div className="flex items-center justify-between mb-1.5 lg:mb-2">
                     <span className="text-xs lg:text-sm xl:text-base font-semibold text-foreground">Duration</span>
                     <span className="text-xl lg:text-2xl xl:text-3xl font-bold text-green-600 dark:text-green-400 leading-none">
-                      {formatTime(session.sessionSeconds)}
+                      {formatTime(localTimerSeconds)}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200/60 dark:bg-gray-700/60 backdrop-blur-sm rounded-full h-2 lg:h-2.5">
                     <div 
                       className="bg-gradient-to-r from-green-500 to-teal-500 h-2 lg:h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min((session.sessionSeconds / 900) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((localTimerSeconds / 900) * 100, 100)}%` }}
                     />
                   </div>
                   <p className="text-[10px] lg:text-xs xl:text-sm text-muted-foreground mt-1">Recommended: 10-15 minutes</p>
@@ -452,7 +530,7 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                       <p className="text-sm text-muted-foreground font-medium">
-                        {session.sessionActive ? `Active • ${formatTime(session.sessionSeconds)}` : "Connecting..."}
+                        {isTimerRunning ? `Active • ${formatTime(localTimerSeconds)}` : "Connecting..."}
                       </p>
                     </div>
                   </div>

@@ -68,12 +68,19 @@ export async function POST(request: NextRequest) {
 
     // Extract metrics from journal entry (background process)
     try {
+      console.log(`📊 [JOURNAL API] Extracting metrics for journal entry ${entry}...`);
+      
       const plainText = typeof entryData.content === 'string' 
         ? entryData.content 
         : portableTextToPlainText(entryData.content);
 
+      console.log(`📏 [JOURNAL API] Content length: ${plainText.length} characters`);
+      console.log(`😊 [JOURNAL API] Mood: ${entryData.mood}`);
+
       // Call Python AI server to extract metrics
       const JOURNAL_AI_SERVER_URL = process.env.JOURNAL_AI_SERVER_URL || 'http://localhost:8766';
+      
+      console.log(`🚀 [JOURNAL API] Calling: ${JOURNAL_AI_SERVER_URL}/extract-journal-metrics`);
       
       const metricsResponse = await fetch(`${JOURNAL_AI_SERVER_URL}/extract-journal-metrics`, {
         method: 'POST',
@@ -90,13 +97,20 @@ export async function POST(request: NextRequest) {
         })
       });
 
+      console.log(`📨 [JOURNAL API] Metrics response status: ${metricsResponse.status}`);
+
       if (metricsResponse.ok) {
         const { metrics, summary } = await metricsResponse.json();
+        
+        console.log(`✅ [JOURNAL API] Metrics extracted successfully`);
+        console.log(`📊 [JOURNAL API] Metrics:`, metrics);
 
         // Save metrics to Firestore via db-server (always done)
         const DB_SERVER_URL = process.env.DB_SERVER_URL || 'http://localhost:3000';
         
-        await fetch(`${DB_SERVER_URL}/save-journal-metrics`, {
+        console.log(`🚀 [JOURNAL API] Saving metrics to: ${DB_SERVER_URL}/save-journal-metrics`);
+        
+        const dbResponse = await fetch(`${DB_SERVER_URL}/save-journal-metrics`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -106,10 +120,16 @@ export async function POST(request: NextRequest) {
           })
         });
 
+        console.log(`📨 [JOURNAL API] db-server response status: ${dbResponse.status}`);
+        const dbResponseText = await dbResponse.text();
+        console.log(`📨 [JOURNAL API] db-server response:`, dbResponseText);
+
         console.log(`✅ Metrics extracted and saved for journal entry ${entry}`);
 
         // Save summary only if confidence >= 0.65 (conditional)
         if (summary && summary.summary_generated) {
+          console.log(`📝 [JOURNAL API] Saving journal summary (confidence: ${summary.confidence})...`);
+          
           const summaryResponse = await fetch(`${DB_SERVER_URL}/save-journal-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -136,12 +156,17 @@ export async function POST(request: NextRequest) {
           console.log(`⏭️  Summary skipped: ${summary?.reasoning || 'No summary generated'}`);
         }
       } else {
-        console.warn('Metrics extraction failed, but entry was saved');
+        console.warn(`⚠️  [JOURNAL API] Metrics extraction failed with status: ${metricsResponse.status}`);
+        const errorText = await metricsResponse.text();
+        console.error(`❌ [JOURNAL API] Error response:`, errorText);
       }
     } catch (metricsError) {
       // Don't fail the entire request if metrics extraction fails
-      console.error('Failed to extract metrics:', metricsError);
+      console.error('❌ [JOURNAL API] Failed to extract metrics:', metricsError);
+      console.error('Stack trace:', metricsError);
     }
+
+    console.log(`✅ [JOURNAL API] Journal entry ${entry} saved successfully`);
 
     return NextResponse.json({ entry }, { status: 201 });
 
