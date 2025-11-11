@@ -1,15 +1,18 @@
-import { ChevronDown } from "lucide-react";
+'use client';
+
+import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Logo } from "@/components/Logo";
 
-interface HeroSectionProps {
+interface MobileHeroSectionProps {
   onBeginJourney: () => void;
 }
 
-export default function Home({ onBeginJourney }: HeroSectionProps) {
+export default function MobileHeroSection({ onBeginJourney }: MobileHeroSectionProps) {
   const [navbarBg, setNavbarBg] = useState("bg-transparent");
   const [navbarOpacity, setNavbarOpacity] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -38,17 +41,13 @@ export default function Home({ onBeginJourney }: HeroSectionProps) {
 
   return (
     <>
+
       <div className="relative min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 overflow-hidden">
-        {/* Background Video */}
-        <video
+        {/* Background Image for Mobile */}
+        <div
           className="absolute inset-0 w-full h-full object-cover z-0"
-          autoPlay
-          muted
-          loop
-          playsInline
-        >
-          <source src="/hero.mp4" type="video/mp4" />
-        </video>
+          style={{ backgroundImage: "url('/hero-mobile.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}
+        />
 
         {/* Background Pattern */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 z-0" />
@@ -59,11 +58,7 @@ export default function Home({ onBeginJourney }: HeroSectionProps) {
 
         {/* Navigation Bar */}
         <nav
-          className={`fixed left-1/2 transform -translate-x-1/2 z-50 py-4 px-6 transition-all duration-500 ease-out ${
-            navbarOpacity > 0
-              ? "w-auto max-w-2xl top-2"
-              : "w-full max-w-none top-4"
-          }`}
+          className={`fixed left-1/2 transform -translate-x-1/2 z-50 py-4 px-6 transition-all duration-500 ease-out w-full max-w-none top-4`}
           style={{
             background: navbarOpacity > 0 
               ? `rgba(249, 115, 22, ${0.8 * navbarOpacity})` 
@@ -73,7 +68,7 @@ export default function Home({ onBeginJourney }: HeroSectionProps) {
             borderRadius: navbarOpacity > 0 ? '1rem' : '0',
           }}
         >
-          <div className="flex justify-between items-center mx-20">
+          <div className="flex justify-between items-center w-full mx-4">
             {/* Logo */}
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -86,52 +81,69 @@ export default function Home({ onBeginJourney }: HeroSectionProps) {
               <Logo size={50} showText={true} href="" className="drop-shadow-lg" />
             </motion.div>
 
-            {/* Navigation Links */}
-            <div className="flex items-center gap-4 text-white/90 font-sans text-lg font-semibold drop-shadow-md">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300 }}
-                onClick={() => {
-                  const element = document.getElementById('why-choose-curez');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-                className="hover:text-white transition-all duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
-              >
-                Our Mission
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300 }}
-                onClick={() => {
-                  const element = document.getElementById('wellness-journey');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-                className="hover:text-white transition-all duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
-              >
-                Resources
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300 }}
-                onClick={() => {
-                  const element = document.getElementById('faq-section');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-                className="hover:text-white transition-all duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
-              >
-                FAQ
-              </motion.button>
+            {/* Mobile Menu Button */}
+            <div>
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                {isMobileMenuOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
+              </button>
             </div>
           </div>
+          {/* Mobile Navigation Menu */}
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute top-16 left-0 right-0 bg-orange-500/90 backdrop-blur-sm p-4 border-t border-orange-400/50 shadow-lg"
+            >
+              <div className="flex flex-col items-center gap-4 text-white/90 font-sans text-lg font-semibold">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  onClick={() => {
+                    const element = document.getElementById('why-choose-curez');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="hover:text-white transition-all duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
+                >
+                  Our Mission
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  onClick={() => {
+                    const element = document.getElementById('wellness-journey');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="hover:text-white transition-all duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
+                >
+                  Resources
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  onClick={() => {
+                    const element = document.getElementById('faq-section');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="hover:text-white transition-all duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
+                >
+                  FAQ
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
         </nav>
 
         {/* Hero Content */}
@@ -173,20 +185,6 @@ export default function Home({ onBeginJourney }: HeroSectionProps) {
             </motion.div>
           </div>
         </div>
-
-        {/* Footer */}
-        {/* <div className="absolute bottom-6 left-0 right-0 z-10">
-          <div className="px-6 lg:px-12">
-            <div className="flex justify-between items-center">
-              <p className="font-sans text-white/80 text-sm font-medium drop-shadow-lg">
-                © 2025 CureZ. All rights reserved.
-              </p>
-              <p className="font-sans text-white/80 text-sm font-medium drop-shadow-lg">
-                Powered by Gemini for Mental Wellness
-              </p>
-            </div>
-          </div>
-        </div> */}
       </div>
     </>
   );

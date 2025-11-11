@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MobileHeader } from "@/components/MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,6 +49,7 @@ interface Recommendation {
 }
 
 export default function ConsultantsPage() {
+  const isMobile = useIsMobile();
   const auth = useAuth();
   const { toast } = useToast();
   
@@ -56,11 +59,20 @@ export default function ConsultantsPage() {
   const [selectedConsultant, setSelectedConsultant] = useState<Consultant | null>(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
   
+  // View All Consultants state
+  const [showAllConsultants, setShowAllConsultants] = useState(false);
+  const [allConsultants, setAllConsultants] = useState<Consultant[]>([]);
+  const [loadingAllConsultants, setLoadingAllConsultants] = useState(false);
+  
   // Booking form state
   const [dataConsent, setDataConsent] = useState(false);
   const [selectedTimeRanges, setSelectedTimeRanges] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
+  
+  // Confirmation dialog state
+  const [showDismissConfirm, setShowDismissConfirm] = useState(false);
+  const [recommendationToDismiss, setRecommendationToDismiss] = useState<string | null>(null);
 
   const timeRangeOptions = [
     { value: 'weekday_mornings', label: 'Weekday Mornings (9 AM - 12 PM)' },
@@ -71,19 +83,42 @@ export default function ConsultantsPage() {
   ];
 
   useEffect(() => {
+    console.log('useEffect triggered, auth.currentUser:', auth.currentUser);
     if (auth.currentUser?.uid) {
+      console.log('Fetching recommendations for UID:', auth.currentUser.uid);
       fetchRecommendations();
+    } else {
+      console.log('No user ID available, skipping fetch');
+      setLoading(false);
     }
   }, [auth.currentUser]);
 
+  // Debug useEffect to track state changes
+  useEffect(() => {
+    console.log('🔍 State updated - hasRecommendations:', hasRecommendations);
+    console.log('🔍 State updated - recommendations length:', recommendations.length);
+    console.log('🔍 State updated - recommendations:', recommendations);
+  }, [hasRecommendations, recommendations]);
+
   const fetchRecommendations = async () => {
+    console.log('fetchRecommendations called for UID:', auth.currentUser?.uid);
     try {
-      const response = await fetch(`/api/consultants/recommendations/${auth.currentUser?.uid}`);
+      const url = `/api/consultants/recommendations/${auth.currentUser?.uid}`;
+      console.log('Fetching from URL:', url);
+      
+      const response = await fetch(url);
+      console.log('Response status:', response.status);
+      
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (data.success) {
+        console.log('Setting has_recommendations:', data.has_recommendations);
+        console.log('Setting recommendations:', data.recommendations);
         setHasRecommendations(data.has_recommendations);
         setRecommendations(data.recommendations || []);
+      } else {
+        console.error('API returned success: false', data);
       }
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -93,8 +128,56 @@ export default function ConsultantsPage() {
         variant: 'destructive',
       });
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
+  };
+
+  const fetchAllConsultants = async () => {
+    setLoadingAllConsultants(true);
+    try {
+      const response = await fetch('/api/consultants');
+      const data = await response.json();
+      
+      if (data.success) {
+        // Filter out already recommended consultants
+        const recommendedIds = recommendations.map(r => r.consultant_id);
+        const filtered = (data.consultants || []).filter(
+          (c: Consultant) => c.is_active && !recommendedIds.includes(c.id)
+        );
+        setAllConsultants(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching consultants:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load consultants',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingAllConsultants(false);
+    }
+  };
+
+  const toggleViewAllConsultants = () => {
+    if (!showAllConsultants) {
+      // Fetch consultants when opening
+      fetchAllConsultants();
+    }
+    setShowAllConsultants(!showAllConsultants);
+  };
+
+  // Check if user can request consultant (24hr cooldown)
+  const canRequestConsultant = (consultantId: string): boolean => {
+    const cooldownKey = `consultant_request_${consultantId}`;
+    const requestTime = localStorage.getItem(cooldownKey);
+    
+    if (!requestTime) return true; // Never requested
+    
+    const elapsed = Date.now() - parseInt(requestTime);
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    
+    return elapsed > twentyFourHours;
   };
 
   const handleSelectConsultant = (consultant: Consultant) => {
@@ -144,10 +227,16 @@ export default function ConsultantsPage() {
       const data = await response.json();
 
       if (data.success) {
+        // Store request timestamp for 24hr cooldown
+        const cooldownKey = `consultant_request_${selectedConsultant.id}`;
+        localStorage.setItem(cooldownKey, Date.now().toString());
+        
         toast({
-          title: 'Request Submitted!',
-          description: data.message || 'Your consultation request has been submitted.',
+          title: 'Request Sent Successfully! ✅',
+          description: 'The consultant will contact you within 24 hours via email.',
+          duration: 6000,
         });
+        
         setShowBookingForm(false);
         setSelectedConsultant(null);
         // Refresh recommendations
@@ -168,10 +257,6 @@ export default function ConsultantsPage() {
   };
 
   const handleDismissRecommendation = async (recommendationId: string) => {
-    if (!confirm('Are you sure you want to dismiss this recommendation?')) {
-      return;
-    }
-
     setDismissingId(recommendationId);
 
     try {
@@ -210,6 +295,24 @@ export default function ConsultantsPage() {
       });
     } finally {
       setDismissingId(null);
+      setShowDismissConfirm(false);
+      setRecommendationToDismiss(null);
+    }
+  };
+
+  const handleDismissClick = (recommendationId: string) => {
+    setRecommendationToDismiss(recommendationId);
+    setShowDismissConfirm(true);
+  };
+
+  const handleCancelDismiss = () => {
+    setShowDismissConfirm(false);
+    setRecommendationToDismiss(null);
+  };
+
+  const handleConfirmDismiss = () => {
+    if (recommendationToDismiss) {
+      handleDismissRecommendation(recommendationToDismiss);
     }
   };
 
@@ -225,11 +328,15 @@ export default function ConsultantsPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-8 bg-gradient-to-br from-orange-50 via-white to-orange-100">
-        <DashboardHeader 
-          title="Mental Health Consultants"
-          description="Connect with professional mental health consultants"
-          currentUser={auth.currentUser} 
-        />
+        {isMobile ? (
+          <MobileHeader page="consultants" />
+        ) : (
+          <DashboardHeader 
+            title="Mental Health Consultants"
+            description="Connect with professional mental health consultants"
+            currentUser={auth.currentUser} 
+          />
+        )}
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -238,14 +345,18 @@ export default function ConsultantsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 h-screen overflow-hidden flex flex-col bg-gradient-to-br from-orange-50 via-white to-orange-100">
-      <DashboardHeader 
-        title="Mental Health Consultants"
-        description="Connect with professional mental health consultants"
-        currentUser={auth.currentUser} 
-      />
+    <div className="p-4 md:p-8 min-h-screen flex flex-col bg-gradient-to-br from-orange-50 via-white to-orange-100">
+      {isMobile ? (
+        <MobileHeader page="consultants" />
+      ) : (
+        <DashboardHeader 
+          title="Mental Health Consultants"
+          description="Connect with professional mental health consultants"
+          currentUser={auth.currentUser} 
+        />
+      )}
 
-      {!hasRecommendations ? (
+      {recommendations.length === 0 ? (
         <Card className="mt-6">
           <CardContent className="pt-6">
             <div className="text-center py-12">
@@ -305,7 +416,7 @@ export default function ConsultantsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDismissRecommendation(rec.id)}
+                            onClick={() => handleDismissClick(rec.id)}
                             disabled={dismissingId === rec.id}
                             title="Dismiss recommendation"
                           >
@@ -374,114 +485,295 @@ export default function ConsultantsPage() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Right: Booking Form */}
-            {showBookingForm && selectedConsultant && (
-              <div className="overflow-y-auto">
-                <Card className="border-primary h-full">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-lg">Book Consultation with {selectedConsultant.name}</CardTitle>
-                    <CardDescription className="text-xs">
-                      Please provide your preferences for the consultation
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Data Sharing Consent */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Data Sharing</h4>
-                      <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                        <Checkbox
-                          id="data-consent"
-                          checked={dataConsent}
-                          onCheckedChange={(checked) => setDataConsent(checked as boolean)}
-                        />
-                        <div className="space-y-1">
-                          <label
-                            htmlFor="data-consent"
-                            className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            Share my profile and psychological profiling data
-                          </label>
-                          <p className="text-xs text-muted-foreground">
-                            {dataConsent
-                              ? 'Your full profile and profiling details will be shared with the consultant (same as export feature)'
-                              : 'Only basic demographics (name, age, gender, email) will be shared'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+      {/* View All Consultants Section */}
+      <div className="mt-6 space-y-4">
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={toggleViewAllConsultants}
+            className="w-full max-w-md"
+          >
+            {showAllConsultants ? (
+              <>
+                Hide All Consultants
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              </>
+            ) : (
+              <>
+                View All Available Consultants
+                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </>
+            )}
+          </Button>
+        </div>
 
-                    {/* Time Preferences */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Preferred Time Ranges</h4>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Select your available time slots. The consultant will propose a specific time.
-                      </p>
-                      <div className="space-y-2">
-                        {timeRangeOptions.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-3 p-2 border rounded-lg hover:bg-accent">
-                            <Checkbox
-                              id={option.value}
-                              checked={selectedTimeRanges.includes(option.value)}
-                              onCheckedChange={() => toggleTimeRange(option.value)}
-                            />
-                            <label
-                              htmlFor={option.value}
-                              className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                            >
-                              {option.label}
-                            </label>
+        {showAllConsultants && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            {/* Disclaimer Alert */}
+            <Alert variant="default" className="border-yellow-500 bg-yellow-50">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertTitle className="text-yellow-800">Self-Selected Consultation</AlertTitle>
+              <AlertDescription className="text-yellow-700">
+                ⚠️ You are choosing a consultant on your own. These consultants are <strong className="block">not AI-recommended</strong> based on your mental wellness profile. 
+                If you're unsure, please wait for an AI recommendation or complete more sessions for personalized suggestions.
+              </AlertDescription>
+            </Alert>
+
+            {/* Loading State */}
+            {loadingAllConsultants && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            )}
+
+            {/* Consultants Grid */}
+            {!loadingAllConsultants && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {allConsultants.map((consultant) => {
+                  const canRequest = canRequestConsultant(consultant.id);
+                  
+                  return (
+                    <Card key={consultant.id} className="border shadow-sm hover:shadow-md transition-all">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-md">
+                            <User className="h-6 w-6 text-white" />
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                          <div className="flex-1">
+                            <CardTitle className="text-lg">{consultant.name}</CardTitle>
+                            <CardDescription className="text-xs">{consultant.specialty}</CardDescription>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs font-medium">{consultant.rating}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3 pb-4">
+                        <div className="space-y-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-muted-foreground">{consultant.education}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-muted-foreground">{consultant.experience_years} years experience</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Languages className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-muted-foreground">{consultant.languages.join(', ')}</span>
+                          </div>
+                        </div>
 
-                    {/* Submit Buttons */}
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={handleSubmitRequest}
-                        disabled={submitting || selectedTimeRanges.length === 0}
-                        className="flex-1 h-9 text-xs"
-                      >
-                        {submitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                            Submitting...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="mr-2 h-3 w-3" />
-                            Submit Request
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowBookingForm(false);
-                          setSelectedConsultant(null);
-                        }}
-                        disabled={submitting}
-                        className="h-9 text-xs"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+                        <div className="flex flex-wrap gap-1">
+                          {consultant.sub_specialty.slice(0, 2).map((spec, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-[10px] py-0">
+                              {spec}
+                            </Badge>
+                          ))}
+                          {consultant.sub_specialty.length > 2 && (
+                            <Badge variant="outline" className="text-[10px] py-0">
+                              +{consultant.sub_specialty.length - 2} more
+                            </Badge>
+                          )}
+                        </div>
 
-                    {/* Info */}
-                    <Alert className="py-2">
-                      <AlertCircle className="h-3 w-3" />
-                      <AlertDescription className="text-[10px]">
-                        After submitting, you'll receive an email within 24 hours with a proposed consultation time.
-                        This is a prototype - consultations are for demonstration purposes only.
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {consultant.bio}
+                        </p>
+
+                        <Button
+                          size="sm"
+                          className="w-full h-8 text-xs"
+                          onClick={() => handleSelectConsultant(consultant)}
+                          disabled={!canRequest}
+                          variant={canRequest ? "default" : "secondary"}
+                        >
+                          {canRequest ? (
+                            <>Request Consultation</>
+                          ) : (
+                            <>Request Sent (24hr cooldown)</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                {allConsultants.length === 0 && !loadingAllConsultants && (
+                  <div className="col-span-2 text-center py-12">
+                    <p className="text-muted-foreground">No additional consultants available at this time.</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Booking Form Modal */}
+      {showBookingForm && selectedConsultant && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <Card className="border-primary">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Book Consultation with {selectedConsultant.name}</CardTitle>
+                <CardDescription className="text-xs">
+                  Please provide your preferences for the consultation
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Data Sharing Consent */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Data Sharing</h4>
+                  <div className="flex items-start space-x-3 p-3 border rounded-lg">
+                    <Checkbox
+                      id="data-consent"
+                      checked={dataConsent}
+                      onCheckedChange={(checked) => setDataConsent(checked as boolean)}
+                    />
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="data-consent"
+                        className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        Share my profile and psychological profiling data
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        {dataConsent
+                          ? 'Your full profile and profiling details will be shared with the consultant (same as export feature)'
+                          : 'Only basic demographics (name, age, gender, email) will be shared'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Time Preferences */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Preferred Time Ranges</h4>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Select your available time slots. The consultant will propose a specific time.
+                  </p>
+                  <div className="space-y-2">
+                    {timeRangeOptions.map((option) => (
+                      <div key={option.value} className="flex items-center space-x-3 p-2 border rounded-lg hover:bg-accent">
+                        <Checkbox
+                          id={option.value}
+                          checked={selectedTimeRanges.includes(option.value)}
+                          onCheckedChange={() => toggleTimeRange(option.value)}
+                        />
+                        <label
+                          htmlFor={option.value}
+                          className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                        >
+                          {option.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleSubmitRequest}
+                    disabled={submitting || selectedTimeRanges.length === 0}
+                    className="flex-1 h-9 text-xs"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 h-3 w-3" />
+                        Submit Request
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowBookingForm(false);
+                      setSelectedConsultant(null);
+                    }}
+                    disabled={submitting}
+                    className="h-9 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+
+                {/* Info */}
+                <Alert className="py-2">
+                  <AlertCircle className="h-3 w-3" />
+                  <AlertDescription className="text-[10px]">
+                    After submitting, you'll receive an email within 24 hours with a proposed consultation time.
+                    
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Dismiss Confirmation Dialog */}
+      {showDismissConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                Dismiss Recommendation
+              </CardTitle>
+              <CardDescription>
+                Are you sure you want to dismiss this consultant recommendation?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  This action cannot be undone. The consultant will be removed from your recommended list.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+            <CardFooter className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleCancelDismiss}
+                disabled={dismissingId === recommendationToDismiss}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDismiss}
+                disabled={dismissingId === recommendationToDismiss}
+              >
+                {dismissingId === recommendationToDismiss ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Dismissing...
+                  </>
+                ) : (
+                  'Yes, Dismiss'
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       )}
     </div>

@@ -2606,8 +2606,6 @@ app.get("/consultants", async (req, res) => {
  * Get consultant recommendations for a specific user
  * GET /consultants/recommendations/:uid
  */
-// Find this section (around line 1150):
-
 app.get("/consultants/recommendations/:uid", async (req, res) => {
   const { uid } = req.params;
   
@@ -2618,7 +2616,6 @@ app.get("/consultants/recommendations/:uid", async (req, res) => {
       .doc(uid)
       .collection("consultants")
       .where("status", "==", "pending");
-      // REMOVE THIS LINE: .orderBy("recommended_at", "desc");
     
     const snapshot = await recommendationsRef.get();
     
@@ -2658,7 +2655,10 @@ app.get("/consultants/recommendations/:uid", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching recommendations:", error);
-    res.status(500).json({ error: "Failed to fetch recommendations" });
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch recommendations" 
+    });
   }
 });
 
@@ -2784,7 +2784,7 @@ app.post("/consultants/submit-request", async (req, res) => {
   }
   
   try {
-    // Get user email for notifications
+    // Get user email and name for notifications
     const userProfileRef = db
       .collection("users")
       .doc(uid)
@@ -2792,6 +2792,10 @@ app.post("/consultants/submit-request", async (req, res) => {
       .doc("profile");
     const userProfile = await userProfileRef.get();
     const userEmail = userProfile.exists ? decryptField(userProfile.data().email, uid) : null;
+    const userName = userProfile.exists ? decryptField(userProfile.data().name, uid) : null;
+    
+    console.log(`[CONSULTANT REQUEST] Fetching profile for user ${uid}`);
+    console.log(`[CONSULTANT REQUEST] User name: ${userName}, Email: ${userEmail}`);
     
     // Prepare shared data if consent given
     let sharedDataSnapshot = null;
@@ -2848,6 +2852,7 @@ app.post("/consultants/submit-request", async (req, res) => {
     const requestRef = await db.collection("consultation_requests").add({
       user_id: uid,
       user_email: userEmail,
+      user_name: userName || "Anonymous User",
       consultant_id,
       recommendation_id: recommendation_id || null,
       status: "pending",
@@ -2860,6 +2865,8 @@ app.post("/consultants/submit-request", async (req, res) => {
       meet_link: null,
       user_confirmed_at: null
     });
+    
+    console.log(`[CONSULTANT REQUEST] Created request ${requestRef.id} for user ${userName} (${uid})`);
     
     // Update recommendation status if exists
     if (recommendation_id) {

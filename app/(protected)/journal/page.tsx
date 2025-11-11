@@ -10,10 +10,13 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/contexts/UserContext';
 import { JournalEntryCard } from '@/components/journal/JournalEntryCard';
 import { CategoriesSection } from '@/components/journal/CategoriesSection';
+import { MobileHeader } from "@/components/MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { PlusCircle, Loader2, BookOpen, TrendingUp, Calendar, MessageCircle } from 'lucide-react';
 import type { JournalEntry } from '@/lib/types/journal';
 
 export default function JournalPage() {
+  const isMobile = useIsMobile();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, isLoading: userLoading } = useUser();
@@ -118,38 +121,43 @@ export default function JournalPage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 px-4 lg:px-8">
       <div className="container mx-auto py-8">
         {/* Header with gradient */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-orange-500 to-pink-600 rounded-2xl shadow-lg">
-                <BookOpen size={32} className="text-white" />
+        {isMobile ? (
+          <MobileHeader page="journal" />
+        ) : (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4 pl-16 sm:pl-0">
+                <div className="p-3 bg-gradient-to-br from-orange-500 to-pink-600 rounded-2xl shadow-lg">
+                  <BookOpen size={32} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
+                    My Journal
+                  </h1>
+                  <p className="text-orange-800/80 dark:text-orange-200/80 mt-1">
+                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Your personal space for reflection
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
-                  My Journal
-                </h1>
-                <p className="text-orange-800/80 dark:text-orange-200/80 mt-1">
-                  {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Your personal space for reflection
-                </p>
+              <div className="flex gap-3">
+                {/* <button
+                  onClick={() => router.push('/journal/chat')}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                >
+                  <MessageCircle size={20} />
+                  <span className="font-medium">Chat with AI</span>
+                </button> */}
+                <button
+                  onClick={() => router.push('/journal/new')}
+                  className="group hidden sm:inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                >
+                  <PlusCircle size={20} className="group-hover:rotate-90 transition-transform" />
+                  <span className="font-medium">New Entry</span>
+                </button>
               </div>
-            </div>
-            <div className="flex gap-3">
-              {/* <button
-                onClick={() => router.push('/journal/chat')}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-              >
-                <MessageCircle size={20} />
-                <span className="font-medium">Chat with AI</span>
-              </button> */}
-              <button
-                onClick={() => router.push('/journal/new')}
-                className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-              >
-                <PlusCircle size={20} className="group-hover:rotate-90 transition-transform" />
-                <span className="font-medium">New Entry</span>
-              </button>
             </div>
           </div>
+        )}
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -191,10 +199,6 @@ export default function JournalPage() {
               </div>
             </div>
           </div>
-
-          {/* Categories Section */}
-          
-        </div>
 
         {/* Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">

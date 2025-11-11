@@ -4,9 +4,11 @@ import { ProfileSection } from '@/components/sections/ProfileSection';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
   const auth = useAuth();
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedAge, setEditedAge] = useState('');
@@ -74,7 +76,12 @@ export default function ProfilePage() {
 
         auth.updateCurrentUser(updatedUser);
         setIsEditing(false);
-        alert('Profile updated successfully!');
+        
+        toast({
+          title: "Profile Updated Successfully! ✅",
+          description: "Please log out and log in again to see these changes throughout the app.",
+          duration: 6000,
+        });
       } else {
         const errorData = await response.json();
         alert(`Failed to update profile: ${errorData.error || 'Unknown error'}`);

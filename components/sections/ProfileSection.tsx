@@ -29,6 +29,8 @@ import { Edit, Check, X, Download, Trash2, AlertTriangle, User as UserIcon, Load
 import { User } from "../../lib/types";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { MobileHeader } from "../MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ProfileSectionProps {
   currentUser: User | null;
@@ -59,6 +61,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
   handleCancel,
   isLoading,
 }) => {
+  const isMobile = useIsMobile();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -152,6 +155,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
 
   return (
     <div className="p-4 md:p-6">
+      {isMobile && <MobileHeader page="profile" />}
       {/* Two Column Layout - Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
@@ -333,9 +337,9 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
               </p>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 <li>Personal information and profile data</li>
-                <li>All journal entries and AI session summaries</li>
+                <li>All journal entries</li>
                 <li>Analytics and wellness metrics</li>
-                <li>All archived data</li>
+                
               </ul>
               <p className="font-semibold text-destructive">
                 We recommend exporting your data before deleting your account.

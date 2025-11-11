@@ -6,6 +6,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MobileHeader } from "../MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   MessageCircle, 
   Calendar, 
@@ -40,6 +42,7 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
   isLoadingSession,
   sessionSummary,
 }) => {
+  const isMobile = useIsMobile();
   const auth = useAuth();
   const [isFlipped, setIsFlipped] = useState(false);
   const [textMessage, setTextMessage] = useState("");
@@ -94,6 +97,7 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[calc(100vh-8rem)]">
+      {isMobile && <MobileHeader page="sessions" />}
       {/* Left Column - Stats (top) and Session Info Card (bottom) */}
       <div className="lg:col-span-4 flex flex-col gap-4">
         {/* Stats Cards - All Percentage Style */}

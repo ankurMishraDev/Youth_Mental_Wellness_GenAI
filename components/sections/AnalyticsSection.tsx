@@ -30,6 +30,8 @@ import {
   Legend,
   ComposedChart,
 } from "recharts";
+import { MobileHeader } from "../MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   TrendingUp,
   TrendingDown,
@@ -193,6 +195,7 @@ const COLORS = {
 export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   currentUser,
 }) => {
+  const isMobile = useIsMobile();
   const [metrics, setMetrics] = useState<MetricData[]>([]);
   const [aggregates, setAggregates] = useState<Aggregates | null>(null);
   const [breakdown, setBreakdown] = useState({ ai_sessions: 0, journal_entries: 0 });
@@ -497,81 +500,91 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
   return (
     <div className="space-y-6">
       {/* Header with Filters - Refined */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2">
-        <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
-            Wellness Analytics
-          </h2>
-          <p className="text-orange-800/80 dark:text-orange-200/80 mt-1">
-            Track your mental wellness journey over time
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Time Period Filter */}
-          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-            <Button
-              variant={timePeriod === 7 ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTimePeriod(7)}
-              className={timePeriod === 7 ? "shadow-md" : ""}
-            >
-              7 Days
-            </Button>
-            <Button
-              variant={timePeriod === 30 ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTimePeriod(30)}
-              className={timePeriod === 30 ? "shadow-md" : ""}
-            >
-              30 Days
-            </Button>
-            <Button
-              variant={timePeriod === 90 ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTimePeriod(90)}
-              className={timePeriod === 90 ? "shadow-md" : ""}
-            >
-              90 Days
-            </Button>
-            <Button
-              variant={timePeriod === 365 ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTimePeriod(365)}
-              className={timePeriod === 365 ? "shadow-md" : ""}
-            >
-              All Time
-            </Button>
+      {isMobile ? (
+        <MobileHeader
+          page="analytics"
+          timePeriod={timePeriod}
+          setTimePeriod={setTimePeriod}
+          filter={filter}
+          setFilter={setFilter}
+        />
+      ) : (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2">
+          <div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
+              Wellness Analytics
+            </h2>
+            <p className="text-orange-800/80 dark:text-orange-200/80 mt-1">
+              Track your mental wellness journey over time
+            </p>
           </div>
-          
-          {/* Source Filter */}
-          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-            <Button
-              variant={filter === "all" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setFilter("all")}
-              className={filter === "all" ? "shadow-md" : ""}
-            >
-              All
-            </Button>
-            <Button
-              variant={filter === "ai_session" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setFilter("ai_session")}
-              className={filter === "ai_session" ? "shadow-md" : ""}
-            >
-              🎙️ Sessions
-            </Button>
-            <Button
-              variant={filter === "journal_entry" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setFilter("journal_entry")}
-              className={filter === "journal_entry" ? "shadow-md" : ""}
-            >
-              📔 Journals
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Time Period Filter */}
+            <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+              <Button
+                variant={timePeriod === 7 ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTimePeriod(7)}
+                className={timePeriod === 7 ? "shadow-md" : ""}
+              >
+                7 Days
+              </Button>
+              <Button
+                variant={timePeriod === 30 ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTimePeriod(30)}
+                className={timePeriod === 30 ? "shadow-md" : ""}
+              >
+                30 Days
+              </Button>
+              <Button
+                variant={timePeriod === 90 ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTimePeriod(90)}
+                className={timePeriod === 90 ? "shadow-md" : ""}
+              >
+                90 Days
+              </Button>
+              <Button
+                variant={timePeriod === 365 ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTimePeriod(365)}
+                className={timePeriod === 365 ? "shadow-md" : ""}
+              >
+                All Time
+              </Button>
+            </div>
+
+            {/* Source Filter */}
+            <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+              <Button
+                variant={filter === "all" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setFilter("all")}
+                className={filter === "all" ? "shadow-md" : ""}
+              >
+                All
+              </Button>
+              <Button
+                variant={filter === "ai_session" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setFilter("ai_session")}
+                className={filter === "ai_session" ? "shadow-md" : ""}
+              >
+                🎙️ Sessions
+              </Button>
+              <Button
+                variant={filter === "journal_entry" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setFilter("journal_entry")}
+                className={filter === "journal_entry" ? "shadow-md" : ""}
+              >
+                📔 Journals
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Summary Cards - Refined Design */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

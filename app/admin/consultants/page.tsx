@@ -22,6 +22,7 @@ interface ConsultationRequest {
   id: string;
   user_id: string;
   user_email: string;
+  user_name?: string;
   consultant_id: string;
   status: string;
   data_sharing_consent: boolean;
@@ -360,7 +361,7 @@ export default function AdminConsultantsPage() {
                     <div className="space-y-1">
                       <CardTitle className="flex items-center gap-2">
                         <User className="h-5 w-5" />
-                        User: {request.user_email || request.user_id}
+                        User: {request.user_name || request.user_email || request.user_id}
                       </CardTitle>
                       <CardDescription>
                         Requesting: {request.consultant?.name || 'Unknown Consultant'}
@@ -474,7 +475,7 @@ export default function AdminConsultantsPage() {
               <CardHeader>
                 <CardTitle>Mark Consultation as Completed</CardTitle>
                 <CardDescription>
-                  Request ID: {selectedRequest.id} | User: {selectedRequest.user_email}
+                  Request ID: {selectedRequest.id} | User: {selectedRequest.user_name || selectedRequest.user_email}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { MobileHeader } from "../MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ExerciseCard } from "../ExerciseCard";
 import { ExerciseTemplate } from "../ExerciseTemplate";
 import { Activity } from "lucide-react";
@@ -19,6 +21,7 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
   setSelectedExercise,
   setCurrentView,
 }) => {
+  const isMobile = useIsMobile();
   const [showAllExercises, setShowAllExercises] = useState(false);
   const [selectedExerciseForModal, setSelectedExerciseForModal] = useState<Exercise | null>(null);
 
@@ -33,6 +36,7 @@ export const ResourcesSection: React.FC<ResourcesSectionProps> = ({
 
   return (
     <>
+      {isMobile && <MobileHeader page="resources" />}
       <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-4">Your Suggested Exercises</h2>

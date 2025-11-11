@@ -9,12 +9,13 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100 p-2 md:p-4">
+      <div className="w-full sm:justify-start justify-center">
       <DashboardHeader
         dashboardPage="analytics"
         currentUserName={auth.currentUser?.name || 'User'}
         currentUser={auth.currentUser}
       />
-      
+      </div>
       <AnalyticsSection currentUser={auth.currentUser} />
     </div>
   );

@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MobileHeader } from "../MobileHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   MessageCircle,
   Heart,
@@ -53,6 +55,7 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
   setCurrentView,
   currentUser,
 }) => {
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardStats, setDashboardStats] = useState({
@@ -323,23 +326,27 @@ export const ModernHomeSection: React.FC<ModernHomeSectionProps> = ({
   return (
     <div className="w-full space-y-2">
       {/* Welcome Header - Simple and Minimal */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Hello, {currentUser?.name || "User"}!
-          </h1>
-          <p className="text-sm text-muted-foreground">Your personal dashboard overview</p>
+      {isMobile ? (
+        <MobileHeader page="home" />
+      ) : (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Hello, {currentUser?.name || "User"}!
+            </h1>
+            <p className="text-sm text-muted-foreground">Your personal dashboard overview</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fetchDashboardData}
+            disabled={isLoading}
+            className="h-7 w-7"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={fetchDashboardData}
-          disabled={isLoading}
-          className="h-7 w-7"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-        </Button>
-      </div>
+      )}
 
       {/* Main Grid - Jigsaw Puzzle Layout */}
       <div className="grid grid-cols-12 gap-4 w-full">

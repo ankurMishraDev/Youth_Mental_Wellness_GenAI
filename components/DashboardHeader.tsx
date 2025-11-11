@@ -57,7 +57,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const title = propTitle || headerDetails.title;
   const description = propDescription !== undefined ? propDescription : headerDetails.description;
   return (
-    <header className="flex justify-between items-center mb-2">
+    <header className="flex justify-between items-center mb-2 pl-16 lg:pl-0">
       <div>
         <h1 className="text-2xl font-bold text-orange-800 dark:text-orange-200">
           {title}
